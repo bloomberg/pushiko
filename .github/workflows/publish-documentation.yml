@@ -1,0 +1,48 @@
+name: 'Publish Documentation'
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  pipeline:
+    name: 'GitHub Pages'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: 'Set current year'
+        run: echo "YEAR=$(date +'%Y')" >> $GITHUB_ENV
+      - name: 'Install system packages'
+        run: sudo apt-get install -y --no-install-recommends sed
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 11
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+      - run: pip install mkdocs-material
+      - name: 'Gradle'
+        run: |
+          echo 'org.gradle.caching=false' >> gradle.properties
+          echo 'org.gradle.configuration-cache=false' >> gradle.properties
+      - name: 'Dokka'
+        run: |
+          ./gradlew :dokkaGfmMultiModule :dokkaHtmlMultiModule
+          cp -R build/dokka/gfmMultiModule docs/kdoc
+          cp -R build/dokka/htmlMultiModule docs/kdoc/api
+      - name: 'Set version'
+        run: echo "VERSION=$(grep -hnr 'pushiko.versionName' gradle.properties | sed 's/.*=//')" >> $GITHUB_ENV
+      - name: 'Mkdocs'
+        run: |
+          git fetch origin gh-pages:gh-pages
+          sed -i 's/<year>/${{ env.YEAR }}/g' docs/*.md
+          sed -i 's/<year>/${{ env.YEAR }}/g' mkdocs.yml
+          sed -i 's/<version>/${{ env.VERSION }}/g' docs/*.md
+          mkdocs gh-deploy -m 'Automatic mkdocs deployment.'

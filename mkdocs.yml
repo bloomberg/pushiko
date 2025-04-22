@@ -1,0 +1,48 @@
+# Project information
+site_name: Pushiko
+site_url: https://github.com/pages/bloomberg/pushiko/
+repo_name: Pushiko
+repo_url: https://github.com/bloomberg/pushiko
+site_description: "Pushiko is a JVM library for sending push notifications via Apple's Push Notification service and Google's Firebase Cloud Messaging."
+site_author: Bloomberg L.P.
+remote_branch: gh-pages
+edit_uri: ""
+
+# Copyright
+copyright: Copyright &copy; 2025 Bloomberg L.P.
+
+# Configuration
+theme:
+  name: material
+  language: en
+  palette:
+    scheme: slate
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+extra_css:
+  - stylesheets/extra.css
+
+# Extensions
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - 'Overview': index.md
+  - 'Getting started':
+    - 'APNs': getting_started_apns.md
+    - 'FCM': getting_started_fcm.md
+  - 'Comparisons': comparisons.md
+  - 'Samples':
+    - 'APNs responses': apns_responses.md
+    - 'FCM responses': fcm_responses.md
+  - 'Change log': changelog.md
+  - 'API':
+    - 'APNs': kdoc/pushiko-apns/pushiko-apns/com.bloomberg.pushiko.apns/index.md
+    - 'FCM': kdoc/pushiko-fcm/pushiko-fcm/com.bloomberg.pushiko.fcm/index.md

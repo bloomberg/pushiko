@@ -1,0 +1,24 @@
+name: 'Periodic Integration Tests'
+
+on:
+  schedule:
+    - cron: '0 22 * * SUN'
+
+permissions: read-all
+
+jobs:
+  ci-pipeline:
+    name: 'Continuous Integration'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 11
+      - name: 'Integration tests'
+        run: |
+          ./gradlew integrationTest

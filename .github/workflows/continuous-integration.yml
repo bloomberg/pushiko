@@ -1,0 +1,35 @@
+name: 'Continuous Integration'
+
+on: [pull_request, push]
+
+permissions: read-all
+
+jobs:
+  ci-pipeline:
+    name: 'Continuous Integration'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+          submodules: true
+      - uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 11
+      - name: 'Build cache'
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+      - name: 'Check'
+        run: ./gradlew check -x integrationTest
+      - name: 'Tear down'
+        if: always()
+        run: |
+          ./gradlew --stop

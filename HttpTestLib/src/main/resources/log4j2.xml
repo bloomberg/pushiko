@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Configuration
+    status="trace"
+    shutdownHook="disable">
+    <Properties>
+        <Property name="filePattern">%d{yyyy-MM-dd}.%i.gz</Property>
+        <Property name="layoutSuffixPattern">%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} %level{length=1} %.-4c{1} [%.-3t]</Property>
+        <Property name="layoutPattern">${layoutSuffixPattern} - %m%n</Property>
+        <Property name="layoutCompactPattern">${layoutSuffixPattern} - %replace{%m}{( {2}|[\n\r\t])}{}%n</Property>
+    </Properties>
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${layoutPattern}"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="trace">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+description = "Netty Kotlin extensions for Pushiko."
+
 plugins {
     kotlin("jvm")
     alias(libs.plugins.dokka)

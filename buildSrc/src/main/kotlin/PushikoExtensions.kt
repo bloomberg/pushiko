@@ -25,7 +25,7 @@ fun Project.gitCommit(): Provider<String> = providers.exec {
     commandLine("git", "rev-parse", "HEAD")
 }.standardOutput.asText.map { it.trim() }
 
-fun Project.isRelease() = "true" == properties["release"]
+fun Project.isRelease() = hasProperty("release")
 
 val Project.pushikoVersion: String
     get() = if (isRelease()) {

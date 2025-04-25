@@ -38,14 +38,14 @@ java {
 
 fun MavenPom.commonInitialisation(project: Project) {
     val developerOrganization = "Bloomberg LP"
+    ciManagement {
+        name.set("Pushiko")
+        url.set("https://github.com/bloomberg/pushiko/actions")
+    }
     description = provider {
         requireNotNull(project.description) {
             "Project description is required for publishing"
         }
-    }
-    ciManagement {
-        name.set("Pushiko")
-        url.set("https://github.com/bloomberg/pushiko/actions")
     }
     developers {
         developer {

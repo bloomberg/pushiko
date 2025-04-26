@@ -1,3 +1,9 @@
+## Version 1.0.2
+
+### Dependencies
+
+* Gradle 8.14.
+
 ## Version 1.0.1
 
 ### Dependencies

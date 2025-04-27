@@ -1,8 +1,8 @@
 # Pushiko
 
 [![Apache 2.0](https://img.shields.io/badge/license-Apache%202-blue.svg)](LICENSE)
-[![Maven Central](https://img.shields.io/maven-central/v/com.bloomberg/pushiko-apns.svg?labelColor=007AFF)](https://search.maven.org/artifact/com.bloomberg/pushiko-apns)
-[![Maven Central](https://img.shields.io/maven-central/v/com.bloomberg/pushiko-fcm.svg?labelColor=A4C639)](https://search.maven.org/artifact/com.bloomberg/pushiko-fcm)
+[![Maven Central](https://img.shields.io/maven-central/v/com.bloomberg.pushiko/pushiko-apns.svg?labelColor=007AFF)](https://search.maven.org/artifact/com.bloomberg.pushiko/pushiko-apns)
+[![Maven Central](https://img.shields.io/maven-central/v/com.bloomberg.pushiko/pushiko-fcm.svg?labelColor=A4C639)](https://search.maven.org/artifact/com.bloomberg.pushiko/pushiko-fcm)
 
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/bloomberg/pushiko/badge)](https://securityscorecards.dev/viewer/?uri=github.com/bloomberg/pushiko)
 

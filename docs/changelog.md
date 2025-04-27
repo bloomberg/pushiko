@@ -1,5 +1,9 @@
 ## Version 1.0.2
 
+### Fixes
+
+* Publish to the subgroup "com.bloomberg.pushiko" on Maven Central.
+
 ### Dependencies
 
 * Gradle 8.14.

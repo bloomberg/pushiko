@@ -11,7 +11,7 @@ First add Pushiko as a dependency.
     }
 
     dependencies {
-        implementation("com.bloomberg:pushiko-fcm:{pushikoVersion}")
+        implementation("com.bloomberg.pushiko:pushiko-fcm:{pushikoVersion}")
     }
     ```
 
@@ -22,7 +22,7 @@ First add Pushiko as a dependency.
     }
 
     dependencies {
-        implementation 'com.bloomberg:pushiko-fcm:{pushikoVersion}'
+        implementation 'com.bloomberg.pushiko:pushiko-fcm:{pushikoVersion}'
     }
     ```
 
@@ -31,7 +31,7 @@ First add Pushiko as a dependency.
 ```xml
 <!-- pom.xml -->
 <dependency>
-    <groupId>com.bloomberg</groupId>
+    <groupId>com.bloomberg.pushiko</groupId>
     <artifactId>pushiko-fcm</artifactId>
     <version>{pushikoVersion}</version>
 </dependency>

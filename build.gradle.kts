@@ -51,7 +51,7 @@ plugins {
     alias(libs.plugins.nexus.publish)
 }
 
-group = "com.bloomberg"
+group = "com.bloomberg.pushiko"
 version = pushikoVersion
 logger.quiet("Group: {}; Version: {}", group, version)
 

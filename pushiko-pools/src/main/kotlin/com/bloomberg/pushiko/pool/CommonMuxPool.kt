@@ -69,7 +69,7 @@ import kotlin.coroutines.resumeWithException
  * The acquisition, creation (or not) and release of objects - in other words, the state of the pool - is entirely
  * confined to the pool and orchestrated from a coroutine dispatcher backed exclusively by a single dedicated thread.
  * Intensive or blocking work on this thread would stop the world and is always avoided. Once acquired, the use of a
- * borrowed object is offloaded at the earliest opportunity and the object is release immediately after its
+ * borrowed object is offloaded at the earliest opportunity and the object is released immediately after its
  * acquisition for further acquisition without awaiting the conclusion of the work. The work using a borrowed object
  * may fail but always do so in isolation without affecting another.
  *

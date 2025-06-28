@@ -1,3 +1,10 @@
+## Version 1.0.3
+
+### Dependencies
+
+* Gradle 8.14.2.
+* Netty 4.1.122.Final.
+
 ## Version 1.0.2
 
 ### Fixes

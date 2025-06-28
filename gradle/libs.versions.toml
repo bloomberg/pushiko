@@ -26,7 +26,7 @@ mockito-core = { module = "org.mockito:mockito-core", version = "5.11.0" }
 mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version = "5.3.1" }
 moshi = { module = "com.squareup.moshi:moshi", version = "1.15.1" }
 netty-all = { module = "io.netty:netty-all" }
-netty-bom = { module = "io.netty:netty-bom", version = "4.1.121.Final" }
+netty-bom = { module = "io.netty:netty-bom", version = "4.1.122.Final" }
 netty-codec-http2 = { module = "io.netty:netty-codec-http2" }
 netty-handler-proxy = { module = "io.netty:netty-handler-proxy" }
 netty-resolver-dns = { module = "io.netty:netty-resolver-dns" }

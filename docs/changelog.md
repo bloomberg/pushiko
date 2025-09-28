@@ -1,3 +1,11 @@
+## Version 1.0.4
+
+### Dependencies
+
+* Gradle 8.14.3.
+* Netty 4.1.127.Final.
+* Nexus Publish Plugin 2.0.0.
+
 ## Version 1.0.3
 
 ### Dependencies

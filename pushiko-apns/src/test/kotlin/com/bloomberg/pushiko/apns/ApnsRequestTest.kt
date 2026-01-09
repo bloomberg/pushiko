@@ -22,6 +22,7 @@ import com.bloomberg.pushiko.apns.model.PushType
 import com.google.gson.JsonParser
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.mockito.kotlin.times
 import java.time.Instant
 import java.util.UUID
 import kotlin.test.assertEquals
@@ -442,6 +443,24 @@ internal class ApnsRequestTest {
         }.run {
             val body = JsonParser.parseString(payloadString()).asJsonObject
             assertEquals("Hello", body["aps"].asJsonObject["alert"].asJsonObject["title"].asString)
+        }
+    }
+
+    @Test
+    fun apsLiveActivity() {
+        ApnsRequest {
+            deviceToken("abc123")
+            topic("com.foo")
+            pushType(PushType.LIVE_ACTIVITY)
+            aps {
+                event ("update")
+                timestamp(Instant.now().epochSecond)
+            }
+        }.run {
+            val body = JsonParser.parseString(payloadString()).asJsonObject
+            val aps = body["aps"].asJsonObject
+            assertEquals("update", aps["event"].asString)
+            assertTrue(aps["timestamp"].asLong >= Instant.now().epochSecond)
         }
     }
 }

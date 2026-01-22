@@ -5,7 +5,7 @@ kotlin = "1.9.24"
 log4j = "2.23.1"
 
 [libraries]
-atomicfu = { module = "org.jetbrains.kotlinx:atomicfu-gradle-plugin", version = "0.22.0" }
+atomicfu = { module = "org.jetbrains.kotlinx:atomicfu-gradle-plugin", version = "0.30.0" }
 findbugs-jsr305 = { module = "com.google.code.findbugs:jsr305", version = "3.0.2" }
 google-auth = { module = "com.google.auth:google-auth-library-oauth2-http", version = "1.24.0" }
 gson = { module = "com.google.code.gson:gson", version = "2.10.1" }

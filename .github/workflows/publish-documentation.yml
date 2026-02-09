@@ -12,6 +12,8 @@ jobs:
     name: 'GitHub Pages'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: write
     steps:
       - name: 'Set current year'
         run: echo "YEAR=$(date +'%Y')" >> $GITHUB_ENV

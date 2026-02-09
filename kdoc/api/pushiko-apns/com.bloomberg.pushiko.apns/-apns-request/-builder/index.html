@@ -1,0 +1,220 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>Builder</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            pushiko
+                    </a>            </div>
+            <div class="library-version">1.1.0-SNAPSHOT
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":pushiko-apns:dokkaHtmlPartial/main">jvm</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="pushiko-apns::com.bloomberg.pushiko.apns/ApnsRequest.Builder///PointingToDeclaration//2095324218">
+  <div class="breadcrumbs"><a href="../../../index.html">pushiko-apns</a><span class="delimiter">/</span><a href="../../index.html">com.bloomberg.pushiko.apns</a><span class="delimiter">/</span><a href="../index.html">ApnsRequest</a><span class="delimiter">/</span><span class="current">Builder</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span><span>Builder</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-apns:dokkaHtmlPartial/main"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><span data-unresolved-link="javax.annotation.concurrent/NotThreadSafe///PointingToDeclaration/"><span class="token annotation builtin">NotThreadSafe</span></span></div></div><span class="token keyword">class </span><a href="index.html">Builder</a></div><span class="kdoc-tag"><h4 class="">Since</h4><p class="paragraph">0.12.0</p></span></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="-1166858833%2FFunctions%2F2095324218" anchor-label="aps" id="-1166858833%2FFunctions%2F2095324218" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-apns:dokkaHtmlPartial/main" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="aps.html"><span><span>aps</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1166858833%2FFunctions%2F2095324218"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-apns:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="aps.html"><span class="token function">aps</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">consumer<span class="token operator">: </span><a href="https://docs.oracle.com/javase/8/docs/api/java/util/function/Consumer.html">Consumer</a><span class="token operator">&lt;</span><a href="../../../com.bloomberg.pushiko.apns.model/-aps-writer/index.html">ApsWriter</a><span class="token operator">&gt;</span></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">ApnsRequest.Builder</a></div><div class="symbol monospace"><span class="token keyword">inline </span><span class="token keyword">fun </span><a href="aps.html"><span class="token function">aps</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">block<span class="token operator">: </span><a href="../../../com.bloomberg.pushiko.apns.model/-aps-writer/index.html">ApsWriter</a><span class="token punctuation">.</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator"> -&gt; </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-unit/index.html">Unit</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">ApnsRequest.Builder</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-2122260938%2FFunctions%2F2095324218" anchor-label="collapseId" id="-2122260938%2FFunctions%2F2095324218" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-apns:dokkaHtmlPartial/main" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="collapse-id.html"><span>collapse</span><wbr><span><span>Id</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2122260938%2FFunctions%2F2095324218"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-apns:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="collapse-id.html"><span class="token function">collapseId</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">value<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">ApnsRequest.Builder</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-2102864349%2FFunctions%2F2095324218" anchor-label="deviceToken" id="-2102864349%2FFunctions%2F2095324218" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-apns:dokkaHtmlPartial/main" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="device-token.html"><span>device</span><wbr><span><span>Token</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2102864349%2FFunctions%2F2095324218"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-apns:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="device-token.html"><span class="token function">deviceToken</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">value<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">ApnsRequest.Builder</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1825355535%2FFunctions%2F2095324218" anchor-label="expiration" id="1825355535%2FFunctions%2F2095324218" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-apns:dokkaHtmlPartial/main" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="expiration.html"><span><span>expiration</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1825355535%2FFunctions%2F2095324218"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-apns:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="expiration.html"><span class="token function">expiration</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">value<span class="token operator">: </span><a href="https://docs.oracle.com/javase/8/docs/api/java/time/Instant.html">Instant</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">ApnsRequest.Builder</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1193780928%2FFunctions%2F2095324218" anchor-label="id" id="-1193780928%2FFunctions%2F2095324218" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-apns:dokkaHtmlPartial/main" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="id.html"><span><span>id</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1193780928%2FFunctions%2F2095324218"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-apns:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="id.html"><span class="token function">id</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">value<span class="token operator">: </span><a href="https://docs.oracle.com/javase/8/docs/api/java/util/UUID.html">UUID</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">ApnsRequest.Builder</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="766717805%2FFunctions%2F2095324218" anchor-label="payload" id="766717805%2FFunctions%2F2095324218" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-apns:dokkaHtmlPartial/main" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="payload.html"><span><span>payload</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="766717805%2FFunctions%2F2095324218"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-apns:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="payload.html"><span class="token function">payload</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">consumer<span class="token operator">: </span><a href="https://docs.oracle.com/javase/8/docs/api/java/util/function/Consumer.html">Consumer</a><span class="token operator">&lt;</span><a href="../../../../pushiko-json/com.bloomberg.pushiko.json/-json-object-writer/index.html">JsonObjectWriter</a><span class="token operator">&gt;</span></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">ApnsRequest.Builder</a></div><div class="symbol monospace"><span class="token keyword">inline </span><span class="token keyword">fun </span><a href="payload.html"><span class="token function">payload</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">block<span class="token operator">: </span><a href="../../../../pushiko-json/com.bloomberg.pushiko.json/-json-object-writer/index.html">JsonObjectWriter</a><span class="token punctuation">.</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator"> -&gt; </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-unit/index.html">Unit</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">ApnsRequest.Builder</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="143348520%2FFunctions%2F2095324218" anchor-label="priority" id="143348520%2FFunctions%2F2095324218" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-apns:dokkaHtmlPartial/main" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="priority.html"><span><span>priority</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="143348520%2FFunctions%2F2095324218"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-apns:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="priority.html"><span class="token function">priority</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">value<span class="token operator">: </span><a href="../../../com.bloomberg.pushiko.apns.model/-priority/index.html">Priority</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">ApnsRequest.Builder</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1157442264%2FFunctions%2F2095324218" anchor-label="pushType" id="-1157442264%2FFunctions%2F2095324218" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-apns:dokkaHtmlPartial/main" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="push-type.html"><span>push</span><wbr><span><span>Type</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1157442264%2FFunctions%2F2095324218"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-apns:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="push-type.html"><span class="token function">pushType</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">value<span class="token operator">: </span><a href="../../../com.bloomberg.pushiko.apns.model/-push-type/index.html">PushType</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">ApnsRequest.Builder</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-94314545%2FFunctions%2F2095324218" anchor-label="topic" id="-94314545%2FFunctions%2F2095324218" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-apns:dokkaHtmlPartial/main" data-filterable-set=":pushiko-apns:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="topic.html"><span><span>topic</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-94314545%2FFunctions%2F2095324218"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-apns:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="topic.html"><span class="token function">topic</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">value<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">ApnsRequest.Builder</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

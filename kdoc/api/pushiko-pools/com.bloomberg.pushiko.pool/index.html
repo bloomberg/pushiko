@@ -1,0 +1,253 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>com.bloomberg.pushiko.pool</title>
+<link href="../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../styles/style.css" rel="Stylesheet">
+<link href="../../styles/main.css" rel="Stylesheet">
+<link href="../../styles/prism.css" rel="Stylesheet">
+<link href="../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../index.html">
+                            pushiko
+                    </a>            </div>
+            <div class="library-version">1.1.0-SNAPSHOT
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":pushiko-pools:dokkaHtmlPartial/main">jvm</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="package" id="content" pageids="pushiko-pools::com.bloomberg.pushiko.pool////PointingToDeclaration//517806525">
+  <div class="breadcrumbs"><a href="../index.html">pushiko-pools</a><span class="delimiter">/</span><span class="current">com.bloomberg.pushiko.pool</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span><span>Package-level</span></span> <span><span>declarations</span></span></h1>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="TYPE">Types</button><button class="section-tab" data-togglable="FUNCTION,EXTENSION_FUNCTION">Functions</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="TYPE">
+        <h2 class="">Types</h2>
+        <div class="table"><a data-name="-211744760%2FClasslikes%2F517806525" anchor-label="CommonMuxPool" id="-211744760%2FClasslikes%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-common-mux-pool/index.html"><span>Common</span><wbr><span>Mux</span><wbr><span><span>Pool</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-211744760%2FClasslikes%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><span data-unresolved-link="javax.annotation.concurrent/ThreadSafe///PointingToDeclaration/"><span class="token annotation builtin">ThreadSafe</span></span></div></div><span class="token keyword">class </span><a href="-common-mux-pool/index.html">CommonMuxPool</a><span class="token operator">&lt;</span><a href="-common-mux-pool/index.html">R</a><span class="token operator"> : </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-any/index.html">Any</a><span class="token punctuation">, </span><a href="-common-mux-pool/index.html">P</a><span class="token operator"> : </span><a href="-poolable/index.html">Poolable</a><span class="token operator">&lt;</span><a href="-common-mux-pool/index.html">R</a><span class="token operator">&gt;</span><span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">configuration<span class="token operator">: </span><a href="-pool-configuration/index.html">PoolConfiguration</a><span class="token punctuation">, </span></span><span class="parameter ">factory<span class="token operator">: </span><a href="-factory/index.html">Factory</a><span class="token operator">&lt;</span><a href="-common-mux-pool/index.html">P</a><span class="token operator">&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">recycler<span class="token operator">: </span><a href="-recycler/index.html">Recycler</a><span class="token operator">&lt;</span><a href="-common-mux-pool/index.html">R</a><span class="token operator">&gt;</span></span></span><span class="token punctuation">)</span> : <a href="-suspend-pool/index.html">SuspendPool</a><span class="token operator">&lt;</span><a href="-common-mux-pool/index.html">R</a><span class="token punctuation">, </span><a href="-common-mux-pool/index.html">P</a><span class="token operator">&gt; </span></div><div class="brief "><p class="paragraph">A non-blocking, lock-free pool that maintains a minimum number of pooled multiplexers even in the absence of demand, heuristically scheduling the creation of new objects if need be and if the headroom exists to do so even when there may be capacity available elsewhere. When no further aggregate capacity is available further acquisition attempts are treated as pending and their associated continuations buffer up over the pool, only resuming when capacity becomes available again. If there are too many queued pending acquisitions the pool begins failing the oldest of these by resuming the associated continuation with an exception.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1063713983%2FClasslikes%2F517806525" anchor-label="Factory" id="1063713983%2FClasslikes%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-factory/index.html"><span><span>Factory</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1063713983%2FClasslikes%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">interface </span><a href="-factory/index.html">Factory</a><span class="token operator">&lt;</span><a href="-factory/index.html">P</a><span class="token operator"> : </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-any/index.html">Any</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1656678697%2FClasslikes%2F517806525" anchor-label="LazyPool" id="1656678697%2FClasslikes%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-lazy-pool/index.html"><span>Lazy</span><wbr><span><span>Pool</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1656678697%2FClasslikes%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">interface </span><a href="-lazy-pool/index.html">LazyPool</a><span class="token operator">&lt;</span><a href="-lazy-pool/index.html">R</a><span class="token operator"> : </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-any/index.html">Any</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="757345935%2FClasslikes%2F517806525" anchor-label="LazyPoolFactory" id="757345935%2FClasslikes%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-lazy-pool-factory/index.html"><span>Lazy</span><wbr><span>Pool</span><wbr><span><span>Factory</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="757345935%2FClasslikes%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><span data-unresolved-link="javax.annotation.concurrent/ThreadSafe///PointingToDeclaration/"><span class="token annotation builtin">ThreadSafe</span></span></div></div><span class="token keyword">class </span><a href="-lazy-pool-factory/index.html">LazyPoolFactory</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1463264733%2FClasslikes%2F517806525" anchor-label="Poolable" id="-1463264733%2FClasslikes%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-poolable/index.html"><span><span>Poolable</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1463264733%2FClasslikes%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><span data-unresolved-link="javax.annotation.concurrent/NotThreadSafe///PointingToDeclaration/"><span class="token annotation builtin">NotThreadSafe</span></span></div></div><span class="token keyword">abstract </span><span class="token keyword">class </span><a href="-poolable/index.html">Poolable</a><span class="token operator">&lt;</span><span class="token keyword">out </span><a href="-poolable/index.html">R</a><span class="token operator"> : </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-any/index.html">Any</a><span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">value<span class="token operator">: </span><a href="-poolable/index.html">R</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-332776561%2FClasslikes%2F517806525" anchor-label="PoolConfiguration" id="-332776561%2FClasslikes%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-pool-configuration/index.html"><span>Pool</span><wbr><span><span>Configuration</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-332776561%2FClasslikes%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><span data-unresolved-link="javax.annotation.concurrent/ThreadSafe///PointingToDeclaration/"><span class="token annotation builtin">ThreadSafe</span></span></div></div><span class="token keyword">data </span><span class="token keyword">class </span><a href="-pool-configuration/index.html">PoolConfiguration</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>acquisitionAttemptsThreshold<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>maximumPendingAcquisitions<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>maximumSize<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>minimumSize<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>name<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator"> = </span><span class="token string">"Pushiko.Pool"</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>reaperDelay<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>summaryInterval<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1576239750%2FClasslikes%2F517806525" anchor-label="Recycler" id="-1576239750%2FClasslikes%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-recycler/index.html"><span><span>Recycler</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1576239750%2FClasslikes%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">interface </span><a href="-recycler/index.html">Recycler</a><span class="token operator">&lt;</span><a href="-recycler/index.html">R</a><span class="token operator"> : </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-any/index.html">Any</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1514087132%2FClasslikes%2F517806525" anchor-label="SingleThreadScopeGroup" id="1514087132%2FClasslikes%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-single-thread-scope-group/index.html"><span>Single</span><wbr><span>Thread</span><wbr><span>Scope</span><wbr><span><span>Group</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1514087132%2FClasslikes%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><span data-unresolved-link="javax.annotation.concurrent/ThreadSafe///PointingToDeclaration/"><span class="token annotation builtin">ThreadSafe</span></span></div></div><span class="token keyword">class </span><a href="-single-thread-scope-group/index.html">SingleThreadScopeGroup</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">name<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span> : <a href="https://docs.oracle.com/javase/8/docs/api/java/lang/AutoCloseable.html">AutoCloseable</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1492544273%2FClasslikes%2F517806525" anchor-label="SuspendPool" id="1492544273%2FClasslikes%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-suspend-pool/index.html"><span>Suspend</span><wbr><span><span>Pool</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1492544273%2FClasslikes%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><span data-unresolved-link="javax.annotation.concurrent/ThreadSafe///PointingToDeclaration/"><span class="token annotation builtin">ThreadSafe</span></span></div></div><span class="token keyword">sealed </span><span class="token keyword">class </span><a href="-suspend-pool/index.html">SuspendPool</a><span class="token operator">&lt;</span><a href="-suspend-pool/index.html">R</a><span class="token operator"> : </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-any/index.html">Any</a><span class="token punctuation">, </span><a href="-suspend-pool/index.html">P</a><span class="token operator"> : </span><a href="-poolable/index.html">Poolable</a><span class="token operator">&lt;</span><a href="-suspend-pool/index.html">R</a><span class="token operator">&gt;</span><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="187833956%2FClasslikes%2F517806525" anchor-label="WaterMarkScaleFactor" id="187833956%2FClasslikes%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-water-mark-scale-factor/index.html"><span>Water</span><wbr><span>Mark</span><wbr><span>Scale</span><wbr><span><span>Factor</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="187833956%2FClasslikes%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><span data-unresolved-link="javax.annotation.concurrent/ThreadSafe///PointingToDeclaration/"><span class="token annotation builtin">ThreadSafe</span></span></div></div><span class="token keyword">data </span><span class="token keyword">class </span><a href="-water-mark-scale-factor/index.html">WaterMarkScaleFactor</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>low<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a><span class="token operator"> = </span>LOW_WATERMARK_SCALE_FACTOR<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>high<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a><span class="token operator"> = </span>HIGH_WATERMARK_SCALE_FACTOR</span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="EXTENSION_FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="1823774158%2FFunctions%2F517806525" anchor-label="asLazyPool" id="1823774158%2FFunctions%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="as-lazy-pool.html"><span>as</span><wbr><span>Lazy</span><wbr><span><span>Pool</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1823774158%2FFunctions%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><span class="token operator">&lt;</span><a href="as-lazy-pool.html">R</a><span class="token operator"> : </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-any/index.html">Any</a><span class="token punctuation">, </span><a href="as-lazy-pool.html">P</a><span class="token operator"> : </span><a href="-poolable/index.html">Poolable</a><span class="token operator">&lt;</span><a href="as-lazy-pool.html">R</a><span class="token operator">&gt;</span><span class="token operator">&gt; </span><a href="-suspend-pool/index.html">SuspendPool</a><span class="token operator">&lt;</span><a href="as-lazy-pool.html">R</a><span class="token punctuation">, </span><a href="as-lazy-pool.html">P</a><span class="token operator">&gt;</span><span class="token punctuation">.</span><a href="as-lazy-pool.html"><span class="token function">asLazyPool</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">executor<span class="token operator">: </span><a href="https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ExecutorService.html">ExecutorService</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="-lazy-pool/index.html">LazyPool</a><span class="token operator">&lt;</span><a href="as-lazy-pool.html">R</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

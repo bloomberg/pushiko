@@ -1,0 +1,228 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>Poolable</title>
+<link href="../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../styles/style.css" rel="Stylesheet">
+<link href="../../../styles/main.css" rel="Stylesheet">
+<link href="../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../index.html">
+                            pushiko
+                    </a>            </div>
+            <div class="library-version">1.1.0-SNAPSHOT
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":pushiko-pools:dokkaHtmlPartial/main">jvm</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="pushiko-pools::com.bloomberg.pushiko.pool/Poolable///PointingToDeclaration//517806525">
+  <div class="breadcrumbs"><a href="../../index.html">pushiko-pools</a><span class="delimiter">/</span><a href="../index.html">com.bloomberg.pushiko.pool</a><span class="delimiter">/</span><span class="current">Poolable</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span><span>Poolable</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><div class="block"><div class="block"><span class="token annotation builtin">@</span><span data-unresolved-link="javax.annotation.concurrent/NotThreadSafe///PointingToDeclaration/"><span class="token annotation builtin">NotThreadSafe</span></span></div></div><span class="token keyword">abstract </span><span class="token keyword">class </span><a href="index.html">Poolable</a><span class="token operator">&lt;</span><span class="token keyword">out </span><a href="index.html">R</a><span class="token operator"> : </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-any/index.html">Any</a><span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">value<span class="token operator">: </span><a href="index.html">R</a></span></span><span class="token punctuation">)</span></div></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="-2071158189%2FConstructors%2F517806525" anchor-label="Poolable" id="-2071158189%2FConstructors%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-poolable.html"><span><span>Poolable</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2071158189%2FConstructors%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">value<span class="token operator">: </span><a href="index.html">R</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="2050237163%2FProperties%2F517806525" anchor-label="allocatedPermits" id="2050237163%2FProperties%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="allocated-permits.html"><span>allocated</span><wbr><span><span>Permits</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2050237163%2FProperties%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">var </span><a href="allocated-permits.html">allocatedPermits</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-250690181%2FProperties%2F517806525" anchor-label="isAlive" id="-250690181%2FProperties%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="is-alive.html"><span>is</span><wbr><span><span>Alive</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-250690181%2FProperties%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">val </span><a href="is-alive.html">isAlive</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-869247860%2FProperties%2F517806525" anchor-label="isCanAcquire" id="-869247860%2FProperties%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="is-can-acquire.html"><span>is</span><wbr><span>Can</span><wbr><span><span>Acquire</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-869247860%2FProperties%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">val </span><a href="is-can-acquire.html">isCanAcquire</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="900881509%2FProperties%2F517806525" anchor-label="isShouldAcquire" id="900881509%2FProperties%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="is-should-acquire.html"><span>is</span><wbr><span>Should</span><wbr><span><span>Acquire</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="900881509%2FProperties%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">val </span><a href="is-should-acquire.html">isShouldAcquire</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1914376196%2FProperties%2F517806525" anchor-label="maximumPermits" id="1914376196%2FProperties%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="maximum-permits.html"><span>maximum</span><wbr><span><span>Permits</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1914376196%2FProperties%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">val </span><a href="maximum-permits.html">maximumPermits</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="-1652164179%2FFunctions%2F517806525" anchor-label="acquirePermit" id="-1652164179%2FFunctions%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="acquire-permit.html"><span>acquire</span><wbr><span><span>Permit</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1652164179%2FFunctions%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="acquire-permit.html"><span class="token function">acquirePermit</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">Poolable</a><span class="token operator">&lt;</span><a href="index.html">R</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="493063260%2FFunctions%2F517806525" anchor-label="releasePermit" id="493063260%2FFunctions%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="release-permit.html"><span>release</span><wbr><span><span>Permit</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="493063260%2FFunctions%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="release-permit.html"><span class="token function">releasePermit</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="227714229%2FFunctions%2F517806525" anchor-label="summarize" id="227714229%2FFunctions%2F517806525" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":pushiko-pools:dokkaHtmlPartial/main" data-filterable-set=":pushiko-pools:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="summarize.html"><span><span>summarize</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="227714229%2FFunctions%2F517806525"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":pushiko-pools:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend </span><span class="token keyword">fun </span><a href="summarize.html"><span class="token function">summarize</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">appendable<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.text/-appendable/index.html">Appendable</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

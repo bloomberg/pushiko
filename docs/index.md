@@ -3,7 +3,7 @@ Pushiko is a JVM library for sending push notifications via Apple Push Notificat
 ## License
 
 ```
-Copyright <year> Bloomberg Finance L.P.
+Copyright 2025 Bloomberg Finance L.P.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

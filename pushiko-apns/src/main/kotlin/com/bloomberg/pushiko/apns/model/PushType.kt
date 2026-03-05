@@ -54,6 +54,10 @@ enum class PushType(
     /**
      * @since 0.12.0
      */
+    LIVE_ACTIVITY("liveactivity"),
+    /**
+     * @since 0.12.0
+     */
     LOCATION("location"),
     /**
      * @since 0.12.0

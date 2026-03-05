@@ -50,6 +50,11 @@ internal class PushTypeTest {
     }
 
     @Test
+    fun liveActivity() {
+        assertEquals("liveactivity", PushType.LIVE_ACTIVITY.value)
+    }
+
+    @Test
     fun location() {
         assertEquals("location", PushType.LOCATION.value)
     }

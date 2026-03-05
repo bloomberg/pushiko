@@ -88,4 +88,12 @@ class ApsWriter @PublishedApi internal constructor(
     fun threadId(value: String) = apply {
         writer.stringValue("thread-id", value)
     }
+
+    fun event(value: String) = apply {
+        writer.stringValue("event", value)
+    }
+
+    fun timestamp(value: Long) = apply {
+        writer.longValue("timestamp", value)
+    }
 }

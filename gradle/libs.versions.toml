@@ -51,7 +51,7 @@ netty = [
 ]
 
 [plugins]
-android-lint = { id = "com.android.lint", version = "8.4.2" }
+android-lint = { id = "com.android.lint", version = "9.0.0" }
 dependencyCheck = { id = "org.owasp.dependencycheck", version = "8.0.1" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version = "1.23.0" }
 dokka = { id = "org.jetbrains.dokka", version = "1.9.20" }

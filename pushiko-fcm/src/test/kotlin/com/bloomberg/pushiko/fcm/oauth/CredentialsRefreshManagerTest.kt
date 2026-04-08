@@ -107,10 +107,29 @@ internal class CredentialsRefreshManagerTest {
         }
     }
 
+    @Test
+    fun initFailsAfterMaxRetries() {
+        val credentials = mock<ServiceAccountCredentials>()
+        val exception = RetryableIOException("retryable_error")
+        whenever(credentials.refresh()) doThrow exception
+        assertFailsWith<IOException> {
+            manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff)
+        }.let {
+            assertSame(exception, it)
+        }
+        verify(credentials, times(6)).refresh()
+    }
+
     private companion object {
         private const val DEFAULT_EXPIRY_MILLIS = 10_000L * 1_000L
         private const val FAKE_TOKEN = "abc123"
         private const val ANOTHER_FAKE_TOKEN = "xyz456"
+    }
+
+    private class RetryableIOException(message: String) : IOException(message), Retryable {
+        override fun isRetryable() = true
+
+        override fun getRetryCount() = 0
     }
 
     private class NonRetryableIOException(message: String) : IOException(message), Retryable {

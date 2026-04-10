@@ -17,6 +17,7 @@
 package com.bloomberg.pushiko.fcm.oauth
 
 import com.bloomberg.pushiko.commons.slf4j.Logger
+import com.google.auth.Retryable
 import com.google.auth.oauth2.OAuth2Credentials
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -49,6 +50,10 @@ internal class CredentialsRefreshManager(
                     yield(accessToken)
                 }
             } catch (e: IOException) {
+                if (e is Retryable && !e.isRetryable) {
+                    logger.error("OAuth refresh failed permanently: {}", e.message)
+                    throw e
+                }
                 logger.warn("No new Google OAuth token is available", e)
                 yield(null)
             }

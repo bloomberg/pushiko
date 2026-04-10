@@ -86,7 +86,18 @@ internal class CredentialsRefreshManager(
             logger.info("Scheduling task to refresh access token, delayed {}s", it)
         }
         delay(interval)
-        if (iterator.next() != null) {
+        val token = try {
+            iterator.next()
+        } catch (e: IOException) {
+            if (e is Retryable && !e.isRetryable) {
+                logger.error(
+                    "Non-retryable OAuth failure during keep-alive, token refresh has permanently stopped: {}",
+                    e.message
+                )
+            }
+            throw e
+        }
+        if (token != null) {
             backOff.reset()
         }
         keepAlive()

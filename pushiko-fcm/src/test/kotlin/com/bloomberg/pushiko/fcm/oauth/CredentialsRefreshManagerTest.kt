@@ -32,6 +32,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doThrow
 
 internal class CredentialsRefreshManagerTest {
@@ -104,6 +105,27 @@ internal class CredentialsRefreshManagerTest {
             manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff)
         }.let {
             assertSame(exception, it)
+        }
+    }
+
+    @Test
+    fun keepAliveStopsWhenRefreshFailureIsNonRetryable() {
+        val credentials = mock<OAuth2Credentials>()
+        val exception = NonRetryableIOException("invalid_grant")
+        val backOff = mock<BackOff>()
+        var callCount = 0
+        whenever(credentials.refresh()).thenAnswer {
+            if (callCount++ == 0) {
+                whenever(credentials.accessToken).thenReturn(
+                    AccessToken(FAKE_TOKEN, Date(System.currentTimeMillis() + DEFAULT_EXPIRY_MILLIS))
+                )
+            } else {
+                throw exception
+            }
+        }
+        whenever(backOff.nextBackOffMillis()) doReturn 0L
+        assertFailsWith<IllegalStateException> {
+            manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff)
         }
     }
 

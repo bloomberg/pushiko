@@ -18,6 +18,8 @@ package com.bloomberg.pushiko.fcm.oauth
 
 import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.google.auth.oauth2.ServiceAccountCredentials
+import com.google.auth.Retryable
+import com.google.auth.oauth2.AccessToken
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -48,19 +50,28 @@ internal class CredentialsRefreshManager(
                         credentials.projectId,
                         accessToken.expiresInSeconds
                     )
-                    yield(accessToken)
+                    yield(RefreshResult.Success(accessToken))
                 }
             } catch (e: IOException) {
-                logger.warn("No new Google OAuth token for ${credentials.projectId} is available", e)
-                yield(null)
+                if (e.isPermanentFailure()) {
+                    logger.error("OAuth refresh failed permanently for {}: {}", credentials.projectId, e.message)
+                    yield(RefreshResult.PermanentFailure(e))
+                } else {
+                    logger.warn("No new Google OAuth token for ${credentials.projectId} is available", e)
+                    yield(RefreshResult.RetryableFailure(e))
+                }
             }
         }
     }
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
     init {
-        while (iterator.next() == null) {
-            Thread.sleep(initialDelay.toMillis())
+        while (true) {
+            when (val result = iterator.next()) {
+                is RefreshResult.Success -> break
+                is RefreshResult.RetryableFailure -> Thread.sleep(initialDelay.toMillis())
+                is RefreshResult.PermanentFailure -> throw result.exception
+            }
         }
         scope.launch { keepAlive() }.also {
             check(it.isActive) { "OAuth session is not being kept alive" }
@@ -88,12 +99,24 @@ internal class CredentialsRefreshManager(
                 TimeUnit.MILLISECONDS.toSeconds(interval)
             )
             delay(interval)
-            if (iterator.next() != null) {
-                backOff.reset()
+            when (iterator.next()) {
+                is RefreshResult.Success -> backOff.reset()
+                is RefreshResult.RetryableFailure,
+                is RefreshResult.PermanentFailure -> Unit
             }
         }
         logger.info("OAuth keep-alive stopped: {} manager has been shut down", credentials.projectId)
     }
+
+    private sealed interface RefreshResult {
+        data class Success(val accessToken: AccessToken) : RefreshResult
+
+        data class RetryableFailure(val exception: IOException) : RefreshResult
+
+        data class PermanentFailure(val exception: IOException) : RefreshResult
+    }
+
+    private fun IOException.isPermanentFailure(): Boolean = this is Retryable && !isRetryable
 
     private companion object {
         val initialDelay: Duration = Duration.ofSeconds(2L)

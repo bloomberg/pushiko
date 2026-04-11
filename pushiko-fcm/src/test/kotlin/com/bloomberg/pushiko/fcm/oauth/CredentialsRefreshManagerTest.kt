@@ -17,7 +17,7 @@
 package com.bloomberg.pushiko.fcm.oauth
 
 import com.google.auth.oauth2.AccessToken
-import com.google.auth.oauth2.OAuth2Credentials
+import com.google.auth.oauth2.ServiceAccountCredentials
 import kotlinx.coroutines.Dispatchers
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
@@ -31,7 +31,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 internal class CredentialsRefreshManagerTest {
-    private val credentials = mock<OAuth2Credentials>()
+    private val credentials = mock<ServiceAccountCredentials>()
     private lateinit var manager: CredentialsRefreshManager
     private val backOff = mock<BackOff>()
     private val coroutineDispatcher = Dispatchers.Default
@@ -80,7 +80,7 @@ internal class CredentialsRefreshManagerTest {
 
     @Test
     fun initRetriesWithInitiallyNullAccessToken() {
-        val credentials = mock<OAuth2Credentials>()
+        val credentials = mock<ServiceAccountCredentials>()
         val iterator = sequence {
             yield(AccessToken(FAKE_TOKEN, Date(System.currentTimeMillis() + DEFAULT_EXPIRY_MILLIS)))
         }.iterator()

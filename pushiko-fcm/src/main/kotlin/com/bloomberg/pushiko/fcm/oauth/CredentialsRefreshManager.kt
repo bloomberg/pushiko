@@ -17,23 +17,23 @@
 package com.bloomberg.pushiko.fcm.oauth
 
 import com.bloomberg.pushiko.commons.slf4j.Logger
-import com.google.auth.oauth2.OAuth2Credentials
+import com.google.auth.oauth2.ServiceAccountCredentials
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 import javax.annotation.concurrent.ThreadSafe
-
-private val oauthFailedException = IllegalStateException(
-    "Failed to refresh Google OAuth access token and back-off has already stopped")
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 @ThreadSafe
 internal class CredentialsRefreshManager(
-    private val credentials: OAuth2Credentials,
+    private val credentials: ServiceAccountCredentials,
     dispatcher: CoroutineDispatcher,
     private val backOff: BackOff = OAuthRefreshBackOff(credentials)
 ) {
@@ -43,48 +43,56 @@ internal class CredentialsRefreshManager(
             try {
                 credentials.run {
                     refresh()
-                    accessToken.expiresInSeconds.let {
-                        logger.info("Google OAuth token was refreshed, expires in at most {}s", it)
-                    }
+                    logger.info(
+                        "Google OAuth token was refreshed for {}, expires in at most {}s",
+                        credentials.projectId,
+                        accessToken.expiresInSeconds
+                    )
                     yield(accessToken)
                 }
             } catch (e: IOException) {
-                logger.warn("No new Google OAuth token is available", e)
+                logger.warn("No new Google OAuth token for ${credentials.projectId} is available", e)
                 yield(null)
             }
         }
     }
-    private val scope = CoroutineScope(dispatcher)
-    private val job = scope.launch(start = CoroutineStart.LAZY) { keepAlive() }
+    private val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
     init {
         while (iterator.next() == null) {
             Thread.sleep(initialDelay.toMillis())
         }
-        job.apply {
-            start()
-            check(isActive) { "OAuth session is not being kept alive" }
+        scope.launch { keepAlive() }.also {
+            check(it.isActive) { "OAuth session is not being kept alive" }
         }
     }
 
     fun stop() {
-        job.cancel()
+        scope.cancel()
     }
 
-    private tailrec suspend fun keepAlive() {
-        val interval = backOff.nextBackOffMillis()
-        if (interval < 0L) {
-            logger.error(oauthFailedException.message)
-            throw oauthFailedException
+    private suspend fun keepAlive() {
+        while (currentCoroutineContext().isActive) {
+            val interval = backOff.nextBackOffMillis()
+            if (interval < 0L) {
+                IllegalStateException(
+                    "Failed to refresh ${credentials.projectId} Google OAuth access token and back-off has already stopped"
+                ).let {
+                    logger.error(it.message)
+                    throw it
+                }
+            }
+            logger.info(
+                "Scheduling task to refresh {} access token, delayed {}s",
+                credentials.projectId,
+                TimeUnit.MILLISECONDS.toSeconds(interval)
+            )
+            delay(interval)
+            if (iterator.next() != null) {
+                backOff.reset()
+            }
         }
-        TimeUnit.MILLISECONDS.toSeconds(interval).let {
-            logger.info("Scheduling task to refresh access token, delayed {}s", it)
-        }
-        delay(interval)
-        if (iterator.next() != null) {
-            backOff.reset()
-        }
-        keepAlive()
+        logger.info("OAuth keep-alive stopped: {} manager has been shut down", credentials.projectId)
     }
 
     private companion object {

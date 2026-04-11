@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import java.net.URL
+import java.net.URI
 import org.gradle.api.plugins.jvm.JvmTestSuite
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.dokka.gradle.DokkaTask
@@ -102,7 +102,7 @@ tasks.withType<DokkaTask>().configureEach {
     dokkaSourceSets.configureEach {
         sourceLink {
             localDirectory.set(projectDir.resolve("src"))
-            remoteUrl.set(URL("https://github.com/bloomberg/pushiko/tree/main/pushiko-fcm/src"))
+            remoteUrl.set(URI.create("https://github.com/bloomberg/pushiko/tree/main/pushiko-fcm/src").toURL())
             remoteLineSuffix.set("#L")
         }
     }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import java.net.URL
+import java.net.URI
 import org.jetbrains.dokka.gradle.DokkaTask
 import org.jetbrains.dokka.gradle.DokkaTaskPartial
 
@@ -58,7 +58,7 @@ tasks.withType<DokkaTask>().configureEach {
     dokkaSourceSets.configureEach {
         sourceLink {
             localDirectory.set(projectDir.resolve("src"))
-            remoteUrl.set(URL("https://github.com/bloomberg/pushiko/tree/main/pushiko-apns/src"))
+            remoteUrl.set(URI.create("https://github.com/bloomberg/pushiko/tree/main/pushiko-apns/src").toURL())
             remoteLineSuffix.set("#L")
         }
     }

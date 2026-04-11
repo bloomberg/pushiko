@@ -18,8 +18,8 @@ import info.solidsoft.gradle.pitest.PitestPlugin
 import info.solidsoft.gradle.pitest.PitestPluginExtension
 import io.gitlab.arturbosch.detekt.DetektPlugin
 import io.gitlab.arturbosch.detekt.extensions.DetektExtension
+import java.net.URI
 import kotlinx.kover.gradle.plugin.dsl.AggregationType
-import java.net.URL
 import org.gradle.api.JavaVersion
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
@@ -166,7 +166,7 @@ subprojects {
         moduleName.set("Pushiko")
         dokkaSourceSets.named("main") {
             sourceLink {
-                remoteUrl.set(URL("https://github.com/bloomberg/pushiko/tree/main/${project.name}/src"))
+                remoteUrl.set(URI.create("https://github.com/bloomberg/pushiko/tree/main/${project.name}/src").toURL())
                 localDirectory.set(projectDir.resolve("src"))
                 remoteLineSuffix.set("#L")
             }

@@ -1,3 +1,15 @@
+## Version 1.0.5
+
+### Fixes
+
+* Check if an OAuth exception for FCM credential is retryable, fail fast in init
+* Make FCM keep-alive cancellation-aware
+
+### Dependencies
+
+* Google OAuth 1.43.0
+* Netty 4.1.132.Final
+
 ## Version 1.0.4
 
 ### Dependencies

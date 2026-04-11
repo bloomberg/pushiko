@@ -48,7 +48,7 @@ internal class CredentialsSessionTest {
     @Test
     fun projectId() {
         assertEquals("com.bloomberg.foo", session.projectId)
-        verify(credentials, times(1)).projectId
+        verify(credentials, times(2)).projectId
     }
 
     @Test

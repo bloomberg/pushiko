@@ -16,6 +16,7 @@
 
 package com.bloomberg.pushiko.fcm.oauth
 
+import com.google.auth.Retryable
 import com.google.auth.oauth2.AccessToken
 import com.google.auth.oauth2.ServiceAccountCredentials
 import kotlinx.coroutines.Dispatchers
@@ -23,12 +24,15 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.io.IOException
 import java.util.Date
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
+import org.mockito.kotlin.doThrow
 
 internal class CredentialsRefreshManagerTest {
     private val credentials = mock<ServiceAccountCredentials>()
@@ -91,9 +95,27 @@ internal class CredentialsRefreshManagerTest {
         verify(credentials, times(1)).refresh()
     }
 
+    @Test
+    fun initFailsFastWhenRefreshFailureIsNonRetryable() {
+        val credentials = mock<ServiceAccountCredentials>()
+        val exception = NonRetryableIOException("invalid_grant")
+        whenever(credentials.refresh()) doThrow exception
+        assertFailsWith<IOException> {
+            manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff)
+        }.let {
+            assertSame(exception, it)
+        }
+    }
+
     private companion object {
         private const val DEFAULT_EXPIRY_MILLIS = 10_000L * 1_000L
         private const val FAKE_TOKEN = "abc123"
         private const val ANOTHER_FAKE_TOKEN = "xyz456"
+    }
+
+    private class NonRetryableIOException(message: String) : IOException(message), Retryable {
+        override fun isRetryable() = false
+
+        override fun getRetryCount() = 0
     }
 }

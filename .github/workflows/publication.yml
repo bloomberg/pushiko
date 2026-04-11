@@ -26,6 +26,8 @@ jobs:
           echo 'org.gradle.configuration-cache=false' >> gradle.properties
       - name: 'Check'
         run: ./gradlew check -x integrationTest
+      - name: 'Integration test'
+        run: ./gradlew :pushiko-fcm:integrationTest
       - name: 'Publish release to Maven Central'
         if: github.event_name == 'release' && github.event.action == 'published'
         env:

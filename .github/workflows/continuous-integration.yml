@@ -29,6 +29,8 @@ jobs:
             ${{ runner.os }}-gradle-
       - name: 'Check'
         run: ./gradlew check -x integrationTest
+      - name: 'Integration test'
+        run: ./gradlew :pushiko-fcm:integrationTest
       - name: 'Tear down'
         if: always()
         run: |

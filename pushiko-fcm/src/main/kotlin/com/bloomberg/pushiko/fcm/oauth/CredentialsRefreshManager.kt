@@ -66,7 +66,7 @@ internal class CredentialsRefreshManager(
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
     init {
-        while (true) {
+        while (scope.isActive) {
             when (val result = iterator.next()) {
                 is RefreshResult.Success -> break
                 is RefreshResult.RetryableFailure -> Thread.sleep(initialDelay.toMillis())

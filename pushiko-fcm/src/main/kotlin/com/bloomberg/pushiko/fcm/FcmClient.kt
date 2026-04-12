@@ -302,7 +302,7 @@ class FcmClient private constructor(
             FcmSuccessResponse.serializer(),
             body!!
         ).apply {
-            code = this.code
+            code = this@process.code
         }
         in HTTP_BAD_REQUEST until HTTP_INTERNAL_ERROR -> json.decodeFromStream(FcmClientErrorResponse.serializer(),
             body!!)

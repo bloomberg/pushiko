@@ -37,7 +37,8 @@ import kotlinx.coroutines.cancel
 internal class CredentialsRefreshManager(
     private val credentials: ServiceAccountCredentials,
     dispatcher: CoroutineDispatcher,
-    private val backOff: BackOff = OAuthRefreshBackOff(credentials)
+    private val backOff: BackOff = OAuthRefreshBackOff(credentials),
+    private val maxInitRetries: Int = DEFAULT_MAX_INIT_RETRIES
 ) {
     private val logger = Logger()
     private val iterator = iterator {
@@ -66,10 +67,16 @@ internal class CredentialsRefreshManager(
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
     init {
+        var retries = 0
         while (true) {
             when (val result = iterator.next()) {
                 is RefreshResult.Success -> break
-                is RefreshResult.RetryableFailure -> Thread.sleep(initialDelay.toMillis())
+                is RefreshResult.RetryableFailure -> {
+                    if (++retries > maxInitRetries) {
+                        throw result.exception
+                    }
+                    Thread.sleep(initialDelay.toMillis())
+                }
                 is RefreshResult.PermanentFailure -> throw result.exception
             }
         }
@@ -120,5 +127,6 @@ internal class CredentialsRefreshManager(
 
     private companion object {
         val initialDelay: Duration = Duration.ofSeconds(2L)
+        const val DEFAULT_MAX_INIT_RETRIES = 5
     }
 }

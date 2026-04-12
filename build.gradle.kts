@@ -205,7 +205,8 @@ koverReport {
             classes(
                 "io.netty.*",
                 "*.jmh_generated.*",
-                "*\$\$*"
+                "*\$\$*",
+                "*Benchmark"
             )
         }
     }

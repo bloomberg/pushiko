@@ -1,3 +1,9 @@
+## Version 1.0.6
+
+### Fixes
+
+* Limit FCM credential refresh retry attempts on init
+
 ## Version 1.0.5
 
 ### Fixes

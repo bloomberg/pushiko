@@ -40,19 +40,30 @@ internal class CredentialsSession(
     override val sendPath = projectId.fcmSendPath()
 
     private val logger = Logger()
+    @Volatile
+    private var authorization: String? = credentials.accessToken?.tokenValue?.bearer()
+
     private val credentialsChangedListener = OAuth2Credentials.CredentialsChangedListener {
-        this@CredentialsSession.currentAuthorization = it.accessToken.tokenValue
+        this@CredentialsSession.authorization = it.accessToken.tokenValue.bearer()
         logger.info("Refreshed access token for: {}", projectId)
     }.also {
         credentials.addChangeListener(it)
     }
     private val credentialsRefresher = CredentialsRefreshManager(credentials, dispatcher)
 
-    @Volatile
-    override var currentAuthorization: String = credentials.run {
-        (accessToken ?: refreshAccessToken()).tokenValue
-    }.bearer()
-        set(value) { field = value.bearer() }
+    override val currentAuthorization: String
+        get() = requireNotNull(authorization ?: credentials.accessToken?.tokenValue?.bearer()?.also {
+            authorization = it
+        }) {
+            "FCM session '$projectId' is not started. Call joinStart() first"
+        }
+
+    override suspend fun joinStart() {
+        credentialsRefresher.joinStart()
+        authorization = requireNotNull(credentials.accessToken?.tokenValue?.bearer()) {
+            "No access token available for FCM session '$projectId' after startup"
+        }
+    }
 
     override fun close() {
         logger.info("Closing credential session, id: {}", projectId)

@@ -32,15 +32,16 @@ import java.security.KeyPairGenerator
 import java.util.Base64
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
+import kotlinx.coroutines.test.runTest
 
 internal class CredentialsRefreshManagerTest {
     @Test
-    fun initExitsForInvalidServiceAccountAgainstRealGoogleBackend() {
+    fun initExitsForInvalidServiceAccountAgainstRealGoogleBackend() = runTest {
         assertFailsWith<IOException> {
             CredentialsRefreshManager(
                 credentials = fakeCredentials(URI.create("https://oauth2.googleapis.com/token")),
                 dispatcher = Dispatchers.IO
-            )
+            ).joinStart()
         }
     }
 
@@ -72,7 +73,7 @@ internal class CredentialsRefreshManagerTest {
     }
 
     @Test
-    fun initFailsFastOnNonRetryableLocalHttpError() {
+    fun initFailsFastOnNonRetryableLocalHttpError() = runTest {
         val body = """{"error":"invalid_grant","error_description":"Token has been expired or revoked."}""".toByteArray()
         val server = HttpServer.create(InetSocketAddress(0), 0).apply {
             createContext("/token") { exchange ->
@@ -88,7 +89,7 @@ internal class CredentialsRefreshManagerTest {
                 CredentialsRefreshManager(
                     credentials = fakeCredentials(URI.create("http://localhost:${server.address.port}/token")),
                     dispatcher = Dispatchers.IO
-                )
+                ).joinStart()
             }
         } finally {
             server.stop(0)

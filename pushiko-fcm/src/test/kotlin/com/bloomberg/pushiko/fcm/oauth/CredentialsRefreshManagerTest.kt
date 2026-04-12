@@ -26,12 +26,15 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.io.IOException
 import java.util.Date
+import kotlin.concurrent.thread
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.test.runTest
 import org.mockito.kotlin.doThrow
 
 internal class CredentialsRefreshManagerTest {
@@ -61,7 +64,7 @@ internal class CredentialsRefreshManagerTest {
     }
 
     @Test
-    fun refreshSuccess() {
+    fun refreshSuccess() = runTest {
         val backOff = mock<BackOff>()
         val iterator = sequence {
             yield(0L)
@@ -69,6 +72,7 @@ internal class CredentialsRefreshManagerTest {
         }.iterator()
         whenever(backOff.nextBackOffMillis()).thenAnswer { iterator.next() }
         manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff)
+        manager.joinStart()
         assertEquals(ANOTHER_FAKE_TOKEN, credentials.accessToken.tokenValue)
         verify(backOff, times(1)).reset()
     }
@@ -77,13 +81,17 @@ internal class CredentialsRefreshManagerTest {
     fun backOffCanExpire() {
         val backOff = mock<BackOff>()
         whenever(backOff.nextBackOffMillis()).thenReturn(-1L)
+        manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff)
         assertFailsWith<IllegalStateException> {
-            manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff)
+            runTest {
+                manager.joinStart()
+            }
         }
+        verify(backOff, times(1)).nextBackOffMillis()
     }
 
     @Test
-    fun initRetriesWithInitiallyNullAccessToken() {
+    fun startRetriesWithInitiallyNullAccessToken() {
         val credentials = mock<ServiceAccountCredentials>()
         val iterator = sequence {
             yield(AccessToken(FAKE_TOKEN, Date(System.currentTimeMillis() + DEFAULT_EXPIRY_MILLIS)))
@@ -92,32 +100,40 @@ internal class CredentialsRefreshManagerTest {
             whenever(credentials.accessToken).thenReturn(iterator.next())
         }
         manager = CredentialsRefreshManager(credentials, coroutineDispatcher, backOff)
+        runTest {
+            manager.joinStart()
+        }
         verify(credentials, times(1)).refresh()
     }
 
     @Test
-    fun initFailsFastWhenRefreshFailureIsNonRetryable() {
+    fun startFailsFastWhenRefreshFailureIsNonRetryable() = runTest {
         val credentials = mock<ServiceAccountCredentials>()
         val exception = NonRetryableIOException("invalid_grant")
         whenever(credentials.refresh()) doThrow exception
+        manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff)
         assertFailsWith<IOException> {
-            manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff)
+            manager.joinStart()
         }.let {
             assertSame(exception, it)
         }
     }
 
     @Test
-    fun initFailsAfterMaxRetries() {
+    fun startIsCancellable() {
         val credentials = mock<ServiceAccountCredentials>()
         val exception = RetryableIOException("retryable_error")
         whenever(credentials.refresh()) doThrow exception
-        assertFailsWith<IOException> {
-            manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff)
-        }.let {
-            assertSame(exception, it)
+        manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff)
+        thread(start = true, isDaemon = true) {
+            Thread.sleep(100L)
+            manager.stop()
         }
-        verify(credentials, times(6)).refresh()
+        assertFailsWith<CancellationException> {
+            runTest {
+                manager.joinStart()
+            }
+        }
     }
 
     private companion object {

@@ -15,8 +15,11 @@
  */
 
 import java.net.URI
+import org.gradle.api.plugins.jvm.JvmTestSuite
+import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.dokka.gradle.DokkaTask
 import org.jetbrains.dokka.gradle.DokkaTaskPartial
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 description = "Pushiko library for sending Apple Push Notifications with APNs."
 
@@ -51,6 +54,42 @@ dependencies {
     testImplementation(libs.gson)
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
+}
+
+testing {
+    suites {
+        @Suppress("UnstableApiUsage")
+        register<JvmTestSuite>("integrationTest") {
+            dependencies {
+                implementation(project())
+                implementation(libs.kotlin.test.junit5)
+                implementation(libs.kotlinx.coroutines.core)
+                runtimeOnly(libs.logback.classic)
+            }
+            targets {
+                all {
+                    testTask.configure {
+                        group = "verification"
+                        maxHeapSize = "128m"
+                        jvmArgs("-XX:+HeapDumpOnOutOfMemoryError")
+                        System.getProperties().filter {
+                            it.key.toString().startsWith("http")
+                        }.forEach {
+                            jvmArgs("-D${it.key}=${it.value}")
+                        }
+                        testLogging {
+                            events(TestLogEvent.STANDARD_OUT, TestLogEvent.STANDARD_ERROR)
+                        }
+                        shouldRunAfter(tasks.named("test"))
+                    }
+                }
+            }
+        }
+    }
+}
+
+extensions.getByType<KotlinJvmProjectExtension>().target.compilations.let { compilations ->
+    compilations["integrationTest"].associateWith(compilations["main"])
 }
 
 tasks.withType<DokkaTask>().configureEach {

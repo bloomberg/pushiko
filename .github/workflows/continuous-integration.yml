@@ -30,7 +30,7 @@ jobs:
       - name: 'Check'
         run: ./gradlew check -x integrationTest
       - name: 'Integration test'
-        run: ./gradlew :pushiko-fcm:integrationTest
+        run: ./gradlew :pushiko-apns:integrationTest :pushiko-fcm:integrationTest
       - name: 'Tear down'
         if: always()
         run: |

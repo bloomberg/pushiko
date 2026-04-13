@@ -206,7 +206,10 @@ koverReport {
                 "io.netty.*",
                 "*.jmh_generated.*",
                 "*\$\$*",
-                "*Benchmark"
+                "*Benchmark",
+                "*Fixture",
+                "*FixtureKt*",
+                "*Test*"
             )
         }
     }

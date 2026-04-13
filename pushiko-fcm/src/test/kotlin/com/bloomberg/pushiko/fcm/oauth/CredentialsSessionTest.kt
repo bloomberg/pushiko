@@ -23,6 +23,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -48,7 +49,7 @@ internal class CredentialsSessionTest {
     @Test
     fun projectId() {
         assertEquals("com.bloomberg.foo", session.projectId)
-        verify(credentials, times(2)).projectId
+        verify(credentials, times(1)).projectId
     }
 
     @Test
@@ -57,5 +58,15 @@ internal class CredentialsSessionTest {
             assertEquals("Bearer xyz", session.currentAuthorization)
         }
         verify(credentials, atLeastOnce()).accessToken
+    }
+
+    @Test
+    fun constructorDoesNotRefreshCredentials() {
+        val credentials = mock<ServiceAccountCredentials>().apply {
+            whenever(projectId) doReturn "com.bloomberg.foo"
+            whenever(accessToken) doReturn null
+        }
+        CredentialsSession(credentials, dispatcher)
+        verify(credentials, never()).refreshAccessToken()
     }
 }

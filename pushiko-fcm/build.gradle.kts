@@ -70,6 +70,7 @@ testing {
                 implementation(libs.google.auth)
                 implementation(libs.kotlin.test.junit5)
                 implementation(libs.kotlinx.coroutines.core)
+                implementation(libs.kotlinx.coroutines.test)
                 runtimeOnly(libs.logback.classic)
             }
             targets {

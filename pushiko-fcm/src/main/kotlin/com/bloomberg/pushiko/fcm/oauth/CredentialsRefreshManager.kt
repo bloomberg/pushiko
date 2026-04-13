@@ -30,15 +30,16 @@ import java.io.IOException
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 import javax.annotation.concurrent.ThreadSafe
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 
 @ThreadSafe
 internal class CredentialsRefreshManager(
     private val credentials: ServiceAccountCredentials,
     dispatcher: CoroutineDispatcher,
-    private val backOff: BackOff = OAuthRefreshBackOff(credentials),
-    private val maxInitRetries: Int = DEFAULT_MAX_INIT_RETRIES
+    private val backOff: BackOff = OAuthRefreshBackOff(credentials)
 ) {
     private val logger = Logger()
     private val iterator = iterator {
@@ -65,24 +66,43 @@ internal class CredentialsRefreshManager(
         }
     }
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
-
-    init {
-        var retries = 0
-        while (true) {
+    private val startup = scope.async(start = CoroutineStart.LAZY) {
+        while (currentCoroutineContext().isActive) {
             when (val result = iterator.next()) {
-                is RefreshResult.Success -> break
-                is RefreshResult.RetryableFailure -> {
-                    if (++retries > maxInitRetries) {
-                        throw result.exception
-                    }
-                    Thread.sleep(initialDelay.toMillis())
+                is RefreshResult.Success -> {
+                    logger.info(
+                        "Startup OAuth refresh succeeded for {}, token expires in at most {}s",
+                        credentials.projectId,
+                        result.accessToken.expiresInSeconds
+                    )
+                    return@async result.accessToken
                 }
-                is RefreshResult.PermanentFailure -> throw result.exception
+                is RefreshResult.RetryableFailure -> {
+                    logger.warn(
+                        "Startup OAuth refresh failed for {}, retrying in {}s: {}",
+                        credentials.projectId,
+                        initialDelay.seconds,
+                        result.exception.message
+                    )
+                    delay(initialDelay.toMillis())
+                }
+                is RefreshResult.PermanentFailure -> {
+                    logger.error(
+                        "Startup OAuth refresh failed permanently for {}: {}",
+                        credentials.projectId,
+                        result.exception.message
+                    )
+                    throw result.exception
+                }
             }
         }
-        scope.launch { keepAlive() }.also {
-            check(it.isActive) { "OAuth session is not being kept alive" }
-        }
+        error("OAuth startup finished without obtaining an access token")
+    }
+    private val job = scope.launch(start = CoroutineStart.LAZY) { keepAlive() }
+
+    suspend fun joinStart() {
+        startup.await()
+        job.start()
     }
 
     fun stop() {
@@ -106,10 +126,25 @@ internal class CredentialsRefreshManager(
                 TimeUnit.MILLISECONDS.toSeconds(interval)
             )
             delay(interval)
-            when (iterator.next()) {
-                is RefreshResult.Success -> backOff.reset()
-                is RefreshResult.RetryableFailure,
-                is RefreshResult.PermanentFailure -> Unit
+            when (val result = iterator.next()) {
+                is RefreshResult.Success -> {
+                    logger.info(
+                        "Keep-alive OAuth refresh succeeded for {}, token expires in at most {}s",
+                        credentials.projectId,
+                        result.accessToken.expiresInSeconds
+                    )
+                    backOff.reset()
+                }
+                is RefreshResult.RetryableFailure -> logger.warn(
+                    "Keep-alive OAuth refresh failed for {}, will retry with backoff: {}",
+                    credentials.projectId,
+                    result.exception.message
+                )
+                is RefreshResult.PermanentFailure -> logger.error(
+                    "Keep-alive OAuth refresh failed permanently for {}: {}",
+                    credentials.projectId,
+                    result.exception.message
+                )
             }
         }
         logger.info("OAuth keep-alive stopped: {} manager has been shut down", credentials.projectId)
@@ -127,6 +162,5 @@ internal class CredentialsRefreshManager(
 
     private companion object {
         val initialDelay: Duration = Duration.ofSeconds(2L)
-        const val DEFAULT_MAX_INIT_RETRIES = 5
     }
 }

@@ -42,6 +42,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
@@ -67,6 +68,8 @@ import kotlin.contracts.contract
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toKotlinDuration
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 
 private const val FCM_HOST = "fcm.googleapis.com"
 private const val FCM_PORT = 443
@@ -128,16 +131,32 @@ class FcmClient private constructor(
     private val javaScope = CoroutineScope(SupervisorJob() + (javaDispatcher ?: CommonPoolDispatcher))
 
     /**
-     * Suspends the current coroutine until this [FcmClient] has been allowed to complete all of its initial
-     * preparation such as pre-populating its internal HTTP connection pool.
+     * Suspends the current coroutine until this [FcmClient] has completed startup preparation.
+     *
+     * This includes:
+     * - starting OAuth sessions for all configured projects;
+     * - starting credential keep-alive refresh loops, and
+     * - pre-populating the internal HTTP connection pool.
+     *
+     * Callers should await this successfully before sending notifications, otherwise requests may
+     * race with bootstrap initialization.
      *
      * @throws CancellationException if the job of the coroutine context is cancelled or completed.
      *
      * @since 0.19.0
      */
     @JvmSynthetic
-    suspend fun joinStart() {
-        httpClient.prepare()
+    suspend fun joinStart(): Unit = coroutineScope {
+        launch {
+            httpClient.prepare()
+        }
+        sessions.values.chunked(size = 8).forEach { sessions ->
+            sessions.map { session ->
+                launch {
+                    session.joinStart()
+                }
+            }.joinAll()
+        }
     }
 
     /**
@@ -231,10 +250,8 @@ class FcmClient private constructor(
             httpClient.close()
         } finally {
             sessions.entries.forEach {
-                runCatching {
-                    it.value.close()
-                }.onFailure { e ->
-                    logger.info("Error closing session {}", it.key, e)
+                it.value.runCatching(Session::close).onFailure { e ->
+                    logger.warn("Error closing session {}", it.key, e)
                 }
             }
         }

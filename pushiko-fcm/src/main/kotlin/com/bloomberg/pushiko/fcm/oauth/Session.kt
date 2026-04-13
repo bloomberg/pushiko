@@ -30,4 +30,9 @@ internal sealed interface Session : Closeable {
      * @return current authorization bearer.
      */
     val currentAuthorization: String
+
+    /**
+     * Perform session bootstrap work such as obtaining an initial token and starting refresh loops.
+     */
+    suspend fun joinStart()
 }

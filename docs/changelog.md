@@ -2,22 +2,22 @@
 
 ### Fixes
 
-* Make FCM credentials manager responsive to closure during initialization
-* Fix setting the status code for an FcmSuccessResponse
-* Replace use of ambiguous coroutineContext
+* Make FCM credentials manager responsive to closure during initialization.
+* Fix setting the status code for an FcmSuccessResponse.
+* Replace use of ambiguous coroutineContext.
 
 ## Version 1.0.6
 
 ### Fixes
 
-* Limit FCM credential refresh retry attempts on init
+* Limit FCM credential refresh retry attempts on init.
 
 ## Version 1.0.5
 
 ### Fixes
 
-* Check if an OAuth exception for FCM credential is retryable, fail fast in init
-* Make FCM keep-alive cancellation-aware
+* Check if an OAuth exception for FCM credential is retryable, fail fast in init.
+* Make FCM keep-alive cancellation-aware.
 
 ### Dependencies
 
@@ -28,16 +28,16 @@
 
 ### Dependencies
 
-* Gradle 8.14.3.
-* Netty 4.1.127.Final.
-* Nexus Publish Plugin 2.0.0.
+* Gradle 8.14.3
+* Netty 4.1.127.Final
+* Nexus Publish Plugin 2.0.0
 
 ## Version 1.0.3
 
 ### Dependencies
 
-* Gradle 8.14.2.
-* Netty 4.1.122.Final.
+* Gradle 8.14.2
+* Netty 4.1.122.Final
 
 ## Version 1.0.2
 
@@ -47,7 +47,7 @@
 
 ### Dependencies
 
-* Gradle 8.14.
+* Gradle 8.14
 
 ## Version 1.0.1
 

@@ -705,7 +705,14 @@
 <h1 id="joinstart">joinStart</h1>
 <p>[jvm]\
 suspend fun <a href="./">joinStart</a>()</p>
-<p>Suspends the current coroutine until this <a href="../">FcmClient</a> has been allowed to complete all of its initial preparation such as pre-populating its internal HTTP connection pool.</p>
+<p>Suspends the current coroutine until this <a href="../">FcmClient</a> has completed startup preparation.</p>
+<p>This includes:</p>
+<ul>
+<li>starting OAuth sessions for all configured projects;</li>
+<li>starting credential keep-alive refresh loops, and</li>
+<li>pre-populating the internal HTTP connection pool.</li>
+</ul>
+<p>Callers should await this successfully before sending notifications, otherwise requests may race with bootstrap initialization.</p>
 <h4 id="since">Since</h4>
 <p>0.19.0</p>
 <h4 id="throws">Throws</h4>

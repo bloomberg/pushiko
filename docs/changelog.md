@@ -1,3 +1,11 @@
+## Version 1.0.7
+
+### Fixes
+
+* Make FCM credentials manager responsive to closure during initialization
+* Fix setting the status code for an FcmSuccessResponse
+* Replace use of ambiguous coroutineContext
+
 ## Version 1.0.6
 
 ### Fixes

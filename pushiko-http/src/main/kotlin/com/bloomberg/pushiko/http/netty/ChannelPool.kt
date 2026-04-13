@@ -50,8 +50,8 @@ import io.netty.handler.ssl.SslContext
 import kotlinx.coroutines.ensureActive
 import java.net.InetSocketAddress
 import javax.annotation.concurrent.ThreadSafe
-import kotlin.coroutines.coroutineContext
 import kotlin.time.Duration
+import kotlinx.coroutines.currentCoroutineContext
 
 @Suppress("Detekt.LongParameterList")
 @JvmSynthetic
@@ -150,7 +150,7 @@ internal class ChannelPool(
 
         @JvmSynthetic
         suspend fun health(timeout: Duration): Health {
-            coroutineContext.ensureActive()
+            currentCoroutineContext().ensureActive()
             return runCatching {
                 testChannelAcquisition(timeout)
                 healthy
@@ -169,7 +169,7 @@ internal class ChannelPool(
     inner class Gauges {
         @JvmSynthetic
         suspend fun read(timeout: Duration): Metrics {
-            coroutineContext.ensureActive()
+            currentCoroutineContext().ensureActive()
             return pool.metricsComponent.gauges(timeout).let {
                 Metrics(
                     activeChannelCount = it.allocatedSize

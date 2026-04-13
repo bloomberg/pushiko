@@ -30,8 +30,8 @@ import kotlinx.coroutines.ensureActive
 import java.io.IOException
 import java.net.InetSocketAddress
 import javax.annotation.concurrent.ThreadSafe
-import kotlin.coroutines.coroutineContext
 import kotlin.time.Duration
+import kotlinx.coroutines.currentCoroutineContext
 
 @ThreadSafe
 class HttpClient internal constructor(
@@ -105,7 +105,7 @@ class HttpClient internal constructor(
     private suspend fun doSend(request: HttpRequest): HttpResponse {
         var retries = 0
         while (true) {
-            coroutineContext.ensureActive()
+            currentCoroutineContext().ensureActive()
             runCatching {
                 return sender.send(request)
             }.onFailure { e ->

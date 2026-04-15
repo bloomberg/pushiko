@@ -61,17 +61,17 @@ import kotlin.coroutines.resumeWithException
 /**
  * A non-blocking, lock-free pool that maintains a minimum number of pooled multiplexers even in the absence of
  * demand, heuristically scheduling the creation of new objects if need be and if the headroom exists to do so even
- * when there may be capacity available elsewhere. When no further aggregate capacity is available further acquisition
- * attempts are treated as pending and their associated continuations buffer up over the pool, only resuming when
- * capacity becomes available again. If there are too many queued pending acquisitions the pool begins failing the
- * oldest of these by resuming the associated continuation with an exception.
+ * when there may be capacity available. When no further aggregate capacity is available further acquisition attempts
+ * are treated as pending and their associated continuations buffer up over the pool, only resuming when capacity
+ * becomes available again. If there are too many queued pending acquisitions the pool begins failing the oldest of
+ * these by resuming the associated continuation with an exception.
  *
  * The acquisition, creation (or not) and release of objects - in other words, the state of the pool - is entirely
  * confined to the pool and orchestrated from a coroutine dispatcher backed exclusively by a single dedicated thread.
  * Intensive or blocking work on this thread would stop the world and is always avoided. Once acquired, the use of a
  * borrowed object is offloaded at the earliest opportunity and the object is released immediately after its
  * acquisition for further acquisition without awaiting the conclusion of the work. The work using a borrowed object
- * may fail but always do so in isolation without affecting another.
+ * may fail but always does so in isolation without affecting another.
  *
  * The closing of the pool is orderly and is triggered by calling [close] which cancels the control job underpinning
  * the pool's work. Once this is initiated subsequent acquisition attempts will fail and promptly meet with an

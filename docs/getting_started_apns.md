@@ -33,7 +33,7 @@ First add Pushiko as a dependency.
 <dependency>
     <groupId>com.bloomberg.pushiko</groupId>
     <artifactId>pushiko-apns</artifactId>
-    <version>{pushikoVersion}</version>
+    <version>{version}</version>
 </dependency>
 ```
 

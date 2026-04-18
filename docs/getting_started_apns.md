@@ -11,7 +11,7 @@ First add Pushiko as a dependency.
     }
 
     dependencies {
-        implementation("com.bloomberg.pushiko:pushiko-apns:{pushikoVersion}")
+        implementation("com.bloomberg.pushiko:pushiko-apns:{version}")
     }
     ```
 
@@ -22,7 +22,7 @@ First add Pushiko as a dependency.
     }
 
     dependencies {
-        implementation 'com.bloomberg.pushiko:pushiko-apns:{pushikoVersion}'
+        implementation 'com.bloomberg.pushiko:pushiko-apns:{version}'
     }
     ```
 

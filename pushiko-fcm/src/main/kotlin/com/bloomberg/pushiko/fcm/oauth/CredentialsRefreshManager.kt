@@ -42,33 +42,10 @@ internal class CredentialsRefreshManager(
     private val backOff: BackOff = OAuthRefreshBackOff(credentials)
 ) {
     private val logger = Logger()
-    private val iterator = iterator {
-        while (true) {
-            try {
-                credentials.run {
-                    refresh()
-                    logger.info(
-                        "Google OAuth token was refreshed for {}, expires in at most {}s",
-                        credentials.projectId,
-                        accessToken.expiresInSeconds
-                    )
-                    yield(RefreshResult.Success(accessToken))
-                }
-            } catch (e: IOException) {
-                if (e.isPermanentFailure()) {
-                    logger.error("OAuth refresh failed permanently for {}: {}", credentials.projectId, e.message)
-                    yield(RefreshResult.PermanentFailure(e))
-                } else {
-                    logger.warn("No new Google OAuth token for ${credentials.projectId} is available", e)
-                    yield(RefreshResult.RetryableFailure(e))
-                }
-            }
-        }
-    }
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val startup = scope.async(start = CoroutineStart.LAZY) {
         while (currentCoroutineContext().isActive) {
-            when (val result = iterator.next()) {
+            when (val result = refreshOnce()) {
                 is RefreshResult.Success -> {
                     logger.info(
                         "Startup OAuth refresh succeeded for {}, token expires in at most {}s",
@@ -109,6 +86,24 @@ internal class CredentialsRefreshManager(
         scope.cancel()
     }
 
+    private fun refreshOnce(): RefreshResult = try {
+        credentials.refresh()
+        logger.info(
+            "Google OAuth token was refreshed for {}, expires in at most {}s",
+            credentials.projectId,
+            credentials.accessToken.expiresInSeconds
+        )
+        RefreshResult.Success(credentials.accessToken)
+    } catch (e: IOException) {
+        if (e.isPermanentFailure()) {
+            logger.error("OAuth refresh failed permanently for {}: {}", credentials.projectId, e.message)
+            RefreshResult.PermanentFailure(e)
+        } else {
+            logger.warn("No new Google OAuth token for ${credentials.projectId} is available", e)
+            RefreshResult.RetryableFailure(e)
+        }
+    }
+
     private suspend fun keepAlive() {
         while (currentCoroutineContext().isActive) {
             val interval = backOff.nextBackOffMillis()
@@ -126,7 +121,7 @@ internal class CredentialsRefreshManager(
                 TimeUnit.MILLISECONDS.toSeconds(interval)
             )
             delay(interval)
-            when (val result = iterator.next()) {
+            when (val result = refreshOnce()) {
                 is RefreshResult.Success -> {
                     logger.info(
                         "Keep-alive OAuth refresh succeeded for {}, token expires in at most {}s",

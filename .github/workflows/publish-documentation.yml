@@ -46,5 +46,5 @@ jobs:
           git fetch origin gh-pages:gh-pages
           sed -i 's/<year>/${{ env.YEAR }}/g' docs/*.md
           sed -i 's/<year>/${{ env.YEAR }}/g' mkdocs.yml
-          sed -i 's/<pushikoVersion>/${{ env.VERSION }}/g' docs/*.md
+          sed -i 's/{pushikoVersion}/${{ env.VERSION }}/g' docs/*.md
           mkdocs gh-deploy -m 'Automatic mkdocs deployment.'

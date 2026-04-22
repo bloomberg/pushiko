@@ -36,7 +36,9 @@ internal class HttpRequestSender(
         writeAndFlush(continuation).addListener {
             if (!it.isSuccess) {
                 close()
-                continuation.resumeWithException(it.cause())
+                runCatching {
+                    continuation.resumeWithException(it.cause())
+                }
             }
         }
     }

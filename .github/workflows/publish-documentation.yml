@@ -40,7 +40,7 @@ jobs:
           cp -R build/dokka/gfmMultiModule docs/kdoc
           cp -R build/dokka/htmlMultiModule docs/kdoc/api
       - name: 'Set version'
-        run: echo "VERSION=$(grep -hnr 'pushiko.versionName' gradle.properties | sed 's/.*=//')" >> $GITHUB_ENV
+        run: echo "VERSION=$(grep -hnr 'pushiko.version' gradle.properties | sed 's/.*=//')" >> $GITHUB_ENV
       - name: 'Mkdocs'
         run: |
           git fetch origin gh-pages:gh-pages

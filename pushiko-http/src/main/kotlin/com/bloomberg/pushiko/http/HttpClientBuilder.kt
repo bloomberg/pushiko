@@ -35,9 +35,11 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import java.net.InetSocketAddress
+import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.cert.X509Certificate
 import javax.annotation.concurrent.NotThreadSafe
+import javax.net.ssl.KeyManagerFactory
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
@@ -77,7 +79,7 @@ class HttpClientBuilder internal constructor() {
             .sslProvider(sslProvider)
             .apply {
                 if (clientCertificate != null) {
-                    keyManager(privateKey!!, privateKeyPassword!!.joinToString(""), clientCertificate)
+                    keyManager(keyManagerFactory())
                 }
             }
             .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
@@ -115,6 +117,16 @@ class HttpClientBuilder internal constructor() {
     private fun EventLoopGroupType.eventLoopGroup() = when (this) {
         EventLoopGroupType.PRIMARY -> sharedEventLoopGroup
         EventLoopGroupType.SECONDARY -> sharedSingleEventLoopGroup
+    }
+
+    private fun keyManagerFactory() = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply {
+        init(
+            KeyStore.getInstance("PKCS12").apply {
+                load(null)
+                setKeyEntry("pushiko", privateKey, privateKeyPassword, arrayOf(clientCertificate))
+            },
+            privateKeyPassword!!
+        )
     }
 
     private companion object {

@@ -1,3 +1,11 @@
+## Version 1.0.8
+
+### Fixes
+
+* Replace token iterator with independent refreshOnce calls.
+* Fix potential double-resume in HttpRequestSender.send.
+* Use KeyManagerFactory for client TLS credential setup.
+
 ## Version 1.0.7
 
 ### Fixes

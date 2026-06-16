@@ -1,3 +1,9 @@
+## Version 1.0.9
+
+### Dependencies
+
+* Netty 4.1.135.Final
+
 ## Version 1.0.8
 
 ### Fixes

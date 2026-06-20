@@ -51,8 +51,6 @@ plugins {
     alias(libs.plugins.nexus.publish)
 }
 
-group = "com.bloomberg.pushiko"
-version = pushikoVersion
 logger.quiet("Group: {}; Version: {}", group, version)
 
 nexusPublishing {
@@ -84,7 +82,6 @@ dependencies {
 
 subprojects {
     group = rootProject.group
-    version = rootProject.version
     apply {
         plugin("org.jlleitschuh.gradle.ktlint")
         plugin("org.owasp.dependencycheck")

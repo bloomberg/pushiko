@@ -25,15 +25,6 @@ fun Project.gitCommit(): Provider<String> = providers.exec {
     commandLine("git", "rev-parse", "HEAD")
 }.standardOutput.asText.map { it.trim() }
 
-fun Project.isRelease() = hasProperty("release")
-
-val Project.pushikoVersion: String
-    get() = if (isRelease()) {
-        checkNotNull(properties["pushiko.version"]).toString()
-    } else {
-        "${checkNotNull(properties["pushiko.nextVersion"])}-SNAPSHOT"
-    }
-
 fun Project.disableKotlinCompilerAssertions() {
     tasks.withType<KotlinJvmCompile>().configureEach {
         compilerOptions {

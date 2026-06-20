@@ -102,7 +102,7 @@ signing {
     val signingPassword: String? by project
     useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
     publishing {
-        isRequired = project.isRelease()
+        isRequired = false
         publications.configureEach(::sign)
     }
 }

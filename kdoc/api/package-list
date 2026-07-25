@@ -2,8 +2,8 @@ $dokka.format:html-v1
 $dokka.linkExtension:html
 
 module:pushiko-api
-com.bloomberg.pushiko.exceptions
-com.bloomberg.pushiko.metrics
+com.bloomberg.pushiko.api.exceptions
+com.bloomberg.pushiko.api.metrics
 module:pushiko-apns
 com.bloomberg.pushiko.apns
 com.bloomberg.pushiko.apns.annotations

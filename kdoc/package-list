@@ -3,6 +3,16 @@ $dokka.linkExtension:md
 $dokka.location:com.bloomberg.netty.ktx////PointingToDeclaration/pushiko-netty-ktx/pushiko-netty-ktx/com.bloomberg.netty.ktx/index.md
 $dokka.location:com.bloomberg.netty.ktx//asDeferred/io.netty.util.concurrent.Future[TypeParam(bounds=[kotlin.Any?])]#/PointingToDeclaration/pushiko-netty-ktx/pushiko-netty-ktx/com.bloomberg.netty.ktx/as-deferred.md
 $dokka.location:com.bloomberg.netty.ktx//awaitKt/io.netty.util.concurrent.Future[TypeParam(bounds=[kotlin.Any?])]#/PointingToDeclaration/pushiko-netty-ktx/pushiko-netty-ktx/com.bloomberg.netty.ktx/await-kt.md
+$dokka.location:com.bloomberg.pushiko.api.exceptions////PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.api.exceptions/index.md
+$dokka.location:com.bloomberg.pushiko.api.exceptions/ClientClosedException///PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.api.exceptions/-client-closed-exception/index.md
+$dokka.location:com.bloomberg.pushiko.api.metrics////PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.api.metrics/index.md
+$dokka.location:com.bloomberg.pushiko.api.metrics/Gauges///PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.api.metrics/-gauges/index.md
+$dokka.location:com.bloomberg.pushiko.api.metrics/Gauges/read/#kotlin.time.Duration/PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.api.metrics/-gauges/read.md
+$dokka.location:com.bloomberg.pushiko.api.metrics/Metrics///PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.api.metrics/-metrics/index.md
+$dokka.location:com.bloomberg.pushiko.api.metrics/Metrics/Metrics/#kotlin.Int/PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.api.metrics/-metrics/-metrics.md
+$dokka.location:com.bloomberg.pushiko.api.metrics/Metrics/connectionCount/#/PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.api.metrics/-metrics/connection-count.md
+$dokka.location:com.bloomberg.pushiko.api.metrics/MetricsComponent///PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.api.metrics/-metrics-component/index.md
+$dokka.location:com.bloomberg.pushiko.api.metrics/MetricsComponent/gauges/#/PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.api.metrics/-metrics-component/gauges.md
 $dokka.location:com.bloomberg.pushiko.apns.annotations////PointingToDeclaration/pushiko-apns/pushiko-apns/com.bloomberg.pushiko.apns.annotations/index.md
 $dokka.location:com.bloomberg.pushiko.apns.annotations/ApnsMarker///PointingToDeclaration/pushiko-apns/pushiko-apns/com.bloomberg.pushiko.apns.annotations/-apns-marker/index.md
 $dokka.location:com.bloomberg.pushiko.apns.exceptions////PointingToDeclaration/pushiko-apns/pushiko-apns/com.bloomberg.pushiko.apns.exceptions/index.md
@@ -150,8 +160,6 @@ $dokka.location:com.bloomberg.pushiko.commons/FifoBuffer/removeFirstOrNull/#/Poi
 $dokka.location:com.bloomberg.pushiko.commons/FifoBuffer/removeLast/#/PointingToDeclaration/pushiko-commons/pushiko-commons/com.bloomberg.pushiko.commons/-fifo-buffer/remove-last.md
 $dokka.location:com.bloomberg.pushiko.commons/FifoBuffer/removeUntilFirstInclusiveOrNull/#kotlin.Function1[TypeParam(bounds=[kotlin.Any]),kotlin.Boolean]/PointingToDeclaration/pushiko-commons/pushiko-commons/com.bloomberg.pushiko.commons/-fifo-buffer/remove-until-first-inclusive-or-null.md
 $dokka.location:com.bloomberg.pushiko.commons/FifoBuffer/size/#/PointingToDeclaration/pushiko-commons/pushiko-commons/com.bloomberg.pushiko.commons/-fifo-buffer/size.md
-$dokka.location:com.bloomberg.pushiko.exceptions////PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.exceptions/index.md
-$dokka.location:com.bloomberg.pushiko.exceptions/ClientClosedException///PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.exceptions/-client-closed-exception/index.md
 $dokka.location:com.bloomberg.pushiko.fcm.annotations////PointingToDeclaration/pushiko-fcm/pushiko-fcm/com.bloomberg.pushiko.fcm.annotations/index.md
 $dokka.location:com.bloomberg.pushiko.fcm.annotations/FcmMarker///PointingToDeclaration/pushiko-fcm/pushiko-fcm/com.bloomberg.pushiko.fcm.annotations/-fcm-marker/index.md
 $dokka.location:com.bloomberg.pushiko.fcm.exceptions////PointingToDeclaration/pushiko-fcm/pushiko-fcm/com.bloomberg.pushiko.fcm.exceptions/index.md
@@ -432,13 +440,6 @@ $dokka.location:com.bloomberg.pushiko.json/JsonObjectWriter/objectValue/#kotlin.
 $dokka.location:com.bloomberg.pushiko.json/JsonObjectWriter/serializeNulls/#/PointingToDeclaration/pushiko-json/pushiko-json/com.bloomberg.pushiko.json/-json-object-writer/serialize-nulls.md
 $dokka.location:com.bloomberg.pushiko.json/JsonObjectWriter/stringValue/#kotlin.String#kotlin.String/PointingToDeclaration/pushiko-json/pushiko-json/com.bloomberg.pushiko.json/-json-object-writer/string-value.md
 $dokka.location:com.bloomberg.pushiko.metrics////PointingToDeclaration/pushiko-metrics/pushiko-metrics/com.bloomberg.pushiko.metrics/index.md
-$dokka.location:com.bloomberg.pushiko.metrics/Gauges///PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.metrics/-gauges/index.md
-$dokka.location:com.bloomberg.pushiko.metrics/Gauges/read/#kotlin.time.Duration/PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.metrics/-gauges/read.md
-$dokka.location:com.bloomberg.pushiko.metrics/Metrics///PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.metrics/-metrics/index.md
-$dokka.location:com.bloomberg.pushiko.metrics/Metrics/Metrics/#kotlin.Int/PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.metrics/-metrics/-metrics.md
-$dokka.location:com.bloomberg.pushiko.metrics/Metrics/connectionCount/#/PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.metrics/-metrics/connection-count.md
-$dokka.location:com.bloomberg.pushiko.metrics/MetricsComponent///PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.metrics/-metrics-component/index.md
-$dokka.location:com.bloomberg.pushiko.metrics/MetricsComponent/gauges/#/PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.metrics/-metrics-component/gauges.md
 $dokka.location:com.bloomberg.pushiko.metrics/SharedAllocatorMetric///PointingToDeclaration/pushiko-metrics/pushiko-metrics/com.bloomberg.pushiko.metrics/-shared-allocator-metric/index.md
 $dokka.location:com.bloomberg.pushiko.metrics/SharedAllocatorMetric/chunkSize/#/PointingToDeclaration/pushiko-metrics/pushiko-metrics/com.bloomberg.pushiko.metrics/-shared-allocator-metric/chunk-size.md
 $dokka.location:com.bloomberg.pushiko.metrics/SharedAllocatorMetric/directArenasCount/#/PointingToDeclaration/pushiko-metrics/pushiko-metrics/com.bloomberg.pushiko.metrics/-shared-allocator-metric/direct-arenas-count.md
@@ -515,8 +516,8 @@ $dokka.location:com.bloomberg.pushiko.pool/WaterMarkScaleFactor/low/#/PointingTo
 $dokka.location:com.bloomberg.pushiko.proxies////PointingToDeclaration/pushiko-http/pushiko-http/com.bloomberg.pushiko.proxies/index.md
 $dokka.location:com.bloomberg.pushiko.proxies//systemHttpsProxyAddress/#kotlin.String/PointingToDeclaration/pushiko-http/pushiko-http/com.bloomberg.pushiko.proxies/system-https-proxy-address.md
 module:pushiko-api
-com.bloomberg.pushiko.exceptions
-com.bloomberg.pushiko.metrics
+com.bloomberg.pushiko.api.exceptions
+com.bloomberg.pushiko.api.metrics
 module:pushiko-apns
 com.bloomberg.pushiko.apns
 com.bloomberg.pushiko.apns.annotations

@@ -33,7 +33,7 @@ com.bloomberg.pushiko.json
 module:pushiko-metrics
 com.bloomberg.pushiko.metrics
 module:pushiko-netty-ktx
-com.bloomberg.netty.ktx
+com.bloomberg.pushiko.netty.ktx
 module:pushiko-pools
 com.bloomberg.pushiko.pool
 com.bloomberg.pushiko.pool.exceptions

@@ -1,8 +1,5 @@
 $dokka.format:gfm-v1
 $dokka.linkExtension:md
-$dokka.location:com.bloomberg.netty.ktx////PointingToDeclaration/pushiko-netty-ktx/pushiko-netty-ktx/com.bloomberg.netty.ktx/index.md
-$dokka.location:com.bloomberg.netty.ktx//asDeferred/io.netty.util.concurrent.Future[TypeParam(bounds=[kotlin.Any?])]#/PointingToDeclaration/pushiko-netty-ktx/pushiko-netty-ktx/com.bloomberg.netty.ktx/as-deferred.md
-$dokka.location:com.bloomberg.netty.ktx//awaitKt/io.netty.util.concurrent.Future[TypeParam(bounds=[kotlin.Any?])]#/PointingToDeclaration/pushiko-netty-ktx/pushiko-netty-ktx/com.bloomberg.netty.ktx/await-kt.md
 $dokka.location:com.bloomberg.pushiko.api.exceptions////PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.api.exceptions/index.md
 $dokka.location:com.bloomberg.pushiko.api.exceptions/ClientClosedException///PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.api.exceptions/-client-closed-exception/index.md
 $dokka.location:com.bloomberg.pushiko.api.metrics////PointingToDeclaration/pushiko-api/pushiko-api/com.bloomberg.pushiko.api.metrics/index.md
@@ -452,6 +449,9 @@ $dokka.location:com.bloomberg.pushiko.metrics/SharedAllocatorMetric/smallCacheSi
 $dokka.location:com.bloomberg.pushiko.metrics/SharedAllocatorMetric/threadLocalCachesCount/#/PointingToDeclaration/pushiko-metrics/pushiko-metrics/com.bloomberg.pushiko.metrics/-shared-allocator-metric/thread-local-caches-count.md
 $dokka.location:com.bloomberg.pushiko.metrics/SharedAllocatorMetric/usedDirectMemory/#/PointingToDeclaration/pushiko-metrics/pushiko-metrics/com.bloomberg.pushiko.metrics/-shared-allocator-metric/used-direct-memory.md
 $dokka.location:com.bloomberg.pushiko.metrics/SharedAllocatorMetric/usedHeapMemory/#/PointingToDeclaration/pushiko-metrics/pushiko-metrics/com.bloomberg.pushiko.metrics/-shared-allocator-metric/used-heap-memory.md
+$dokka.location:com.bloomberg.pushiko.netty.ktx////PointingToDeclaration/pushiko-netty-ktx/pushiko-netty-ktx/com.bloomberg.pushiko.netty.ktx/index.md
+$dokka.location:com.bloomberg.pushiko.netty.ktx//asDeferred/io.netty.util.concurrent.Future[TypeParam(bounds=[kotlin.Any?])]#/PointingToDeclaration/pushiko-netty-ktx/pushiko-netty-ktx/com.bloomberg.pushiko.netty.ktx/as-deferred.md
+$dokka.location:com.bloomberg.pushiko.netty.ktx//awaitKt/io.netty.util.concurrent.Future[TypeParam(bounds=[kotlin.Any?])]#/PointingToDeclaration/pushiko-netty-ktx/pushiko-netty-ktx/com.bloomberg.pushiko.netty.ktx/await-kt.md
 $dokka.location:com.bloomberg.pushiko.pool.exceptions////PointingToDeclaration/pushiko-pools/pushiko-pools/com.bloomberg.pushiko.pool.exceptions/index.md
 $dokka.location:com.bloomberg.pushiko.pool.exceptions/PoolClosedException///PointingToDeclaration/pushiko-pools/pushiko-pools/com.bloomberg.pushiko.pool.exceptions/-pool-closed-exception/index.md
 $dokka.location:com.bloomberg.pushiko.pool.exceptions/PoolClosedException/fillInStackTrace/#/PointingToDeclaration/pushiko-pools/pushiko-pools/com.bloomberg.pushiko.pool.exceptions/-pool-closed-exception/fill-in-stack-trace.md
@@ -547,7 +547,7 @@ com.bloomberg.pushiko.json
 module:pushiko-metrics
 com.bloomberg.pushiko.metrics
 module:pushiko-netty-ktx
-com.bloomberg.netty.ktx
+com.bloomberg.pushiko.netty.ktx
 module:pushiko-pools
 com.bloomberg.pushiko.pool
 com.bloomberg.pushiko.pool.exceptions

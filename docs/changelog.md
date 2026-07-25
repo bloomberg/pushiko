@@ -1,3 +1,15 @@
+## Version 2.0.0
+
+### Breaking Changes
+
+* Move `ClientClosedException` to `com.bloomberg.pushiko.api.exceptions`, and the metrics interfaces `Gauges`, `Metrics` and `MetricsComponent` to `com.bloomberg.pushiko.api.metrics`. This also removes a split package shared with `pushiko-metrics`.
+* Move `pushiko-netty-ktx` types from `com.bloomberg.netty.ktx` to `com.bloomberg.pushiko.netty.ktx`.
+* Move `pushiko-pools` types from `com.bloomberg.pushiko.pool` to `com.bloomberg.pushiko.pools`.
+
+### Fixes
+
+* Set a stable `Automatic-Module-Name` on each published jar so consumers can require these artifacts on the JPMS module path.
+
 ## Version 1.0.9
 
 ### Dependencies

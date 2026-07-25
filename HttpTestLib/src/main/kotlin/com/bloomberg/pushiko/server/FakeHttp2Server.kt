@@ -17,7 +17,7 @@
 package com.bloomberg.pushiko.server
 
 import com.bloomberg.pushiko.commons.slf4j.Logger
-import com.bloomberg.netty.ktx.awaitKt
+import com.bloomberg.pushiko.netty.ktx.awaitKt
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.ChannelInitializer

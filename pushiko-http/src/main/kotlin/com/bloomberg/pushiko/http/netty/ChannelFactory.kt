@@ -41,7 +41,7 @@ package com.bloomberg.pushiko.http.netty
 import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.bloomberg.pushiko.http.IHttpClientProperties
 import com.bloomberg.pushiko.http.exceptions.ChannelInactiveException
-import com.bloomberg.netty.ktx.awaitKt
+import com.bloomberg.pushiko.netty.ktx.awaitKt
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.Channel
 import io.netty.channel.ChannelOption

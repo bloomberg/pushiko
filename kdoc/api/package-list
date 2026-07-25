@@ -35,5 +35,5 @@ com.bloomberg.pushiko.metrics
 module:pushiko-netty-ktx
 com.bloomberg.pushiko.netty.ktx
 module:pushiko-pools
-com.bloomberg.pushiko.pool
-com.bloomberg.pushiko.pool.exceptions
+com.bloomberg.pushiko.pools
+com.bloomberg.pushiko.pools.exceptions

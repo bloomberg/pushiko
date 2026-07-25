@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.pool
+package com.bloomberg.pushiko.pools
 
 import com.bloomberg.pushiko.commons.assertions.assert
-import com.bloomberg.pushiko.pool.exceptions.PoolClosedException
+import com.bloomberg.pushiko.pools.exceptions.PoolClosedException
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.CoroutineScope

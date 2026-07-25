@@ -41,8 +41,8 @@ package com.bloomberg.pushiko.http.netty
 import com.bloomberg.pushiko.health.Health
 import com.bloomberg.pushiko.health.Status
 import com.bloomberg.pushiko.http.IHttpClientProperties
-import com.bloomberg.pushiko.pool.CommonMuxPool
-import com.bloomberg.pushiko.pool.PoolConfiguration
+import com.bloomberg.pushiko.pools.CommonMuxPool
+import com.bloomberg.pushiko.pools.PoolConfiguration
 import io.netty.channel.Channel
 import io.netty.channel.EventLoopGroup
 import io.netty.handler.codec.http2.Http2FrameLogger

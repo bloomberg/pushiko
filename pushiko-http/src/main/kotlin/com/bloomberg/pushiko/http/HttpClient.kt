@@ -20,7 +20,7 @@ import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.bloomberg.pushiko.http.HttpClientProperties.Companion.OptionalHttpProperties
 import com.bloomberg.pushiko.http.exceptions.HttpClientClosedException
 import com.bloomberg.pushiko.http.netty.ChannelPool
-import com.bloomberg.pushiko.pool.exceptions.PoolClosedException
+import com.bloomberg.pushiko.pools.exceptions.PoolClosedException
 import io.netty.channel.EventLoopGroup
 import io.netty.handler.codec.http2.Http2Exception
 import io.netty.handler.codec.http2.Http2FrameLogger

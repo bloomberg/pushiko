@@ -14,34 +14,7 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.pool
+package com.bloomberg.pushiko.pools;
 
-import javax.annotation.concurrent.NotThreadSafe
-
-@NotThreadSafe
-abstract class Poolable<out R : Any>(
-    @JvmField
-    @PublishedApi
-    internal val value: R
-) {
-    var allocatedPermits = 0
-        private set
-
-    abstract val maximumPermits: Int
-
-    abstract val isAlive: Boolean
-
-    abstract val isCanAcquire: Boolean
-
-    abstract val isShouldAcquire: Boolean
-
-    fun acquirePermit() = apply {
-        ++allocatedPermits
-    }
-
-    fun releasePermit() {
-        --allocatedPermits
-    }
-
-    open suspend fun summarize(appendable: Appendable) = Unit
+public final class LazyPoolFactoryTest {
 }

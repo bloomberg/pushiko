@@ -17,8 +17,8 @@
 package com.bloomberg.pushiko.http.netty
 
 import com.bloomberg.pushiko.http.IHttpClientProperties
-import com.bloomberg.pushiko.pool.Factory
-import com.bloomberg.pushiko.pool.Recycler
+import com.bloomberg.pushiko.pools.Factory
+import com.bloomberg.pushiko.pools.Recycler
 import io.netty.channel.Channel
 import javax.annotation.concurrent.ThreadSafe
 

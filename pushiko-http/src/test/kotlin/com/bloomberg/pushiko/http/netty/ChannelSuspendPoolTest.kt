@@ -16,8 +16,8 @@
 
 package com.bloomberg.pushiko.http.netty
 
-import com.bloomberg.pushiko.pool.PoolConfiguration
-import com.bloomberg.pushiko.pool.exceptions.PoolClosedException
+import com.bloomberg.pushiko.pools.PoolConfiguration
+import com.bloomberg.pushiko.pools.exceptions.PoolClosedException
 import io.netty.channel.Channel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

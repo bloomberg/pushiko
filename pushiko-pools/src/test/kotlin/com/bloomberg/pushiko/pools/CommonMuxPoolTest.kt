@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.pool
+package com.bloomberg.pushiko.pools
 
-import com.bloomberg.pushiko.pool.exceptions.PoolClosedException
+import com.bloomberg.pushiko.pools.exceptions.PoolClosedException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

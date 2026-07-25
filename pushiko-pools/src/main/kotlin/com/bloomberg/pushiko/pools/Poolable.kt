@@ -14,11 +14,34 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.pool.exceptions
+package com.bloomberg.pushiko.pools
 
-internal object PendingAcquisitionLimitException : IllegalStateException("Pending acquisition limit reached") {
-    override fun fillInStackTrace(): Throwable = this
+import javax.annotation.concurrent.NotThreadSafe
 
-    @Suppress("Detekt.UnusedPrivateMember")
-    private fun readResolve(): Any = PendingAcquisitionLimitException
+@NotThreadSafe
+abstract class Poolable<out R : Any>(
+    @JvmField
+    @PublishedApi
+    internal val value: R
+) {
+    var allocatedPermits = 0
+        private set
+
+    abstract val maximumPermits: Int
+
+    abstract val isAlive: Boolean
+
+    abstract val isCanAcquire: Boolean
+
+    abstract val isShouldAcquire: Boolean
+
+    fun acquirePermit() = apply {
+        ++allocatedPermits
+    }
+
+    fun releasePermit() {
+        --allocatedPermits
+    }
+
+    open suspend fun summarize(appendable: Appendable) = Unit
 }

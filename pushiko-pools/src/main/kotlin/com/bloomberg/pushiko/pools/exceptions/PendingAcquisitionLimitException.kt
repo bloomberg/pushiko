@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.pool.exceptions
+package com.bloomberg.pushiko.pools.exceptions
 
-import kotlinx.coroutines.CancellationException
-
-object PoolClosedException : CancellationException("Pool is closed") {
+internal object PendingAcquisitionLimitException : IllegalStateException("Pending acquisition limit reached") {
     override fun fillInStackTrace(): Throwable = this
 
     @Suppress("Detekt.UnusedPrivateMember")
-    private fun readResolve(): Any = PoolClosedException
+    private fun readResolve(): Any = PendingAcquisitionLimitException
 }

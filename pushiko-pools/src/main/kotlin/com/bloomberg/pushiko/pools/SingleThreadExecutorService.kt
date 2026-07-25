@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.pool
+package com.bloomberg.pushiko.pools
 
 import kotlinx.atomicfu.atomic
 import java.util.concurrent.ExecutorService

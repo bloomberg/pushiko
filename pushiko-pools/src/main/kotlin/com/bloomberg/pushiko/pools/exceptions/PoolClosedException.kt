@@ -14,7 +14,13 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.pool;
+package com.bloomberg.pushiko.pools.exceptions
 
-public final class LazyPoolFactoryTest {
+import kotlinx.coroutines.CancellationException
+
+object PoolClosedException : CancellationException("Pool is closed") {
+    override fun fillInStackTrace(): Throwable = this
+
+    @Suppress("Detekt.UnusedPrivateMember")
+    private fun readResolve(): Any = PoolClosedException
 }

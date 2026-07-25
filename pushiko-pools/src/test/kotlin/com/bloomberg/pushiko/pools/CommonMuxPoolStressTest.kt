@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.pool
+package com.bloomberg.pushiko.pools
 
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.kotlinx.lincheck.annotations.Operation

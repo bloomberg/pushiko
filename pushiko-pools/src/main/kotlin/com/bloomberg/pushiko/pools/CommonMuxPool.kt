@@ -36,14 +36,14 @@
  * THE SOFTWARE.
  */
 
-package com.bloomberg.pushiko.pool
+package com.bloomberg.pushiko.pools
 
 import com.bloomberg.pushiko.commons.FifoBuffer
 import com.bloomberg.pushiko.commons.removeUntil
 import com.bloomberg.pushiko.commons.removeUntilInclusiveOrNull
 import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.bloomberg.pushiko.commons.strings.commonPluralSuffix
-import com.bloomberg.pushiko.pool.exceptions.PendingAcquisitionLimitException
+import com.bloomberg.pushiko.pools.exceptions.PendingAcquisitionLimitException
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job

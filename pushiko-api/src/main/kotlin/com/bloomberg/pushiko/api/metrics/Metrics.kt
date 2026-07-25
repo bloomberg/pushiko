@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.metrics
+package com.bloomberg.pushiko.api.metrics
 
-import kotlin.time.Duration
-
-interface Gauges {
-    @JvmSynthetic
-    suspend fun read(timeout: Duration): Metrics
-}
+data class Metrics(
+    val connectionCount: Int
+)

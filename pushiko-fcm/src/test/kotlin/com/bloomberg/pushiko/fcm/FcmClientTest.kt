@@ -18,7 +18,7 @@
 
 package com.bloomberg.pushiko.fcm
 
-import com.bloomberg.pushiko.exceptions.ClientClosedException
+import com.bloomberg.pushiko.api.exceptions.ClientClosedException
 import com.bloomberg.pushiko.fcm.exceptions.FcmException
 import com.bloomberg.pushiko.fcm.model.Error
 import com.bloomberg.pushiko.fcm.oauth.Session

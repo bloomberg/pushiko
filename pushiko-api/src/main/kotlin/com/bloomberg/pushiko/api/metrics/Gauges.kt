@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.exceptions
+package com.bloomberg.pushiko.api.metrics
 
-/**
- * @since 0.26.0
- */
-object ClientClosedException : RuntimeException("Client is closed")
+import kotlin.time.Duration
+
+interface Gauges {
+    @JvmSynthetic
+    suspend fun read(timeout: Duration): Metrics
+}

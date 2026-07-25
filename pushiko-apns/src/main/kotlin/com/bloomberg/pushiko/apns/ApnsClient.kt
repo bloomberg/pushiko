@@ -22,12 +22,12 @@ import com.bloomberg.pushiko.apns.annotations.ApnsMarker
 import com.bloomberg.pushiko.apns.certificates.willExpireWithin
 import com.bloomberg.pushiko.apns.exceptions.ApnsException
 import com.bloomberg.pushiko.apns.keys.pkcs12PrivateKeyEntries
-import com.bloomberg.pushiko.metrics.Gauges
-import com.bloomberg.pushiko.metrics.Metrics
+import com.bloomberg.pushiko.api.metrics.Gauges
+import com.bloomberg.pushiko.api.metrics.Metrics
 import com.bloomberg.pushiko.commons.UNREACHABLE_KOTLIN_VERSION
 import com.bloomberg.pushiko.commons.coroutines.CommonPoolDispatcher
 import com.bloomberg.pushiko.commons.slf4j.Logger
-import com.bloomberg.pushiko.exceptions.ClientClosedException
+import com.bloomberg.pushiko.api.exceptions.ClientClosedException
 import com.bloomberg.pushiko.health.HealthCheck
 import com.bloomberg.pushiko.http.EventLoopGroupType
 import com.bloomberg.pushiko.http.HttpClient
@@ -426,7 +426,7 @@ class ApnsClient private constructor(
     }
 
     @ThreadSafe
-    inner class MetricsComponent internal constructor() : com.bloomberg.pushiko.metrics.MetricsComponent {
+    inner class MetricsComponent internal constructor() : com.bloomberg.pushiko.api.metrics.MetricsComponent {
         override val gauges: Gauges = object : Gauges {
             override suspend fun read(timeout: Duration) = httpClient.metricsComponent.gauges.read(timeout).let {
                 Metrics(

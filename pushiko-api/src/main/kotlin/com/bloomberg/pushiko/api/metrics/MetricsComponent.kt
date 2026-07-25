@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.metrics
+package com.bloomberg.pushiko.api.metrics
 
-data class Metrics(
-    val connectionCount: Int
-)
+interface MetricsComponent {
+    val gauges: Gauges
+}

@@ -18,10 +18,10 @@
 
 package com.bloomberg.pushiko.apns
 
+import com.bloomberg.pushiko.api.exceptions.ClientClosedException
 import com.bloomberg.pushiko.apns.exceptions.ApnsException
 import com.bloomberg.pushiko.apns.model.Priority
 import com.bloomberg.pushiko.apns.model.PushType
-import com.bloomberg.pushiko.exceptions.ClientClosedException
 import com.bloomberg.pushiko.http.HttpClient
 import com.bloomberg.pushiko.http.HttpResponse
 import com.bloomberg.pushiko.http.exceptions.HttpClientClosedException

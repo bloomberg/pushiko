@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.metrics
+package com.bloomberg.pushiko.api.exceptions
 
-interface MetricsComponent {
-    val gauges: Gauges
-}
+/**
+ * @since 0.26.0
+ */
+object ClientClosedException : RuntimeException("Client is closed")

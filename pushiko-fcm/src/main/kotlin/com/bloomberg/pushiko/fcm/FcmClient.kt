@@ -18,11 +18,13 @@
 
 package com.bloomberg.pushiko.fcm
 
+import com.bloomberg.pushiko.api.exceptions.ClientClosedException
+import com.bloomberg.pushiko.api.metrics.Gauges
+import com.bloomberg.pushiko.api.metrics.Metrics
 import com.bloomberg.pushiko.commons.UNREACHABLE_KOTLIN_VERSION
 import com.bloomberg.pushiko.commons.coroutines.CommonPoolDispatcher
 import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.bloomberg.pushiko.commons.strings.commonPluralSuffix
-import com.bloomberg.pushiko.exceptions.ClientClosedException
 import com.bloomberg.pushiko.fcm.annotations.FcmMarker
 import com.bloomberg.pushiko.fcm.exceptions.FcmException
 import com.bloomberg.pushiko.fcm.oauth.CredentialsSession
@@ -35,8 +37,6 @@ import com.bloomberg.pushiko.http.HttpRequest
 import com.bloomberg.pushiko.http.HttpResponse
 import com.bloomberg.pushiko.http.exceptions.HttpClientClosedException
 import com.bloomberg.pushiko.http.retryAfterMillis
-import com.bloomberg.pushiko.metrics.Gauges
-import com.bloomberg.pushiko.metrics.Metrics
 import com.bloomberg.pushiko.proxies.systemHttpsProxyAddress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -432,7 +432,7 @@ class FcmClient private constructor(
     }
 
     @ThreadSafe
-    inner class MetricsComponent internal constructor() : com.bloomberg.pushiko.metrics.MetricsComponent {
+    inner class MetricsComponent internal constructor() : com.bloomberg.pushiko.api.metrics.MetricsComponent {
         override val gauges: Gauges = object : Gauges {
             override suspend fun read(timeout: Duration) = httpClient.metricsComponent.gauges.read(timeout).let {
                 Metrics(

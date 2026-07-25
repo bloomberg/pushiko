@@ -17,7 +17,7 @@
 @file:Suppress("EXPERIMENTAL_IS_NOT_ENABLED")
 @file:OptIn(ExperimentalCoroutinesApi::class)
 
-package com.bloomberg.netty.ktx
+package com.bloomberg.pushiko.netty.ktx
 
 import io.netty.channel.DefaultChannelPromise
 import io.netty.util.concurrent.EventExecutor

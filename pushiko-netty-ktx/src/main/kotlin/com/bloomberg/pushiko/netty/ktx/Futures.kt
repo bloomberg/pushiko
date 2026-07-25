@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bloomberg.netty.ktx
+package com.bloomberg.pushiko.netty.ktx
 
 import io.netty.util.concurrent.Future
 import kotlinx.coroutines.CompletableDeferred

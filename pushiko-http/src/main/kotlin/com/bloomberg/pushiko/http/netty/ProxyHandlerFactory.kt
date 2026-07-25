@@ -17,7 +17,7 @@
 package com.bloomberg.pushiko.http.netty
 
 import com.bloomberg.pushiko.commons.slf4j.Logger
-import com.bloomberg.netty.ktx.awaitKt
+import com.bloomberg.pushiko.netty.ktx.awaitKt
 import io.netty.channel.EventLoop
 import io.netty.handler.proxy.HttpProxyHandler
 import io.netty.resolver.AddressResolver

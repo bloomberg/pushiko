@@ -40,7 +40,7 @@ package com.bloomberg.pushiko.http.netty
 
 import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.bloomberg.pushiko.commons.strings.commonPluralSuffix
-import com.bloomberg.netty.ktx.awaitKt
+import com.bloomberg.pushiko.netty.ktx.awaitKt
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.epoll.Epoll
 import io.netty.channel.epoll.EpollDatagramChannel

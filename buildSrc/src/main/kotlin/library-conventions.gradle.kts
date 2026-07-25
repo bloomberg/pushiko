@@ -15,7 +15,9 @@
  */
 
 import org.gradle.api.publish.maven.MavenPublication
+import org.gradle.api.tasks.bundling.Jar
 import org.gradle.kotlin.dsl.get
+import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 
 plugins {
@@ -34,6 +36,12 @@ apply<LibraryConventionsPlugin>()
 
 java {
     withSourcesJar()
+}
+
+tasks.named<Jar>("jar") {
+    manifest {
+        attributes(mapOf("Automatic-Module-Name" to "com.bloomberg.${project.name.replace('-', '.')}"))
+    }
 }
 
 fun MavenPom.commonInitialisation(project: Project) {

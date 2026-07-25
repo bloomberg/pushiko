@@ -18,8 +18,8 @@ package com.bloomberg.pushiko.http.netty
 
 import com.bloomberg.pushiko.http.ConcurrentRequestWaterMark
 import com.bloomberg.pushiko.http.IHttpClientProperties
-import com.bloomberg.pushiko.pool.Poolable
-import com.bloomberg.pushiko.pool.WaterMarkScaleFactor
+import com.bloomberg.pushiko.pools.Poolable
+import com.bloomberg.pushiko.pools.WaterMarkScaleFactor
 import io.netty.channel.Channel
 import io.netty.handler.codec.http2.StreamBufferingEncoder
 import io.netty.util.AttributeKey

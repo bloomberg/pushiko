@@ -16,7 +16,7 @@
 
 @file:OptIn(ExperimentalContracts::class, ExperimentalContracts::class)
 
-package com.bloomberg.pushiko.pool
+package com.bloomberg.pushiko.pools
 
 import javax.annotation.concurrent.ThreadSafe
 import kotlin.time.Duration

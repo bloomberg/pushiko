@@ -28,6 +28,16 @@ jobs:
         run: ./gradlew check -x integrationTest
       - name: 'Integration test'
         run: ./gradlew :pushiko-fcm:integrationTest
+      - name: 'Check semantic versioning'
+        if: github.event_name == 'release' && github.event.action == 'published'
+        run: ./gradlew checkSemver
+      - name: 'Archive semver reports'
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semver-reports
+          path: '**/build/reports/japicmp/'
+          if-no-files-found: ignore
       - name: 'Publish release to Maven Central'
         if: github.event_name == 'release' && github.event.action == 'published'
         env:

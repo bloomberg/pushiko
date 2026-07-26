@@ -9,6 +9,7 @@ atomicfu = { module = "org.jetbrains.kotlinx:atomicfu-gradle-plugin", version = 
 findbugs-jsr305 = { module = "com.google.code.findbugs:jsr305", version = "3.0.2" }
 google-auth = { module = "com.google.auth:google-auth-library-oauth2-http", version = "1.43.0" }
 gson = { module = "com.google.code.gson:gson", version = "2.10.1" }
+japicmp-gradle-plugin = { module = "me.champeau.gradle:japicmp-gradle-plugin", version = "0.4.6" }
 kotlin-bom = { module = "org.jetbrains.kotlin:kotlin-bom", version.ref = "kotlin" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
 kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5" }

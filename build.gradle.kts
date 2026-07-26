@@ -226,6 +226,11 @@ tasks.named("check") {
     dependsOn("koverVerify")
 }
 
+tasks.register("checkSemver") {
+    group = "verification"
+    description = "Binary-compatibility check across all published modules."
+}
+
 idea.project.settings {
     copyright {
         useDefault = "Bloomberg"

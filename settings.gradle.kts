@@ -16,6 +16,8 @@
 
 rootProject.name = "pushiko"
 
+includeBuild("build-logic")
+
 include(":HttpTestLib")
 include(":pushiko-api")
 include(":pushiko-apns")

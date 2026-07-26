@@ -47,7 +47,7 @@ inline fun ApnsRequest(block: ApnsRequest.Builder.() -> Unit): ApnsRequest {
             block(this)
             build()
         }.getOrElse {
-            runCatching { close() }
+            runCatching(::close)
             throw it
         }
     }
@@ -55,7 +55,7 @@ inline fun ApnsRequest(block: ApnsRequest.Builder.() -> Unit): ApnsRequest {
 
 @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
 @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-fun ApnsRequest(consumer: Consumer<ApnsRequest.Builder>) = ApnsRequest { consumer.accept(this) }
+fun ApnsRequest(consumer: Consumer<ApnsRequest.Builder>) = ApnsRequest(consumer::accept)
 
 /**
  * @since 0.12.0
@@ -166,7 +166,7 @@ class ApnsRequest private constructor(
          */
         @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
         @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-        fun payload(consumer: Consumer<JsonObjectWriter>) = payload { consumer.accept(this) }
+        fun payload(consumer: Consumer<JsonObjectWriter>) = payload(consumer::accept)
 
         /**
          * @since 0.18.0
@@ -188,7 +188,7 @@ class ApnsRequest private constructor(
          */
         @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
         @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-        fun aps(consumer: Consumer<ApsWriter>) = aps { consumer.accept(this) }
+        fun aps(consumer: Consumer<ApsWriter>) = aps(consumer::accept)
 
         fun collapseId(value: String) = apply {
             collapseId = value

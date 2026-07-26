@@ -51,7 +51,7 @@ class ApsWriter @PublishedApi internal constructor(
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun alert(consumer: Consumer<AlertWriter>) = alert { consumer.accept(this) }
+    fun alert(consumer: Consumer<AlertWriter>) = alert(consumer::accept)
 
     fun badge(value: Int) = apply {
         writer.intValue("badge", value)

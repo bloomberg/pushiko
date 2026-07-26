@@ -49,7 +49,7 @@ class MessageWriter @PublishedApi internal constructor(
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun android(consumer: Consumer<AndroidConfigWriter>) = android { consumer.accept(this) }
+    fun android(consumer: Consumer<AndroidConfigWriter>) = android(consumer::accept)
 
     /**
      * Condition statement to send a message to, for example: "'abc' in topics && 'def' in topics".
@@ -87,7 +87,7 @@ class MessageWriter @PublishedApi internal constructor(
 
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun data(consumer: Consumer<DataWriter>) = data { consumer.accept(this) }
+    fun data(consumer: Consumer<DataWriter>) = data(consumer::accept)
 
     /**
      * Basic notification template to use across all platforms.
@@ -109,7 +109,7 @@ class MessageWriter @PublishedApi internal constructor(
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun notification(consumer: Consumer<NotificationWriter>) = notification { consumer.accept(this) }
+    fun notification(consumer: Consumer<NotificationWriter>) = notification(consumer::accept)
 
     /**
      * Registration token uniquely identifying a message recipient.

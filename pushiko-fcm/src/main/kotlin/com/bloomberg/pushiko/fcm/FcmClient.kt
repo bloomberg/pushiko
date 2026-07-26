@@ -70,6 +70,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toKotlinDuration
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import java.io.BufferedReader
 
 private const val FCM_HOST = "fcm.googleapis.com"
 private const val FCM_PORT = 443
@@ -326,7 +327,7 @@ class FcmClient private constructor(
         else -> FcmServerErrorResponse(
             request,
             code,
-            body?.bufferedReader(Charsets.UTF_8)?.readText(),
+            body?.bufferedReader(Charsets.UTF_8)?.use(BufferedReader::readText),
             retryAfterMillis()
         )
     }

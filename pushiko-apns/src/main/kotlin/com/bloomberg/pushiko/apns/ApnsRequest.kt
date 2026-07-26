@@ -57,6 +57,10 @@ inline fun ApnsRequest(block: ApnsRequest.Builder.() -> Unit): ApnsRequest {
 @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
 fun ApnsRequest(consumer: Consumer<ApnsRequest.Builder>) = ApnsRequest(consumer::accept)
 
+private fun String.requireInjectionSafe(field: String) = require(none { it.isWhitespace() || it.isISOControl() }) {
+    "$field must not contain whitespace or control characters"
+}
+
 /**
  * @since 0.12.0
  */
@@ -73,7 +77,12 @@ class ApnsRequest private constructor(
     internal val payload: ByteArray
 ) {
     init {
-        require(deviceToken.isNotEmpty()) { "Device token must not be empty" }
+        require(deviceToken.isNotEmpty()) { "deviceToken must not be empty" }
+        deviceToken.requireInjectionSafe("deviceToken")
+        headers.run {
+            topic.requireInjectionSafe("topic")
+            collapseId?.requireInjectionSafe("collapseId")
+        }
     }
 
     data class Headers internal constructor(

@@ -41,7 +41,7 @@ inline fun FcmRequest(block: FcmRequest.Builder.() -> Unit): FcmRequest {
             block(this)
             build()
         }.getOrElse {
-            runCatching { close() }
+            runCatching(::close)
             throw it
         }
     }
@@ -49,7 +49,7 @@ inline fun FcmRequest(block: FcmRequest.Builder.() -> Unit): FcmRequest {
 
 @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
 @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-fun FcmRequest(consumer: Consumer<FcmRequest.Builder>) = FcmRequest { consumer.accept(this) }
+fun FcmRequest(consumer: Consumer<FcmRequest.Builder>) = FcmRequest(consumer::accept)
 
 @ThreadSafe
 class FcmRequest private constructor(
@@ -75,9 +75,7 @@ class FcmRequest private constructor(
             try {
                 writer.close()
             } finally {
-                buffer.use {
-                    it.clear()
-                }
+                buffer.use(Buffer::clear)
             }
         }
 
@@ -96,12 +94,12 @@ class FcmRequest private constructor(
 
         @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
         @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-        fun message(consumer: Consumer<MessageWriter>) = message { consumer.accept(this) }
+        fun message(consumer: Consumer<MessageWriter>) = message(consumer::accept)
 
         @JvmSynthetic @PublishedApi
         internal fun build(): FcmRequest {
             writer.close()
-            return FcmRequest(buffer.use { it.readByteArray() })
+            return FcmRequest(buffer.use(Buffer::readByteArray))
         }
     }
 }

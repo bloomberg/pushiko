@@ -109,7 +109,7 @@ fun ApnsClient(block: ApnsClient.Builder.() -> Unit): ApnsClient {
 
 @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
 @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-fun ApnsClient(consumer: Consumer<ApnsClient.Builder>) = ApnsClient { consumer.accept(this) }
+fun ApnsClient(consumer: Consumer<ApnsClient.Builder>) = ApnsClient(consumer::accept)
 
 private fun ApnsEnvironment.eventLoopGroupType() = when (this) {
     ApnsEnvironment.PRODUCTION -> EventLoopGroupType.PRIMARY

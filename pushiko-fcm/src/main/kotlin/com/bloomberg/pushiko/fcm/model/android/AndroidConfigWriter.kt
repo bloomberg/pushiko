@@ -88,5 +88,5 @@ class AndroidConfigWriter @PublishedApi internal constructor(
 
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun notification(consumer: Consumer<AndroidNotificationWriter>) = notification { consumer.accept(this) }
+    fun notification(consumer: Consumer<AndroidNotificationWriter>) = notification(consumer::accept)
 }

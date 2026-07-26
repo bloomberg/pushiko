@@ -98,7 +98,7 @@ fun FcmClient(block: FcmClient.Builder.() -> Unit): FcmClient {
 
 @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
 @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-fun FcmClient(consumer: Consumer<FcmClient.Builder>) = FcmClient { consumer.accept(this) }
+fun FcmClient(consumer: Consumer<FcmClient.Builder>) = FcmClient(consumer::accept)
 
 /**
  * A client for sending push notification messages to Firebase Cloud Messaging (FCM).

@@ -28,21 +28,6 @@ import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
-@JvmSynthetic
-internal suspend fun <R : Any, P : Poolable<R>, T : Any> SuspendPool<R, P>.use(
-    acquisitionTimeout: Duration,
-    block: (R) -> T
-): T {
-    contract {
-        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
-    }
-    return try {
-        withPermit(acquisitionTimeout, block)
-    } finally {
-        close()
-    }
-}
-
 @ThreadSafe
 @Suppress("TooManyFunctions")
 sealed class SuspendPool<R : Any, P : Poolable<R>>(
@@ -68,7 +53,7 @@ sealed class SuspendPool<R : Any, P : Poolable<R>>(
         block: (R) -> T
     ): T {
         contract {
-            callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+            callsInPlace(block, InvocationKind.AT_MOST_ONCE)
         }
         // Caution: The timeout is asynchronous to the executing code and can trigger at any point,
         //          even right before returning from inside the timeout block.

@@ -21,7 +21,6 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version = "1.6.3" }
 lincheck = { module = "org.jetbrains.kotlinx:lincheck", version = "2.39" }
 log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "log4j" }
-log4j-slf4j-impl = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "log4j" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.25" }
 mockito-core = { module = "org.mockito:mockito-core", version = "5.11.0" }
 mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version = "5.3.1" }
@@ -31,7 +30,6 @@ netty-bom = { module = "io.netty:netty-bom", version = "4.1.136.Final" }
 netty-codec-http2 = { module = "io.netty:netty-codec-http2" }
 netty-handler-proxy = { module = "io.netty:netty-handler-proxy" }
 netty-resolver-dns = { module = "io.netty:netty-resolver-dns" }
-netty-tcnative = { module = "io.netty:netty-tcnative" }
 netty-tcnative-boringssl = { module = "io.netty:netty-tcnative-boringssl-static" }
 netty-transport-classes-epoll = { module = "io.netty:netty-transport-classes-epoll" }
 netty-transport-classes-kqueue = { module = "io.netty:netty-transport-classes-kqueue" }

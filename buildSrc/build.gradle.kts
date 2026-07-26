@@ -32,4 +32,5 @@ dependencies {
     compileOnly(gradleKotlinDsl())
     implementation(platform(libs.kotlin.bom))
     implementation(kotlin("gradle-plugin", version=libs.versions.kotlin.get()))
+    implementation(libs.japicmp.gradle.plugin)
 }

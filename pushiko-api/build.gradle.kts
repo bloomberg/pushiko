@@ -18,6 +18,7 @@ description = "API commonly exposed by multiple subprojects of Pushiko"
 
 plugins {
     kotlin("jvm")
+    id("semver")
     alias(libs.plugins.dokka)
     `library-conventions`
     alias(libs.plugins.kover)

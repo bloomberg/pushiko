@@ -32,6 +32,7 @@ plugins {
     `library-conventions`
     alias(libs.plugins.kover)
     alias(libs.plugins.pitest)
+    id("semver")
     alias(libs.plugins.detekt)
     alias(libs.plugins.android.lint)
 }

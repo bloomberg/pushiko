@@ -45,6 +45,10 @@ We believe Pushiko is both mature and generic enough to represent a useful contr
 
 Please refer to the main documentation: For APNs see [Getting started > APNs](https://bloomberg.github.io/pushiko/getting_started_apns/) and for FCM see [Getting started > FCM](https://bloomberg.github.io/pushiko/getting_started_fcm/).
 
+## Versioning
+
+Pushiko follows [Semantic Versioning](https://semver.org/). Breaking changes to the public API are released only in major versions and are documented in the [change log](https://bloomberg.github.io/pushiko/changelog/).
+
 ## Acknowledgements
 
 The original implementation of the Netty channel pool in Pushiko was heavily influenced by Jon Chambers' own APNs Java channel pool in Pushy :bow:. Taking this as our template for how to begin designing our pool, any mistakes introduced in subsequent work are entirely our own.

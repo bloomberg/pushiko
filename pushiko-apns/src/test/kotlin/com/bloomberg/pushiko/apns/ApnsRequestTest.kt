@@ -97,6 +97,85 @@ internal class ApnsRequestTest {
     }
 
     @Test
+    fun deviceTokenWithControlCharacterRejected() {
+        assertThrows<IllegalArgumentException> {
+            ApnsRequest {
+                deviceToken("abc\r\n123")
+                topic("com.foo")
+            }
+        }
+    }
+
+    @Test
+    fun deviceTokenWithWhitespaceRejected() {
+        assertThrows<IllegalArgumentException> {
+            ApnsRequest {
+                deviceToken("abc 123")
+                topic("com.foo")
+            }
+        }
+    }
+
+    @Test
+    fun topicWithControlCharacterRejected() {
+        assertThrows<IllegalArgumentException> {
+            ApnsRequest {
+                deviceToken("abc123")
+                topic("com.foo\r\nx-injected: 1")
+            }
+        }
+    }
+
+    @Test
+    fun collapseIdWithControlCharacterRejected() {
+        assertThrows<IllegalArgumentException> {
+            ApnsRequest {
+                deviceToken("abc123")
+                topic("com.foo")
+                collapseId("collapse\nme")
+            }
+        }
+    }
+
+    @Test
+    fun nonHexDeviceTokenAccepted() {
+        ApnsRequest {
+            deviceToken("aB3-_x.Y=")
+            topic("com.foo")
+        }.run {
+            assertEquals("aB3-_x.Y=", deviceToken)
+        }
+    }
+
+    @Test
+    fun realisticBundleIdentifierTopicsAccepted() {
+        listOf(
+            "com.example.MyApp",
+            "com.example.My-App.voip",
+            "com.example.app.pushkit.fileprovider",
+            "com.example.app123.complication",
+        ).forEach { value ->
+            ApnsRequest {
+                deviceToken("abc123")
+                topic(value)
+            }.run {
+                assertEquals(value, headers.topic)
+            }
+        }
+    }
+
+    @Test
+    fun realisticCollapseIdAccepted() {
+        ApnsRequest {
+            deviceToken("abc123")
+            topic("com.example.MyApp")
+            collapseId("order-2026.07.26-42")
+        }.run {
+            assertEquals("order-2026.07.26-42", headers.collapseId)
+        }
+    }
+
+    @Test
     fun apnsRequestFull() {
         val uuid = UUID.randomUUID()
         val expiration = Instant.now()

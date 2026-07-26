@@ -17,13 +17,22 @@
 package com.bloomberg.pushiko.http.netty
 
 import com.bloomberg.pushiko.http.IHttpClientProperties
+import com.bloomberg.pushiko.http.exceptions.ChannelInactiveException
+import com.bloomberg.pushiko.http.exceptions.ChannelStreamQuotaException
+import com.bloomberg.pushiko.http.exceptions.ChannelWriteFailedException
+import com.bloomberg.pushiko.http.exceptions.HttpClientClosedException
 import com.bloomberg.pushiko.pools.WaterMarkScaleFactor
 import io.netty.channel.Channel
+import io.netty.channel.ChannelException
+import io.netty.handler.codec.http2.Http2Error
+import io.netty.handler.codec.http2.Http2Exception
 import io.netty.util.Attribute
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
+import java.io.IOException
+import java.net.SocketTimeoutException
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -39,6 +48,43 @@ internal class PoolableChannelTest {
 
     private fun channelReporting(attribute: Attribute<Long>) = mock<Channel>().apply {
         whenever(attr(maxConcurrentStreamsAttributeKey)) doReturn attribute
+    }
+
+    private fun poolableChannel() = PoolableChannel(mock(), mock())
+
+    @Test
+    fun ioErrorIsAttributedToTheChannel() {
+        poolableChannel().run {
+            assertTrue(isError(IOException("boom")))
+            assertTrue(isError(ChannelInactiveException("inactive")))
+            assertTrue(isError(ChannelStreamQuotaException("exhausted")))
+            assertTrue(isError(ChannelWriteFailedException(IOException("write"))))
+            assertTrue(isError(SocketTimeoutException("ping timed out")))
+        }
+    }
+
+    @Test
+    fun connectionProtocolErrorIsAttributedToTheChannel() {
+        poolableChannel().run {
+            assertTrue(isError(Http2Exception(Http2Error.PROTOCOL_ERROR)))
+            assertTrue(isError(ChannelException("transport")))
+        }
+    }
+
+    @Test
+    fun cancellationIsNotAttributedToTheChannel() {
+        poolableChannel().run {
+            assertFalse(isError(ChannelClosedException))
+        }
+    }
+
+    @Test
+    fun applicationErrorIsNotAttributedToTheChannel() {
+        poolableChannel().run {
+            assertFalse(isError(HttpClientClosedException))
+            assertFalse(isError(IllegalArgumentException("bad argument")))
+            assertFalse(isError(RuntimeException("business logic")))
+        }
     }
 
     @Test

@@ -77,8 +77,10 @@ internal fun ChannelPool(
 }
 
 private fun IHttpClientProperties.poolConfiguration() = PoolConfiguration(
-    acquisitionAttemptsThreshold = (maximumConnections + 1) / 2,
+    errorRateThreshold = errorRateThreshold,
+    fullScanPoolSize = fullScanPoolSize,
     maximumPendingAcquisitions = maximumPendingAcquisitions,
+    maximumSampledScan = maximumSampledScan,
     maximumSize = maximumConnections,
     minimumSize = minimumConnections,
     reaperDelay = reaperDelay,

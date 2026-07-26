@@ -58,6 +58,8 @@ import java.util.LinkedList
 import javax.annotation.concurrent.ThreadSafe
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.math.ceil
+import kotlin.math.sqrt
 
 /**
  * A non-blocking, lock-free pool that maintains a minimum number of pooled multiplexers even in the absence of
@@ -93,6 +95,9 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private var pendingCreationCount = 0
     private val anticipatedSize: Int
         get() = pool.size + pendingCreationCount
+
+    private var scanLimitForPoolSize = -1
+    private var cachedScanLimit = 0
 
     private val closeJob = launchInMainScope(start = CoroutineStart.LAZY) {
         shutdown()
@@ -134,13 +139,13 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private suspend fun summarize() = withMainContext {
         val writer = StringWriter().apply {
             appendLine("Pool $this:")
-                .appendLine("  Acquisition attempts threshold: ${configuration.acquisitionAttemptsThreshold}")
                 .appendLine("  Allocations: ${factory.allocations}")
                 .appendLine("  Maximum pending acquisitions: ${configuration.maximumPendingAcquisitions}")
                 .appendLine("  Maximum size: ${configuration.maximumSize}")
                 .appendLine("  Minimum size: ${configuration.minimumSize}")
                 .appendLine("  Pending acquisitions: ${pendingAcquisitions.size}")
                 .appendLine("  Pending creations: $pendingCreationCount")
+                .appendLine("  Probe limit: ${probeLimit()}")
                 .appendLine("  Size: ${pool.size}")
         }
         pool.map {
@@ -156,26 +161,82 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         closeJob.join()
     }
 
-    private tailrec suspend fun acquirePoolable(attempts: Int = 1): P {
+    private tailrec suspend fun acquirePoolable(): P {
         assertThisDispatcher()
         ensureActive()
         ensureMinimumAllocation()
-        pool.removeUntilFirstInclusiveOrNull { it.isAlive }?.let {
-            // Add the poolable to the back of the queue immediately, ready for another acquirer,
-            // now that we have a reference to inspect.
-            pool.addLast(it)
-            if (poolablePredicate(it, attempts)) {
-                return it
-            }
-        }
-        return if (attempts >= pool.size) {
-            // Each poolable has been visited and rejected at least once.
-            awaitAvailability()
-            acquirePoolable(1)
+        val chosen = selectPoolable()
+        return if (chosen != null) {
+            perhapsGrow(chosen)
+            chosen
         } else {
-            acquirePoolable(attempts + 1)
+            awaitAvailability()
+            acquirePoolable()
         }
     }
+
+    @JvmSynthetic
+    @VisibleForTesting
+    @Suppress("CognitiveComplexMethod", "NestedBlockDepth")
+    internal fun selectPoolable(): P? {
+        var fallback: P? = null
+        var lastResort: P? = null
+        var probed = 0
+        while (pool.isNotEmpty() && probed < probeLimit()) {
+            val poolable = rotateNextAlive() ?: continue
+            ++probed
+            if (poolable.isCanAcquire) {
+                when {
+                    poolable.isShouldAcquire && poolable.isHealthy() -> return poolable
+                    poolable.isHealthy() -> if (fallback == null) { fallback = poolable }
+                    else -> if (lastResort == null) { lastResort = poolable }
+                }
+            }
+        }
+        return fallback ?: lastResort
+    }
+
+    @JvmSynthetic
+    @VisibleForTesting
+    internal suspend fun selectPoolableForTest(): P? = withWorkContext { selectPoolable() }
+
+    @JvmSynthetic
+    @VisibleForTesting
+    internal suspend fun pendingAcquisitionCountForTest(): Int = withWorkContext { pendingAcquisitions.size }
+
+    private fun probeLimit(): Int = if (anticipatedSize >= configuration.maximumSize) {
+        pool.size
+    } else {
+        scanLimit()
+    }
+
+    private fun scanLimit(): Int {
+        val poolSize = pool.size
+        if (poolSize != scanLimitForPoolSize) {
+            scanLimitForPoolSize = poolSize
+            cachedScanLimit = computeScanLimit(poolSize)
+        }
+        return cachedScanLimit
+    }
+
+    private fun computeScanLimit(poolSize: Int): Int = when {
+        poolSize <= configuration.fullScanPoolSize -> poolSize
+        else -> (configuration.fullScanPoolSize +
+            ceil(sqrt((poolSize - configuration.fullScanPoolSize).toDouble())).toInt())
+            .coerceAtMost(configuration.maximumSampledScan)
+    }
+
+    private fun rotateNextAlive(): P? {
+        val poolable = pool.removeFirst()
+        return if (poolable.isAlive) {
+            pool.addLast(poolable)
+            poolable
+        } else {
+            null
+        }
+    }
+
+    private fun P.isHealthy(): Boolean = currentErrorRate() <= configuration.errorRateThreshold
 
     private suspend fun awaitAvailability() {
         assertThisDispatcher()
@@ -199,8 +260,8 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
                 launchInWorkScope(start = CoroutineStart.UNDISPATCHED) {
                     attemptFill()
                 }
-            } else if (configuration.minimumSize == 0 && anticipatedSize == 0) {
-                launchCreateExtra()
+            } else {
+                perhapsGrow(chosen = null)
             }
         }
     }
@@ -258,38 +319,18 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         return count
     }
 
-    private val poolablePredicate: (Poolable<R>, Int) -> Boolean = { poolable, attempts ->
-        if (poolable.isShouldAcquire) {
-            true
-        } else if (
-            pendingCreationCount >= maxOf(configuration.minimumSize, pool.size) &&
-            poolable.isCanAcquire
-        ) {
-            // The poolable has some availability but there are also more poolables due to be
-            // created. Creating even more now may not help to relieve the pressure any sooner.
-            true
-        } else if (anticipatedSize < configuration.maximumSize) {
-            // The poolable is busy, and we should try not to acquire it.
-            if (attempts >= minOf((pool.size + 1) / 2, configuration.acquisitionAttemptsThreshold)) {
-                // At least half of the available poolables have by now been tested and rejected.
-                // As such, "enough" attempts to acquire a poolable have failed. If the pool is not
-                // about to at least double in size then prepare a new poolable before returning.
-                if (pendingCreationCount < maxOf(configuration.minimumSize, pool.size)) {
-                    // Relieve the pressure by scheduling the creation of a new poolable.
-                    logger.info("Creating poolable after {} acquisition attempt{}", attempts, attempts.commonPluralSuffix())
-                    launchCreateExtra()
-                }
-                true
-            } else {
-                false
+    private fun perhapsGrow(chosen: P?) {
+        if (anticipatedSize >= configuration.maximumSize) {
+            return
+        }
+        when {
+            anticipatedSize == 0 -> launchCreateExtra()
+            pendingCreationCount >= maxOf(configuration.minimumSize, pool.size) -> Unit
+            chosen == null || !chosen.isShouldAcquire -> {
+                logger.info("Creating poolable to relieve pressure")
+                launchCreateExtra()
             }
-        } else if (poolable.isCanAcquire) {
-            // There's no further capacity to create new poolables but as a last resort at least
-            // this one can be acquired.
-            true
-        } else {
-            logger.warn("Distressed poolable: {} permits: {}", poolable, poolable.allocatedPermits)
-            false
+            else -> Unit
         }
     }
 
@@ -305,7 +346,6 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         }
     }
 
-    // TODO Smarter heuristic?
     private suspend fun prunePool() = withWorkContext {
         cleanPool()
         val initialSize = pool.size

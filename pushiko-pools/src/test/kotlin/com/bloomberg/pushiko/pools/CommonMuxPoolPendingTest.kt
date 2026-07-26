@@ -61,8 +61,7 @@ internal class CommonMuxPoolPendingTest {
         factory: SinglePermitFactory,
         maximumPendingAcquisitions: Int
     ) = CommonMuxPool(
-        configuration = PoolConfiguration(
-            acquisitionAttemptsThreshold = 3,
+        configuration = poolConfiguration(
             maximumPendingAcquisitions = maximumPendingAcquisitions,
             maximumSize = 1,
             minimumSize = 1,

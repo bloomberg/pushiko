@@ -25,8 +25,7 @@ internal class PoolConfigurationTest {
     @Test
     fun acceptsEqualNonZeroMinMax() {
         assertDoesNotThrow {
-            PoolConfiguration(
-                acquisitionAttemptsThreshold = 3,
+            poolConfiguration(
                 maximumSize = 1,
                 maximumPendingAcquisitions = 1,
                 minimumSize = 1,
@@ -39,8 +38,7 @@ internal class PoolConfigurationTest {
     @Test
     fun acceptsMinMax() {
         assertDoesNotThrow {
-            PoolConfiguration(
-                acquisitionAttemptsThreshold = 3,
+            poolConfiguration(
                 maximumSize = 2,
                 maximumPendingAcquisitions = 1,
                 minimumSize = 1,
@@ -53,8 +51,7 @@ internal class PoolConfigurationTest {
     @Test
     fun zeroMinMax() {
         assertThrows<IllegalArgumentException> {
-            PoolConfiguration(
-                acquisitionAttemptsThreshold = 3,
+            poolConfiguration(
                 maximumSize = 0,
                 maximumPendingAcquisitions = 1,
                 minimumSize = 0,
@@ -67,13 +64,106 @@ internal class PoolConfigurationTest {
     @Test
     fun illegalMinMax() {
         assertThrows<IllegalArgumentException> {
-            PoolConfiguration(
-                acquisitionAttemptsThreshold = 3,
+            poolConfiguration(
                 maximumSize = 0,
                 maximumPendingAcquisitions = 1,
                 minimumSize = 1,
                 reaperDelay = 1L.minutes,
                 summaryInterval = 5L.minutes
+            )
+        }
+    }
+
+    @Test
+    fun acceptsErrorRateThresholdWithinRange() {
+        assertDoesNotThrow {
+            poolConfiguration(
+                maximumSize = 1,
+                maximumPendingAcquisitions = 1,
+                minimumSize = 1,
+                reaperDelay = 1L.minutes,
+                summaryInterval = 5L.minutes,
+                errorRateThreshold = 0.0
+            )
+            poolConfiguration(
+                maximumSize = 1,
+                maximumPendingAcquisitions = 1,
+                minimumSize = 1,
+                reaperDelay = 1L.minutes,
+                summaryInterval = 5L.minutes,
+                errorRateThreshold = 1.0
+            )
+        }
+    }
+
+    @Test
+    fun rejectsErrorRateThresholdBelowZero() {
+        assertThrows<IllegalArgumentException> {
+            poolConfiguration(
+                maximumSize = 1,
+                maximumPendingAcquisitions = 1,
+                minimumSize = 1,
+                reaperDelay = 1L.minutes,
+                summaryInterval = 5L.minutes,
+                errorRateThreshold = -0.1
+            )
+        }
+    }
+
+    @Test
+    fun rejectsErrorRateThresholdAboveOne() {
+        assertThrows<IllegalArgumentException> {
+            poolConfiguration(
+                maximumSize = 1,
+                maximumPendingAcquisitions = 1,
+                minimumSize = 1,
+                reaperDelay = 1L.minutes,
+                summaryInterval = 5L.minutes,
+                errorRateThreshold = 1.1
+            )
+        }
+    }
+
+    @Test
+    fun acceptsCustomScanBounds() {
+        assertDoesNotThrow {
+            poolConfiguration(
+                maximumSize = 1,
+                maximumPendingAcquisitions = 1,
+                minimumSize = 1,
+                reaperDelay = 1L.minutes,
+                summaryInterval = 5L.minutes,
+                fullScanPoolSize = 5,
+                maximumSampledScan = 5
+            )
+        }
+    }
+
+    @Test
+    fun rejectsNonPositiveFullScanPoolSize() {
+        assertThrows<IllegalArgumentException> {
+            poolConfiguration(
+                maximumSize = 1,
+                maximumPendingAcquisitions = 1,
+                minimumSize = 1,
+                reaperDelay = 1L.minutes,
+                summaryInterval = 5L.minutes,
+                fullScanPoolSize = 0
+            )
+        }
+    }
+
+    @Test
+    fun rejectsFullScanPoolSizeExceedingMaxSampledScan() {
+        assertThrows<IllegalArgumentException> {
+            poolConfiguration(
+                maximumSize = 1,
+                maximumPendingAcquisitions = 1,
+                minimumSize = 1,
+                reaperDelay = 1L.minutes,
+                summaryInterval = 5L.minutes,
+                fullScanPoolSize = 21,
+                maximumSampledScan = 20
             )
         }
     }

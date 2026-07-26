@@ -24,6 +24,8 @@ internal class NotFoundResponse(stream: Http2Stream) : FakeResponse(stream)
 
 internal class NoResponse(stream: Http2Stream) : FakeResponse(stream)
 
+internal class OversizedResponse(stream: Http2Stream) : FakeResponse(stream)
+
 internal sealed class FakeResponse(
     val stream: Http2Stream
 )

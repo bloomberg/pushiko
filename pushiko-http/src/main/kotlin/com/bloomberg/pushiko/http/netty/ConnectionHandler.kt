@@ -90,6 +90,8 @@ private const val PING_TIMEOUT_SECONDS = 1L
 // 500 Internal Error.
 private const val RESPONSE_TIMEOUT_SECONDS = 11L
 
+private const val MAX_RESPONSE_BODY_BYTES = 256 * 1_024
+
 private val channelInactiveWriteException = ChannelInactiveException("Channel inactive when writing")
 private val streamsExhaustedException = ChannelStreamQuotaException("HTTP/2 streams exhausted; closing connection")
 private val unrecognisedMessageException = IllegalArgumentException("Unrecognised message object in pipeline")
@@ -239,6 +241,10 @@ internal class ConnectionHandler(
                     writerIndex(writerIndex() + bytesAvailable)
                 }
             }
+        }
+        if (body != null && body.readableBytes() > MAX_RESPONSE_BODY_BYTES) {
+            context.abortStreamForOversizedBody(stream, streamId)
+            return bytesRead
         }
         if (endOfStream) {
             stream.let {
@@ -615,4 +621,19 @@ internal class ConnectionHandler(
 
     private fun streamClosedBeforeReplyException(streamId: Int, channel: Channel) = IOException(
         "Stream $streamId of channel $channel was closed before a reply was received")
+
+    private fun ChannelHandlerContext.abortStreamForOversizedBody(stream: Http2Stream, streamId: Int) {
+        logger.warn("Response body on stream {} exceeded {} bytes; resetting stream", streamId,
+            MAX_RESPONSE_BODY_BYTES)
+        stream.run {
+            removeProperty<Any?>(responseHeadersPropertyKey)
+            relinquishResponseBody()
+            removeRequestContinuation()?.tryResumeWithException(responseBodyTooLargeException(streamId))
+        }
+        resetStream(this, streamId, Http2Error.CANCEL.code(), newPromise())
+    }
+
+    private fun responseBodyTooLargeException(streamId: Int) = IOException(
+        "Response body on stream $streamId of connection ${connection()} exceeded the maximum of " +
+            "$MAX_RESPONSE_BODY_BYTES bytes")
 }

@@ -32,6 +32,8 @@ import io.netty.handler.codec.http2.Http2Headers
 import io.netty.handler.codec.http2.Http2Settings
 import io.netty.handler.codec.http2.Http2Stream
 
+private const val OVERSIZED_BODY_BYTES = 1_024 * 1_024
+
 internal class ConnectionHandler(
     decoder: Http2ConnectionDecoder,
     encoder: Http2ConnectionEncoder,
@@ -73,12 +75,34 @@ internal class ConnectionHandler(
                     is OkResponse -> HttpResponseStatus.OK
                     is NotFoundResponse -> HttpResponseStatus.NOT_FOUND
                     is NoResponse -> return
+                    is OversizedResponse -> {
+                        writeOversizedBody(context, response.stream, promise)
+                        return
+                    }
                 }.codeAsText()
             ),
             0,
             true,
             promise
         )
+    }
+
+    private fun writeOversizedBody(
+        context: ChannelHandlerContext,
+        stream: Http2Stream,
+        promise: ChannelPromise
+    ) {
+        encoder().writeHeaders(
+            context,
+            stream.id(),
+            DefaultHttp2Headers().status(HttpResponseStatus.OK.codeAsText()),
+            0,
+            false,
+            context.newPromise()
+        )
+        val payload = context.alloc().buffer(OVERSIZED_BODY_BYTES).apply { writeZero(OVERSIZED_BODY_BYTES) }
+        encoder().writeData(context, stream.id(), payload, 0, true, promise)
+        context.flush()
     }
 
     override fun onConnectionError(
@@ -180,6 +204,7 @@ internal class ConnectionHandler(
                 context,
                 when (headers.path().toString()) {
                     "/ok" -> OkResponse(stream)
+                    "/oversized" -> OversizedResponse(stream)
                     "/crash" -> error("Server crash")
                     "/silence" -> NoResponse(stream)
                     "/sleep/1" -> {

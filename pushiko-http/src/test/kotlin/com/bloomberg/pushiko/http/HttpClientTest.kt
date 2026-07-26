@@ -67,6 +67,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -420,6 +421,30 @@ internal class HttpClientTest {
                 })
             }
         }
+        withContext(Dispatchers.Default.limitedParallelism(1)) {
+            client.send(HttpRequest {
+                authority("localhost")
+                path("/ok")
+            })
+        }.apply {
+            assertEquals(200, code)
+        }
+    }
+
+    @Test
+    fun oversizedResponseBodyIsRejected(): Unit = runTest {
+        val exception = assertFailsWith<IOException> {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                client.send(HttpRequest {
+                    authority("localhost")
+                    path("/oversized")
+                })
+            }
+        }
+        assertTrue(
+            assertNotNull(exception.message).contains("exceeded the maximum"),
+            "Unexpected message: ${exception.message}"
+        )
         withContext(Dispatchers.Default.limitedParallelism(1)) {
             client.send(HttpRequest {
                 authority("localhost")

@@ -2,7 +2,6 @@
 
 [versions]
 kotlin = "1.9.24"
-log4j = "2.25.4"
 
 [libraries]
 atomicfu = { module = "org.jetbrains.kotlinx:atomicfu-gradle-plugin", version = "0.22.0" }
@@ -20,7 +19,8 @@ kotlinx-coroutines-reactor = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version = "1.6.3" }
 lincheck = { module = "org.jetbrains.kotlinx:lincheck", version = "2.39" }
-log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "log4j" }
+log4j-bom = { module = "org.apache.logging.log4j:log4j-bom", version = "2.26.1" }
+log4j-core = { module = "org.apache.logging.log4j:log4j-core" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.25" }
 mockito-core = { module = "org.mockito:mockito-core", version = "5.11.0" }
 mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version = "5.3.1" }

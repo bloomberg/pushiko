@@ -28,6 +28,7 @@ application {
 }
 
 dependencies {
+    implementation(platform(libs.log4j.bom))
     implementation(platform(libs.netty.bom))
     implementation(projects.pushikoApi)
     implementation(projects.pushikoCommons)

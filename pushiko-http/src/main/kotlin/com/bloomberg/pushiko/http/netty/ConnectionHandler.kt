@@ -223,7 +223,7 @@ internal class ConnectionHandler(
     ): Int {
         pingFuture?.cancel(false)
         if (endOfStream) {
-            responseTimeouts.remove(streamId).cancel(false)
+            responseTimeouts.remove(streamId)?.cancel(false)
         }
         val bytesAvailable = data.readableBytes()
         val bytesRead = bytesAvailable + padding

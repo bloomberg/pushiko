@@ -31,6 +31,16 @@ jobs:
         run: ./gradlew check -x integrationTest
       - name: 'Integration test'
         run: ./gradlew :pushiko-apns:integrationTest :pushiko-fcm:integrationTest
+      - name: 'Check semantic versioning'
+        if: github.event_name == 'pull_request'
+        run: ./gradlew checkSemver --no-configuration-cache
+      - name: 'Archive semver reports'
+        if: github.event_name == 'pull_request' && failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semver-reports
+          path: '**/build/reports/japicmp/'
+          if-no-files-found: ignore
       - name: 'Tear down'
         if: always()
         run: |

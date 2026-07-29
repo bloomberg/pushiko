@@ -16,7 +16,7 @@
 
 package com.bloomberg.pushiko.health
 
-enum class Status {
+public enum class Status {
     DOWN,
     UNKNOWN,
     UP

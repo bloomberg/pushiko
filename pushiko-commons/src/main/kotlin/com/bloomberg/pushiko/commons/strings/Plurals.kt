@@ -16,4 +16,4 @@
 
 package com.bloomberg.pushiko.commons.strings
 
-fun Int.commonPluralSuffix() = if (this == 1) { "" } else { 's' }
+public fun Int.commonPluralSuffix(): Any = if (this == 1) { "" } else { 's' }

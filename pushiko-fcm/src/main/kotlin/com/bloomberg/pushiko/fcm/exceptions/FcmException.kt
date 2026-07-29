@@ -16,7 +16,7 @@
 
 package com.bloomberg.pushiko.fcm.exceptions
 
-class FcmException internal constructor(
+public class FcmException internal constructor(
     message: String? = null,
     cause: Throwable? = null
 ) : Exception(message, cause)

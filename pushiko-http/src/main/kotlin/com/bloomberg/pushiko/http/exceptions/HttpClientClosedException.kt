@@ -16,7 +16,7 @@
 
 package com.bloomberg.pushiko.http.exceptions
 
-object HttpClientClosedException : RuntimeException("HTTP client is closed") {
+public object HttpClientClosedException : RuntimeException("HTTP client is closed") {
     override fun fillInStackTrace(): Throwable = this
 
     @Suppress("Detekt.UnusedPrivateMember")

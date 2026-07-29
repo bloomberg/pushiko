@@ -21,36 +21,36 @@ import io.netty.buffer.PooledByteBufAllocator
 internal val SharedAllocator = PooledByteBufAllocator.DEFAULT
 private val allocatorMetric = SharedAllocator.metric()
 
-object SharedAllocatorMetric {
-    val chunkSize: Int
+public object SharedAllocatorMetric {
+    public val chunkSize: Int
         get() = allocatorMetric.chunkSize()
 
-    val directArenasCount: Int
+    public val directArenasCount: Int
         get() = allocatorMetric.numDirectArenas()
 
-    val heapArenasCount: Int
+    public val heapArenasCount: Int
         get() = allocatorMetric.numHeapArenas()
 
-    val normalCacheSize: Int
+    public val normalCacheSize: Int
         get() = allocatorMetric.normalCacheSize()
 
-    val pinnedDirectMemory: Long
+    public val pinnedDirectMemory: Long
         get() = SharedAllocator.pinnedDirectMemory()
 
-    val pinnedHeapMemory: Long
+    public val pinnedHeapMemory: Long
         get() = SharedAllocator.pinnedHeapMemory()
 
-    val smallCacheSize: Int
+    public val smallCacheSize: Int
         get() = allocatorMetric.smallCacheSize()
 
-    val threadLocalCachesCount: Int
+    public val threadLocalCachesCount: Int
         get() = allocatorMetric.numThreadLocalCaches()
 
-    val usedDirectMemory: Long
+    public val usedDirectMemory: Long
         get() = allocatorMetric.usedDirectMemory()
 
-    val usedHeapMemory: Long
+    public val usedHeapMemory: Long
         get() = allocatorMetric.usedHeapMemory()
 
-    fun dumpStatistics(): String = SharedAllocator.dumpStats()
+    public fun dumpStatistics(): String = SharedAllocator.dumpStats()
 }

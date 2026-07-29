@@ -16,7 +16,7 @@
 
 package com.bloomberg.pushiko.apns.exceptions
 
-class ApnsException internal constructor(
+public class ApnsException internal constructor(
     message: String? = null,
     cause: Throwable? = null
 ) : Exception(message, cause)

@@ -16,9 +16,11 @@
 
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.get
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 plugins {
     java apply false
@@ -33,6 +35,12 @@ class LibraryConventionsPlugin : Plugin<Project> {
     }
 }
 apply<LibraryConventionsPlugin>()
+
+plugins.withId("org.jetbrains.kotlin.jvm") {
+    extensions.configure<KotlinJvmProjectExtension> {
+        explicitApi()
+    }
+}
 
 java {
     withSourcesJar()

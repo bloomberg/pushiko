@@ -30,7 +30,7 @@ import kotlin.contracts.contract
 
 @ThreadSafe
 @Suppress("TooManyFunctions")
-sealed class SuspendPool<R : Any, P : Poolable<R>>(
+public sealed class SuspendPool<R : Any, P : Poolable<R>>(
     name: String = "Pushiko"
 ) {
     private val scopeGroup = SingleThreadScopeGroup(name)
@@ -39,16 +39,16 @@ sealed class SuspendPool<R : Any, P : Poolable<R>>(
         get() = scopeGroup.isWorkActive
 
     @JvmField
-    val metricsComponent = MetricsComponent()
+    public val metricsComponent: MetricsComponent = MetricsComponent()
 
     @JvmSynthetic
-    suspend fun close() {
+    public suspend fun close() {
         scopeGroup.close()
         performClose()
     }
 
     @JvmSynthetic
-    suspend inline fun <T : Any> withPermit(
+    public suspend inline fun <T : Any> withPermit(
         acquisitionTimeout: Duration,
         block: (R) -> T
     ): T {
@@ -90,7 +90,7 @@ sealed class SuspendPool<R : Any, P : Poolable<R>>(
 
     @JvmSynthetic
     @PublishedApi
-    internal open fun onAvailable(poolable: P) = Unit
+    internal open fun onAvailable(poolable: P): Unit = Unit
 
     @JvmSynthetic
     internal abstract fun allocatedSize(): Int
@@ -104,19 +104,19 @@ sealed class SuspendPool<R : Any, P : Poolable<R>>(
      * Tests finding an available pooled object but without acquiring a permit.
      */
     @JvmSynthetic
-    suspend fun testAcquisition(timeout: Duration) {
+    public suspend fun testAcquisition(timeout: Duration) {
         withWorkContext(timeout) {
             performSelection()
         }
     }
 
     @JvmSynthetic
-    open suspend fun prepare(): Int = 0
+    public open suspend fun prepare(): Int = 0
 
     @JvmSynthetic
     internal open suspend fun performClose() = Unit
 
-    protected fun ensureActive() = scopeGroup.ensureActive()
+    protected fun ensureActive(): Unit = scopeGroup.ensureActive()
 
     @JvmSynthetic
     protected suspend fun joinWork(): Unit = scopeGroup.joinWork()
@@ -166,8 +166,8 @@ sealed class SuspendPool<R : Any, P : Poolable<R>>(
     ): T = scopeGroup.withWorkContext(timeout, block)
 
     @ThreadSafe
-    inner class MetricsComponent {
-        suspend fun gauges(timeout: Duration): Metrics = withMainContext(timeout) {
+    public inner class MetricsComponent {
+        public suspend fun gauges(timeout: Duration): Metrics = withMainContext(timeout) {
             Metrics(
                 allocatedSize = this@SuspendPool.allocatedSize()
             )
@@ -175,7 +175,7 @@ sealed class SuspendPool<R : Any, P : Poolable<R>>(
     }
 
     @ThreadSafe
-    data class Metrics(
+    public data class Metrics(
         val allocatedSize: Int
     )
 }

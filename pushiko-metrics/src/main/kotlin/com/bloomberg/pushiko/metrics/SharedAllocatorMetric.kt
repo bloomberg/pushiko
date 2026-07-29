@@ -19,37 +19,37 @@ package com.bloomberg.pushiko.metrics
 /**
  * @since 0.25.3
  */
-object SharedAllocatorMetric {
+public object SharedAllocatorMetric {
     private val metric = com.bloomberg.pushiko.http.netty.SharedAllocatorMetric
 
-    val chunkSize: Int
+    public val chunkSize: Int
         get() = metric.chunkSize
 
-    val directArenasCount: Int
+    public val directArenasCount: Int
         get() = metric.directArenasCount
 
-    val heapArenasCount: Int
+    public val heapArenasCount: Int
         get() = metric.heapArenasCount
 
-    val normalCacheSize: Int
+    public val normalCacheSize: Int
         get() = metric.normalCacheSize
 
-    val pinnedDirectMemory: Long
+    public val pinnedDirectMemory: Long
         get() = metric.pinnedDirectMemory
 
-    val pinnedHeapMemory: Long
+    public val pinnedHeapMemory: Long
         get() = metric.pinnedHeapMemory
 
-    val smallCacheSize: Int
+    public val smallCacheSize: Int
         get() = metric.smallCacheSize
 
-    val threadLocalCachesCount: Int
+    public val threadLocalCachesCount: Int
         get() = metric.threadLocalCachesCount
 
-    val usedDirectMemory: Long
+    public val usedDirectMemory: Long
         get() = metric.usedDirectMemory
 
-    val usedHeapMemory: Long
+    public val usedHeapMemory: Long
         get() = metric.usedHeapMemory
 
     /**
@@ -57,5 +57,5 @@ object SharedAllocatorMetric {
      *
      * @return all the metrics of the allocator.
      */
-    fun dumpStatistics(): String = metric.dumpStatistics()
+    public fun dumpStatistics(): String = metric.dumpStatistics()
 }

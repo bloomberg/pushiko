@@ -19,15 +19,15 @@ package com.bloomberg.pushiko.commons.slf4j
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-inline fun <reified T> T.Logger(): Logger = LoggerFactory.getLogger(T::class.java)
+public inline fun <reified T> T.Logger(): Logger = LoggerFactory.getLogger(T::class.java)
 
-inline fun Logger.ifDebugEnabled(block: Logger.() -> Unit) {
+public inline fun Logger.ifDebugEnabled(block: Logger.() -> Unit) {
     if (isDebugEnabled) {
         block()
     }
 }
 
-inline fun Logger.ifInfoEnabled(block: Logger.() -> Unit) {
+public inline fun Logger.ifInfoEnabled(block: Logger.() -> Unit) {
     if (isInfoEnabled) {
         block()
     }

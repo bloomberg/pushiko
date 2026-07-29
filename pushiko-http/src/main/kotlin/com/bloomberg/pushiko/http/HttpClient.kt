@@ -17,6 +17,7 @@
 package com.bloomberg.pushiko.http
 
 import com.bloomberg.pushiko.commons.slf4j.Logger
+import com.bloomberg.pushiko.health.Health
 import com.bloomberg.pushiko.http.HttpClientProperties.Companion.OptionalHttpProperties
 import com.bloomberg.pushiko.http.exceptions.HttpClientClosedException
 import com.bloomberg.pushiko.http.netty.ChannelPool
@@ -34,7 +35,7 @@ import kotlin.time.Duration
 import kotlinx.coroutines.currentCoroutineContext
 
 @ThreadSafe
-class HttpClient internal constructor(
+public class HttpClient internal constructor(
     private val sender: HttpRequestSender,
     private val properties: IHttpClientProperties
 ) {
@@ -59,10 +60,10 @@ class HttpClient internal constructor(
     private val logger = Logger()
 
     @JvmField
-    val healthComponent = HealthComponent()
+    public val healthComponent: HealthComponent = HealthComponent()
 
     @JvmField
-    val metricsComponent = MetricsComponent()
+    public val metricsComponent: MetricsComponent = MetricsComponent()
 
     /**
      * @throws CancellationException if the job of the coroutine context is cancelled or completed.
@@ -70,7 +71,7 @@ class HttpClient internal constructor(
      * @since 0.19.0
      */
     @JvmSynthetic
-    suspend fun prepare() {
+    public suspend fun prepare() {
         sender.pool.prepare()
     }
 
@@ -89,14 +90,14 @@ class HttpClient internal constructor(
      * @since 0.1.0
      */
     @JvmSynthetic
-    suspend fun send(request: HttpRequest) = try {
+    public suspend fun send(request: HttpRequest): HttpResponse = try {
         doSend(request)
     } catch (e: Http2Exception) {
         throw IOException(e)
     }
 
     @JvmSynthetic
-    suspend fun close() {
+    public suspend fun close() {
         HttpClientRegistry.remove(this)
         sender.pool.close()
         logger.info("HTTP client {} is shutdown", this)
@@ -121,12 +122,12 @@ class HttpClient internal constructor(
         }
     }
 
-    inner class HealthComponent internal constructor() {
-        val connectivity = ConnectivityHealthCheck()
+    public inner class HealthComponent internal constructor() {
+        public val connectivity: ConnectivityHealthCheck = ConnectivityHealthCheck()
     }
 
     @ThreadSafe
-    inner class ConnectivityHealthCheck internal constructor() {
+    public inner class ConnectivityHealthCheck internal constructor() {
         /**
          * Performs a connectivity health check on this HTTP client. This check does not send a request,
          * and has a prompt cancellation guarantee.
@@ -141,18 +142,18 @@ class HttpClient internal constructor(
          * @since 0.24.0
          */
         @JvmSynthetic
-        suspend fun health(timeout: Duration) = sender.pool.healthComponent.acquisition.health(timeout)
+        public suspend fun health(timeout: Duration): Health = sender.pool.healthComponent.acquisition.health(timeout)
     }
 
     @ThreadSafe
-    inner class MetricsComponent internal constructor() {
-        val gauges = Gauges()
+    public inner class MetricsComponent internal constructor() {
+        public val gauges: Gauges = Gauges()
     }
 
     @ThreadSafe
-    inner class Gauges {
+    public inner class Gauges {
         @JvmSynthetic
-        suspend fun read(timeout: Duration): Metrics = sender.pool.metricsComponent.gauges.read(timeout).let {
+        public suspend fun read(timeout: Duration): Metrics = sender.pool.metricsComponent.gauges.read(timeout).let {
             Metrics(
                 connectionCount = it.activeChannelCount
             )
@@ -160,7 +161,7 @@ class HttpClient internal constructor(
     }
 
     @ThreadSafe
-    data class Metrics(
+    public data class Metrics(
         val connectionCount: Int
     )
 }

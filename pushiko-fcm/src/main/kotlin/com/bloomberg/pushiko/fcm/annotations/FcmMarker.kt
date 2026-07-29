@@ -17,4 +17,4 @@
 package com.bloomberg.pushiko.fcm.annotations
 
 @DslMarker
-annotation class FcmMarker
+public annotation class FcmMarker

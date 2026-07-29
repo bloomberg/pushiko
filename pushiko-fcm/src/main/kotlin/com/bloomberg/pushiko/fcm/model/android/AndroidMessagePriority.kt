@@ -29,7 +29,7 @@ import kotlinx.serialization.Serializable
  * @since 0.1.0
  */
 @Serializable
-enum class AndroidMessagePriority(
+public enum class AndroidMessagePriority(
     internal val value: String
 ) {
     /**

@@ -27,7 +27,7 @@ import kotlin.contracts.contract
 private val emptyByteArray = ByteArray(0)
 
 @OptIn(ExperimentalContracts::class)
-inline fun HttpRequest(block: HttpRequestBuilder.() -> Unit): HttpRequest {
+public inline fun HttpRequest(block: HttpRequestBuilder.() -> Unit): HttpRequest {
     contract {
         callsInPlace(block, InvocationKind.EXACTLY_ONCE)
     }
@@ -35,31 +35,31 @@ inline fun HttpRequest(block: HttpRequestBuilder.() -> Unit): HttpRequest {
 }
 
 @NotThreadSafe
-class HttpRequestBuilder @PublishedApi internal constructor() {
+public class HttpRequestBuilder @PublishedApi internal constructor() {
     private val headers: Http2Headers = DefaultHttp2Headers().apply { scheme(HttpScheme.HTTPS.name()) }
     private var body: ByteArray = emptyByteArray
-    var wantsResponseBody = true
+    public var wantsResponseBody: Boolean = true
 
-    fun authority(value: CharSequence) = apply { headers.authority(value) }
+    public fun authority(value: CharSequence): HttpRequestBuilder = apply { headers.authority(value) }
 
-    fun method(value: CharSequence) = apply { headers.method(value) }
+    public fun method(value: CharSequence): HttpRequestBuilder = apply { headers.method(value) }
 
-    fun path(value: CharSequence) = apply { headers.path(value) }
+    public fun path(value: CharSequence): HttpRequestBuilder = apply { headers.path(value) }
 
-    fun header(key: CharSequence, value: CharSequence) = apply { headers.add(key, value) }
+    public fun header(key: CharSequence, value: CharSequence): HttpRequestBuilder = apply { headers.add(key, value) }
 
-    fun header(key: CharSequence, value: Int) = apply { headers.addInt(key, value) }
+    public fun header(key: CharSequence, value: Int): HttpRequestBuilder = apply { headers.addInt(key, value) }
 
-    fun header(key: CharSequence, value: Long) = apply { headers.addLong(key, value) }
+    public fun header(key: CharSequence, value: Long): HttpRequestBuilder = apply { headers.addLong(key, value) }
 
-    fun body(value: ByteArray) = apply { body = value }
+    public fun body(value: ByteArray): HttpRequestBuilder = apply { body = value }
 
     @JvmSynthetic @PublishedApi
-    internal fun build() = HttpRequest(headers, body, wantsResponseBody)
+    internal fun build(): HttpRequest = HttpRequest(headers, body, wantsResponseBody)
 }
 
 @Suppress("Detekt.UseDataClass")
-class HttpRequest internal constructor(
+public class HttpRequest internal constructor(
     internal val headers: Http2Headers,
     internal val body: ByteArray,
     internal val wantsResponseBody: Boolean = true

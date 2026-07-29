@@ -18,7 +18,7 @@ package com.bloomberg.pushiko.pools.exceptions
 
 import kotlinx.coroutines.CancellationException
 
-object PoolClosedException : CancellationException("Pool is closed") {
+public object PoolClosedException : CancellationException("Pool is closed") {
     override fun fillInStackTrace(): Throwable = this
 
     @Suppress("Detekt.UnusedPrivateMember")

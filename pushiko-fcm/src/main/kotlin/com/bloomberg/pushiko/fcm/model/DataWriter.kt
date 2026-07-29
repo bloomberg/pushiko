@@ -23,7 +23,7 @@ import com.bloomberg.pushiko.json.JsonObjectWriter
  *
  * @see <a href="https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#resource:-message">projects.messages#resource:-message</a>
  */
-class DataWriter(
+public class DataWriter(
     private val writer: JsonObjectWriter
 ) {
     /**
@@ -37,7 +37,7 @@ class DataWriter(
      *
      * @since 0.28.0
      */
-    fun stringValue(key: String, value: String) = apply {
+    public fun stringValue(key: String, value: String): DataWriter = apply {
         writer.stringValue(key, value)
     }
 }

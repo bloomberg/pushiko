@@ -21,8 +21,8 @@ package com.bloomberg.pushiko.apns.model
  *
  * @since 0.12.0
  */
-enum class PushType(
-    val value: String
+public enum class PushType(
+    public val value: String
 ) {
     /**
      * Use the alert push type for notifications that trigger a user interaction.

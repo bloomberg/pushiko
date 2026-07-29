@@ -23,10 +23,10 @@ import com.bloomberg.pushiko.json.JsonObjectWriter
  * @see <a href="https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#Notification">projects.messages#Notification</a>
  */
 @FcmMarker
-class NotificationWriter @PublishedApi internal constructor(
+public class NotificationWriter @PublishedApi internal constructor(
     @get:JvmSynthetic @PublishedApi internal val writer: JsonObjectWriter
 ) {
-    fun body(value: String) = apply {
+    public fun body(value: String): NotificationWriter = apply {
         writer.stringValue("body", value)
     }
 
@@ -37,11 +37,11 @@ class NotificationWriter @PublishedApi internal constructor(
      *
      * @since 0.26.3
      */
-    fun image(value: String) = apply {
+    public fun image(value: String): NotificationWriter = apply {
         writer.stringValue("image", value)
     }
 
-    fun title(value: String) = apply {
+    public fun title(value: String): NotificationWriter = apply {
         writer.stringValue("title", value)
     }
 }

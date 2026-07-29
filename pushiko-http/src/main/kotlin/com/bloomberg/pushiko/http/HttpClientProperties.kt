@@ -31,7 +31,7 @@ private const val DEFAULT_MAX_CREATE_CHANNEL_RETRIES = 60
 private const val DEFAULT_MAX_PENDING_ACQUISITIONS = 10_000
 private const val DEFAULT_MAX_RETRIES_MULTIPLE = 3
 
-data class HttpClientProperties internal constructor(
+public data class HttpClientProperties internal constructor(
     override val connectionAcquisitionTimeout: Duration,
     override val connectionFuzzInterval: Duration,
     override val connectTimeout: Duration,
@@ -67,11 +67,11 @@ data class HttpClientProperties internal constructor(
         require(userTimeout.inWholeSeconds > 0L) { "User timeout must be a positive number of seconds" }
     }
 
-    companion object {
-        val logger = Logger()
+    public companion object {
+        public val logger: org.slf4j.Logger = Logger()
 
         @Suppress("CyclomaticComplexMethod", "FunctionName", "LongParameterList")
-        fun OptionalHttpProperties(
+        public fun OptionalHttpProperties(
             connectionAcquisitionTimeout: Duration? = null,
             connectionFuzzInterval: Duration? = null,
             connectTimeout: Duration? = null,
@@ -87,7 +87,7 @@ data class HttpClientProperties internal constructor(
             retryPolicy: HttpRetryPolicy? = null,
             summaryInterval: Duration? = null,
             unresolvedProxyAddress: InetSocketAddress? = null
-        ) = HttpClientProperties(
+        ): HttpClientProperties = HttpClientProperties(
             connectionAcquisitionTimeout = connectionAcquisitionTimeout ?: 5L.minutes,
             connectionFuzzInterval = connectionFuzzInterval ?: 500L.milliseconds,
             connectTimeout = connectTimeout ?: 3L.seconds,
@@ -110,22 +110,22 @@ data class HttpClientProperties internal constructor(
 }
 
 @Suppress("Detekt.ComplexInterface") // FIXME
-interface IHttpClientProperties {
-    val connectionAcquisitionTimeout: Duration
-    val connectionFuzzInterval: Duration
-    val connectTimeout: Duration
-    val defaultMaximumConcurrentStreams: Long
-    val idleConnectionInterval: Duration
-    val isMonitorConnections: Boolean
-    val maximumConnectionAge: Duration
-    val maximumConnectRetries: Int
-    val maximumConnections: Int
-    val maximumPendingAcquisitions: Int
-    val maximumRequestRetries: Int
-    val minimumConnections: Int
-    val reaperDelay: Duration
-    val retryPolicy: HttpRetryPolicy
-    val summaryInterval: Duration
-    val unresolvedProxyAddress: InetSocketAddress?
-    val userTimeout: Duration
+public interface IHttpClientProperties {
+    public val connectionAcquisitionTimeout: Duration
+    public val connectionFuzzInterval: Duration
+    public val connectTimeout: Duration
+    public val defaultMaximumConcurrentStreams: Long
+    public val idleConnectionInterval: Duration
+    public val isMonitorConnections: Boolean
+    public val maximumConnectionAge: Duration
+    public val maximumConnectRetries: Int
+    public val maximumConnections: Int
+    public val maximumPendingAcquisitions: Int
+    public val maximumRequestRetries: Int
+    public val minimumConnections: Int
+    public val reaperDelay: Duration
+    public val retryPolicy: HttpRetryPolicy
+    public val summaryInterval: Duration
+    public val unresolvedProxyAddress: InetSocketAddress?
+    public val userTimeout: Duration
 }

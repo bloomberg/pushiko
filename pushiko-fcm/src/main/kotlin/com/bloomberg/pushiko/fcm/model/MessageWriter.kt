@@ -26,7 +26,7 @@ import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
 @FcmMarker
-class MessageWriter @PublishedApi internal constructor(
+public class MessageWriter @PublishedApi internal constructor(
     @get:JvmSynthetic @PublishedApi internal val writer: JsonObjectWriter
 ) {
     /**
@@ -36,7 +36,7 @@ class MessageWriter @PublishedApi internal constructor(
      */
     @OptIn(ExperimentalContracts::class)
     @JvmSynthetic
-    inline fun android(block: AndroidConfigWriter.() -> Unit): MessageWriter {
+    public inline fun android(block: AndroidConfigWriter.() -> Unit): MessageWriter {
         contract {
             callsInPlace(block, InvocationKind.EXACTLY_ONCE)
         }
@@ -49,7 +49,7 @@ class MessageWriter @PublishedApi internal constructor(
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun android(consumer: Consumer<AndroidConfigWriter>) = android(consumer::accept)
+    public fun android(consumer: Consumer<AndroidConfigWriter>): MessageWriter = android(consumer::accept)
 
     /**
      * Condition statement to send a message to, for example: "'abc' in topics && 'def' in topics".
@@ -60,7 +60,7 @@ class MessageWriter @PublishedApi internal constructor(
      *
      * @see <a href="https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#Message">projects.messages#Message</a>
      */
-    fun condition(value: String) = apply {
+    public fun condition(value: String): MessageWriter = apply {
         writer.stringValue("condition", value)
     }
 
@@ -75,7 +75,7 @@ class MessageWriter @PublishedApi internal constructor(
      */
     @OptIn(ExperimentalContracts::class)
     @JvmSynthetic
-    inline fun data(block: DataWriter.() -> Unit): MessageWriter {
+    public inline fun data(block: DataWriter.() -> Unit): MessageWriter {
         contract {
             callsInPlace(block, InvocationKind.EXACTLY_ONCE)
         }
@@ -87,7 +87,7 @@ class MessageWriter @PublishedApi internal constructor(
 
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun data(consumer: Consumer<DataWriter>) = data(consumer::accept)
+    public fun data(consumer: Consumer<DataWriter>): MessageWriter = data(consumer::accept)
 
     /**
      * Basic notification template to use across all platforms.
@@ -96,7 +96,7 @@ class MessageWriter @PublishedApi internal constructor(
      */
     @OptIn(ExperimentalContracts::class)
     @JvmSynthetic
-    inline fun notification(block: NotificationWriter.() -> Unit): MessageWriter {
+    public inline fun notification(block: NotificationWriter.() -> Unit): MessageWriter {
         contract {
             callsInPlace(block, InvocationKind.EXACTLY_ONCE)
         }
@@ -109,7 +109,7 @@ class MessageWriter @PublishedApi internal constructor(
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun notification(consumer: Consumer<NotificationWriter>) = notification(consumer::accept)
+    public fun notification(consumer: Consumer<NotificationWriter>): MessageWriter = notification(consumer::accept)
 
     /**
      * Registration token uniquely identifying a message recipient.
@@ -120,7 +120,7 @@ class MessageWriter @PublishedApi internal constructor(
      *
      * @see <a href="https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#Message">projects.messages#Message</a>
      */
-    fun token(value: String) = apply {
+    public fun token(value: String): MessageWriter = apply {
         writer.stringValue("token", value)
     }
 
@@ -134,7 +134,7 @@ class MessageWriter @PublishedApi internal constructor(
      *
      * @see <a href="https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#Message">projects.messages#Message</a>
      */
-    fun topic(value: String) = apply {
+    public fun topic(value: String): MessageWriter = apply {
         writer.stringValue("topic", value)
     }
 }

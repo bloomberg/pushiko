@@ -19,7 +19,7 @@ package com.bloomberg.pushiko.apns.model
 /**
  * @since 0.18.0
  */
-enum class InterruptionLevel(
+public enum class InterruptionLevel(
     internal val value: String
 ) {
     ACTIVE("active"),

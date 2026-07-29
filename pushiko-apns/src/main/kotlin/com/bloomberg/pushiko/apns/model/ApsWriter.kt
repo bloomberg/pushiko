@@ -28,7 +28,7 @@ import kotlin.contracts.contract
  * @since 0.18.0
  */
 @ApnsMarker
-class ApsWriter @PublishedApi internal constructor(
+public class ApsWriter @PublishedApi internal constructor(
     @get:JvmSynthetic @PublishedApi internal val writer: JsonObjectWriter
 ) {
     /**
@@ -36,7 +36,7 @@ class ApsWriter @PublishedApi internal constructor(
      */
     @OptIn(ExperimentalContracts::class)
     @JvmSynthetic
-    inline fun alert(block: AlertWriter.() -> Unit): ApsWriter {
+    public inline fun alert(block: AlertWriter.() -> Unit): ApsWriter {
         contract {
             callsInPlace(block, InvocationKind.EXACTLY_ONCE)
         }
@@ -51,41 +51,41 @@ class ApsWriter @PublishedApi internal constructor(
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun alert(consumer: Consumer<AlertWriter>) = alert(consumer::accept)
+    public fun alert(consumer: Consumer<AlertWriter>): ApsWriter = alert(consumer::accept)
 
-    fun badge(value: Int) = apply {
+    public fun badge(value: Int): ApsWriter = apply {
         writer.intValue("badge", value)
     }
 
-    fun category(value: String) = apply {
+    public fun category(value: String): ApsWriter = apply {
         writer.stringValue("category", value)
     }
 
-    fun interruptionLevel(value: InterruptionLevel) = apply {
+    public fun interruptionLevel(value: InterruptionLevel): ApsWriter = apply {
         writer.stringValue("interruption-level", value.value)
     }
 
-    fun isContentAvailable(value: Boolean) = apply {
+    public fun isContentAvailable(value: Boolean): ApsWriter = apply {
         writer.intValue("content-available", if (value) { 1 } else { 0 })
     }
 
-    fun isMutableContent(value: Boolean) = apply {
+    public fun isMutableContent(value: Boolean): ApsWriter = apply {
         writer.intValue("mutable-content", if (value) { 1 } else { 0 })
     }
 
-    fun relevanceScore(value: Double) = apply {
+    public fun relevanceScore(value: Double): ApsWriter = apply {
         writer.doubleValue("relevance-score", value)
     }
 
-    fun sound(value: String) = apply {
+    public fun sound(value: String): ApsWriter = apply {
         writer.stringValue("sound", value)
     }
 
-    fun targetContentId(value: String) = apply {
+    public fun targetContentId(value: String): ApsWriter = apply {
         writer.stringValue("target-content-id", value)
     }
 
-    fun threadId(value: String) = apply {
+    public fun threadId(value: String): ApsWriter = apply {
         writer.stringValue("thread-id", value)
     }
 }

@@ -19,29 +19,29 @@ package com.bloomberg.pushiko.pools
 import javax.annotation.concurrent.NotThreadSafe
 
 @NotThreadSafe
-abstract class Poolable<out R : Any>(
+public abstract class Poolable<out R : Any>(
     @JvmField
     @PublishedApi
     internal val value: R
 ) {
-    var allocatedPermits = 0
+    public var allocatedPermits: Int = 0
         private set
 
-    abstract val maximumPermits: Int
+    public abstract val maximumPermits: Int
 
-    abstract val isAlive: Boolean
+    public abstract val isAlive: Boolean
 
-    abstract val isCanAcquire: Boolean
+    public abstract val isCanAcquire: Boolean
 
-    abstract val isShouldAcquire: Boolean
+    public abstract val isShouldAcquire: Boolean
 
-    fun acquirePermit() = apply {
+    public fun acquirePermit(): Poolable<R> = apply {
         ++allocatedPermits
     }
 
-    fun releasePermit() {
+    public fun releasePermit() {
         --allocatedPermits
     }
 
-    open suspend fun summarize(appendable: Appendable) = Unit
+    public open suspend fun summarize(appendable: Appendable): Unit = Unit
 }

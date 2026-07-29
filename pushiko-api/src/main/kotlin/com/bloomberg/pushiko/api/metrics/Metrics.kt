@@ -16,6 +16,6 @@
 
 package com.bloomberg.pushiko.api.metrics
 
-data class Metrics(
+public data class Metrics(
     val connectionCount: Int
 )

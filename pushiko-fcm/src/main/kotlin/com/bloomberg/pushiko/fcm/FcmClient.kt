@@ -90,7 +90,7 @@ private const val JSON_UTF8_CONTENT_TYPE = "application/json; charset=UTF-8"
 @OptIn(ExperimentalContracts::class)
 @FcmMarker
 @JvmSynthetic
-fun FcmClient(block: FcmClient.Builder.() -> Unit): FcmClient {
+public fun FcmClient(block: FcmClient.Builder.() -> Unit): FcmClient {
     contract {
         callsInPlace(block, InvocationKind.EXACTLY_ONCE)
     }
@@ -99,7 +99,7 @@ fun FcmClient(block: FcmClient.Builder.() -> Unit): FcmClient {
 
 @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
 @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-fun FcmClient(consumer: Consumer<FcmClient.Builder>) = FcmClient(consumer::accept)
+public fun FcmClient(consumer: Consumer<FcmClient.Builder>): FcmClient = FcmClient(consumer::accept)
 
 /**
  * A client for sending push notification messages to Firebase Cloud Messaging (FCM).
@@ -114,7 +114,7 @@ fun FcmClient(consumer: Consumer<FcmClient.Builder>) = FcmClient(consumer::accep
  * @since 0.1.0
  */
 @ThreadSafe
-class FcmClient private constructor(
+public class FcmClient private constructor(
     private val sessions: Map<String, Session>,
     private val httpClient: HttpClient,
     javaDispatcher: CoroutineDispatcher? = null
@@ -123,10 +123,10 @@ class FcmClient private constructor(
      * @since 0.24.0
      */
     @JvmField
-    val healthComponent = HealthComponent()
+    public val healthComponent: HealthComponent = HealthComponent()
 
     @JvmField
-    val metricsComponent = MetricsComponent()
+    public val metricsComponent: MetricsComponent = MetricsComponent()
 
     private val logger = Logger()
     private val javaScope = CoroutineScope(SupervisorJob() + (javaDispatcher ?: CommonPoolDispatcher))
@@ -147,7 +147,7 @@ class FcmClient private constructor(
      * @since 0.19.0
      */
     @JvmSynthetic
-    suspend fun joinStart(): Unit = coroutineScope {
+    public suspend fun joinStart(): Unit = coroutineScope {
         launch {
             httpClient.prepare()
         }
@@ -167,7 +167,7 @@ class FcmClient private constructor(
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun joinStartFuture(): CompletableFuture<Unit> = javaScope.future(start = CoroutineStart.UNDISPATCHED) {
+    public fun joinStartFuture(): CompletableFuture<Unit> = javaScope.future(start = CoroutineStart.UNDISPATCHED) {
         joinStart()
     }
 
@@ -194,7 +194,7 @@ class FcmClient private constructor(
      * @since 0.1.0
      */
     @JvmSynthetic
-    suspend fun send(
+    public suspend fun send(
         projectId: String,
         request: FcmRequest
     ): FcmResponse = runCatching {
@@ -229,7 +229,7 @@ class FcmClient private constructor(
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun sendFuture(
+    public fun sendFuture(
         projectId: String,
         request: FcmRequest
     ): CompletableFuture<FcmResponse> = javaScope.future(
@@ -246,7 +246,7 @@ class FcmClient private constructor(
      * @since 0.1.0
      */
     @JvmSynthetic
-    suspend fun close() {
+    public suspend fun close() {
         try {
             httpClient.close()
         } finally {
@@ -265,7 +265,7 @@ class FcmClient private constructor(
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun closeFuture(): CompletableFuture<Unit> = javaScope.future(start = CoroutineStart.UNDISPATCHED) {
+    public fun closeFuture(): CompletableFuture<Unit> = javaScope.future(start = CoroutineStart.UNDISPATCHED) {
         close()
     }
 
@@ -332,7 +332,7 @@ class FcmClient private constructor(
         )
     }
 
-    class Builder internal constructor() {
+    public class Builder internal constructor() {
         private var executor: Executor? = null
         private val metadata = mutableListOf<File>()
 
@@ -349,34 +349,34 @@ class FcmClient private constructor(
 
         @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
         @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-        fun executor(value: Executor) = apply {
+        public fun executor(value: Executor): Builder = apply {
             executor = value
         }
 
         @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
         @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-        fun connectionAcquisitionTimeout(value: java.time.Duration) = apply {
+        public fun connectionAcquisitionTimeout(value: java.time.Duration): Builder = apply {
             connectionAcquisitionTimeout(value.toKotlinDuration())
         }
 
         @JvmSynthetic
-        fun connectionAcquisitionTimeout(value: Duration) = apply {
+        public fun connectionAcquisitionTimeout(value: Duration): Builder = apply {
             connectionAcquisitionTimeout = value
         }
 
-        fun metadata(files: Iterable<File>) = apply {
+        public fun metadata(files: Iterable<File>): Builder = apply {
             metadata.addAll(files)
         }
 
-        fun maximumConnections(value: Int) = apply {
+        public fun maximumConnections(value: Int): Builder = apply {
             maximumConnections = value
         }
 
-        fun minimumConnections(value: Int) = apply {
+        public fun minimumConnections(value: Int): Builder = apply {
             minimumConnections = value
         }
 
-        fun proxy(host: String, port: Int) = apply {
+        public fun proxy(host: String, port: Int): Builder = apply {
             proxyAddress = InetSocketAddress.createUnresolved(host, port)
         }
 
@@ -411,7 +411,7 @@ class FcmClient private constructor(
      * @since 0.24.0
      */
     @ThreadSafe
-    inner class HealthComponent internal constructor() {
+    public inner class HealthComponent internal constructor() {
         /**
          * Performs a connectivity health check on this FCM client. This check does not send a request.
          *
@@ -420,7 +420,7 @@ class FcmClient private constructor(
          * @since 0.24.0
          */
         @JvmField
-        val connectivity: HealthCheck = ConnectivityHealthCheck()
+        public val connectivity: HealthCheck = ConnectivityHealthCheck()
     }
 
     @ThreadSafe
@@ -433,7 +433,7 @@ class FcmClient private constructor(
     }
 
     @ThreadSafe
-    inner class MetricsComponent internal constructor() : com.bloomberg.pushiko.api.metrics.MetricsComponent {
+    public inner class MetricsComponent internal constructor() : com.bloomberg.pushiko.api.metrics.MetricsComponent {
         override val gauges: Gauges = object : Gauges {
             override suspend fun read(timeout: Duration) = httpClient.metricsComponent.gauges.read(timeout).let {
                 Metrics(

@@ -32,7 +32,7 @@ import java.util.function.Consumer
 
 @OptIn(ExperimentalContracts::class)
 @JvmSynthetic
-inline fun FcmRequest(block: FcmRequest.Builder.() -> Unit): FcmRequest {
+public inline fun FcmRequest(block: FcmRequest.Builder.() -> Unit): FcmRequest {
     contract {
         callsInPlace(block, InvocationKind.EXACTLY_ONCE)
     }
@@ -49,26 +49,26 @@ inline fun FcmRequest(block: FcmRequest.Builder.() -> Unit): FcmRequest {
 
 @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
 @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-fun FcmRequest(consumer: Consumer<FcmRequest.Builder>) = FcmRequest(consumer::accept)
+public fun FcmRequest(consumer: Consumer<FcmRequest.Builder>): FcmRequest = FcmRequest(consumer::accept)
 
 @ThreadSafe
-class FcmRequest private constructor(
+public class FcmRequest private constructor(
     @get:JvmSynthetic
     internal val payload: ByteArray
 ) {
     /**
      * @since 0.21.2
      */
-    fun payloadString() = String(payload, charset = Charsets.UTF_8)
+    public fun payloadString(): String = String(payload, charset = Charsets.UTF_8)
 
     @FcmMarker
     @NotThreadSafe
     @OptIn(ExperimentalContracts::class)
-    class Builder @PublishedApi internal constructor() {
+    public class Builder @PublishedApi internal constructor() {
         @get:JvmSynthetic @PublishedApi
-        internal var buffer = Buffer()
+        internal var buffer: Buffer = Buffer()
         @get:JvmSynthetic @PublishedApi
-        internal val writer = JsonObjectWriter(buffer)
+        internal val writer: JsonObjectWriter = JsonObjectWriter(buffer)
 
         @JvmSynthetic @PublishedApi
         internal fun close() {
@@ -79,12 +79,12 @@ class FcmRequest private constructor(
             }
         }
 
-        fun validateOnly(value: Boolean) = apply {
+        public fun validateOnly(value: Boolean): Builder = apply {
             writer.booleanValue("validate_only", value)
         }
 
         @JvmSynthetic
-        inline fun message(block: MessageWriter.() -> Unit): Builder {
+        public inline fun message(block: MessageWriter.() -> Unit): Builder {
             contract {
                 callsInPlace(block, InvocationKind.EXACTLY_ONCE)
             }
@@ -94,7 +94,7 @@ class FcmRequest private constructor(
 
         @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
         @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-        fun message(consumer: Consumer<MessageWriter>) = message(consumer::accept)
+        public fun message(consumer: Consumer<MessageWriter>): Builder = message(consumer::accept)
 
         @JvmSynthetic @PublishedApi
         internal fun build(): FcmRequest {

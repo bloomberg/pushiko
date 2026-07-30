@@ -16,11 +16,11 @@
 
 package com.bloomberg.pushiko.commons.assertions
 
-object Assertions {
-    val enabled: Boolean = javaClass.desiredAssertionStatus()
+public object Assertions {
+    public val enabled: Boolean = javaClass.desiredAssertionStatus()
 }
 
-inline fun assert(message: String = "Assertion failed", block: () -> Boolean) {
+public inline fun assert(message: String = "Assertion failed", block: () -> Boolean) {
     if (Assertions.enabled) {
         assert(block()) { message }
     }

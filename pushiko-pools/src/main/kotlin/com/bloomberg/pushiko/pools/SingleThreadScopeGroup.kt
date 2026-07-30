@@ -38,7 +38,7 @@ import kotlin.coroutines.coroutineContext
 import kotlin.time.Duration
 
 @ThreadSafe
-class SingleThreadScopeGroup(
+public class SingleThreadScopeGroup(
     name: String
 ) : AutoCloseable {
     private val dispatcher = SingleThreadExecutorService(name).asCoroutineDispatcher()

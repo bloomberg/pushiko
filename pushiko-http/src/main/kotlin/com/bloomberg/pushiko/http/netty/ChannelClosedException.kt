@@ -18,7 +18,7 @@ package com.bloomberg.pushiko.http.netty
 
 import kotlin.coroutines.cancellation.CancellationException
 
-object ChannelClosedException : CancellationException("Channel is closed") {
+public object ChannelClosedException : CancellationException("Channel is closed") {
     override fun fillInStackTrace(): Throwable = this
 
     @Suppress("Detekt.UnusedPrivateMember")

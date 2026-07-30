@@ -19,7 +19,7 @@ package com.bloomberg.pushiko.fcm.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class FieldViolation(
+public data class FieldViolation(
     /**
      * Field for which a violation was observed. For a bad request due to an invalid registration token being received
      * this might read: "message.token".

@@ -79,7 +79,7 @@ import kotlin.coroutines.resumeWithException
  * associated continuations resuming with an exception.
  */
 @ThreadSafe
-class CommonMuxPool<R : Any, P : Poolable<R>>(
+public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private val configuration: PoolConfiguration,
     private val factory: Factory<P>,
     private val recycler: Recycler<R>

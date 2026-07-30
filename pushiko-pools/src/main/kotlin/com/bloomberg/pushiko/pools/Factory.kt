@@ -16,10 +16,10 @@
 
 package com.bloomberg.pushiko.pools
 
-interface Factory<P : Any> {
-    val allocations: Int
+public interface Factory<P : Any> {
+    public val allocations: Int
 
-    suspend fun close()
+    public suspend fun close()
 
-    suspend fun make(): P
+    public suspend fun make(): P
 }

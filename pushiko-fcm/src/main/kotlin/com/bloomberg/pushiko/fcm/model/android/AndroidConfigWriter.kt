@@ -28,7 +28,7 @@ import kotlin.contracts.contract
  * @see <a href="https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#AndroidConfig">projects.messages#AndroidConfig</a>
  */
 @FcmMarker
-class AndroidConfigWriter @PublishedApi internal constructor(
+public class AndroidConfigWriter @PublishedApi internal constructor(
     @get:JvmSynthetic @PublishedApi internal val writer: JsonObjectWriter
 ) {
     /**
@@ -37,7 +37,7 @@ class AndroidConfigWriter @PublishedApi internal constructor(
      * @param value of the notification's collapse key.
      * @return this writer.
      */
-    fun collapseKey(value: String) = apply {
+    public fun collapseKey(value: String): AndroidConfigWriter = apply {
         writer.stringValue("collapse_key", value)
     }
 
@@ -48,7 +48,7 @@ class AndroidConfigWriter @PublishedApi internal constructor(
      * @return this writer.
      * @see <a href="https://goo.gl/GjONJv">concept-options#setting-the-priority-of-a-message</a>
      */
-    fun priority(value: AndroidMessagePriority) = apply {
+    public fun priority(value: AndroidMessagePriority): AndroidConfigWriter = apply {
         writer.stringValue("priority", value.value)
     }
 
@@ -57,7 +57,7 @@ class AndroidConfigWriter @PublishedApi internal constructor(
      * @param value of the notification's restricted package name.
      * @return this writer.
      */
-    fun restrictedPackageName(value: String) = apply {
+    public fun restrictedPackageName(value: String): AndroidConfigWriter = apply {
         writer.stringValue("restricted_package_name", value)
     }
 
@@ -65,7 +65,7 @@ class AndroidConfigWriter @PublishedApi internal constructor(
      * @param value duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".
      * @return this writer.
      */
-    fun timeToLive(value: String) = apply {
+    public fun timeToLive(value: String): AndroidConfigWriter = apply {
         writer.stringValue("ttl", value)
     }
 
@@ -74,11 +74,11 @@ class AndroidConfigWriter @PublishedApi internal constructor(
      * @return this writer.
      * @see [timeToLive]
      */
-    fun timeToLiveSeconds(value: Long) = timeToLive("${value}s")
+    public fun timeToLiveSeconds(value: Long): AndroidConfigWriter = timeToLive("${value}s")
 
     @OptIn(ExperimentalContracts::class)
     @JvmSynthetic
-    inline fun notification(block: AndroidNotificationWriter.() -> Unit): AndroidConfigWriter {
+    public inline fun notification(block: AndroidNotificationWriter.() -> Unit): AndroidConfigWriter {
         contract {
             callsInPlace(block, InvocationKind.EXACTLY_ONCE)
         }
@@ -88,5 +88,6 @@ class AndroidConfigWriter @PublishedApi internal constructor(
 
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun notification(consumer: Consumer<AndroidNotificationWriter>) = notification(consumer::accept)
+    public fun notification(consumer: Consumer<AndroidNotificationWriter>): AndroidConfigWriter =
+        notification(consumer::accept)
 }

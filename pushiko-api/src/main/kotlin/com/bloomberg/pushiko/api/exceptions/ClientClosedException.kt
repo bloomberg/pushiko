@@ -19,4 +19,4 @@ package com.bloomberg.pushiko.api.exceptions
 /**
  * @since 0.26.0
  */
-object ClientClosedException : RuntimeException("Client is closed")
+public object ClientClosedException : RuntimeException("Client is closed")

@@ -23,9 +23,9 @@ import javax.annotation.concurrent.ThreadSafe
  */
 @ThreadSafe
 @Suppress("Detekt.UseDataClass") // Component methods generated from "data class" would be visible to Java.
-class Health(
+public class Health(
     @JvmField
-    val status: Status,
+    public val status: Status,
     @JvmField
-    val throwable: Throwable? = null
+    public val throwable: Throwable? = null
 )

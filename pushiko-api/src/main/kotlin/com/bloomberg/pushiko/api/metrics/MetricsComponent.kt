@@ -16,6 +16,6 @@
 
 package com.bloomberg.pushiko.api.metrics
 
-interface MetricsComponent {
-    val gauges: Gauges
+public interface MetricsComponent {
+    public val gauges: Gauges
 }

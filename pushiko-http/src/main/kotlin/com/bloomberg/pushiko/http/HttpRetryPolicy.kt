@@ -16,6 +16,6 @@
 
 package com.bloomberg.pushiko.http
 
-interface HttpRetryPolicy {
-    fun canRetryRequestAfter(throwable: Throwable): Boolean
+public interface HttpRetryPolicy {
+    public fun canRetryRequestAfter(throwable: Throwable): Boolean
 }

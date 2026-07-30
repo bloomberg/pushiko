@@ -23,11 +23,11 @@ import kotlin.time.Duration
 /**
  * @since 0.24.0
  */
-interface HealthCheck {
+public interface HealthCheck {
     @JvmSynthetic
-    suspend fun health(timeout: Duration): Health
+    public suspend fun health(timeout: Duration): Health
 
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun healthFuture(timeout: java.time.Duration): CompletableFuture<Health>
+    public fun healthFuture(timeout: java.time.Duration): CompletableFuture<Health>
 }

@@ -20,15 +20,15 @@ import com.bloomberg.pushiko.fcm.model.Error
 import kotlinx.serialization.Serializable
 import java.net.HttpURLConnection.HTTP_OK
 
-sealed interface FcmResponse
+public sealed interface FcmResponse
 
 @Serializable
-data class FcmClientErrorResponse(
+public data class FcmClientErrorResponse(
     @JvmField
     val error: Error
 ) : FcmResponse
 
-data class FcmServerErrorResponse(
+public data class FcmServerErrorResponse(
     @JvmField
     val request: FcmRequest,
     @JvmField
@@ -40,10 +40,10 @@ data class FcmServerErrorResponse(
 ) : FcmResponse
 
 @Serializable
-data class FcmSuccessResponse(
+public data class FcmSuccessResponse(
     @JvmField
     val name: String
 ) : FcmResponse {
-    var code: Int = HTTP_OK
+    public var code: Int = HTTP_OK
         @JvmSynthetic internal set
 }

@@ -45,7 +45,7 @@ import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
 @OptIn(ExperimentalContracts::class)
-fun HttpClient(block: HttpClientBuilder.() -> Unit): HttpClient {
+public fun HttpClient(block: HttpClientBuilder.() -> Unit): HttpClient {
     contract {
         callsInPlace(block, InvocationKind.EXACTLY_ONCE)
     }
@@ -54,19 +54,19 @@ fun HttpClient(block: HttpClientBuilder.() -> Unit): HttpClient {
 
 private val httpLogger = LoggerFactory.getLogger(HttpClient::class.java)
 
-enum class EventLoopGroupType {
+public enum class EventLoopGroupType {
     PRIMARY,
     SECONDARY
 }
 
 @NotThreadSafe
-class HttpClientBuilder internal constructor() {
-    lateinit var host: CharSequence
-    var port: Int = 443
-    var requiresAlpn = true
-    var httpProperties: HttpClientProperties? = null
-    var monitorConnectionHealth: Boolean = false
-    var eventLoopGroupType: EventLoopGroupType? = null
+public class HttpClientBuilder internal constructor() {
+    public lateinit var host: CharSequence
+    public var port: Int = 443
+    public var requiresAlpn: Boolean = true
+    public var httpProperties: HttpClientProperties? = null
+    public var monitorConnectionHealth: Boolean = false
+    public var eventLoopGroupType: EventLoopGroupType? = null
 
     private var privateKey: PrivateKey? = null
     private var privateKeyPassword: CharArray? = null
@@ -91,17 +91,17 @@ class HttpClientBuilder internal constructor() {
             .build()
     }
 
-    fun clientCredentials(
+    public fun clientCredentials(
         key: PrivateKey,
         keyPassword: CharArray,
         clientCertificate: X509Certificate
-    ) = apply {
+    ): HttpClientBuilder = apply {
         privateKey = key
         privateKeyPassword = keyPassword
         this.clientCertificate = clientCertificate
     }
 
-    fun concurrentRequestWatermark(low: Long, high: Long) = apply {
+    public fun concurrentRequestWatermark(low: Long, high: Long): HttpClientBuilder = apply {
         concurrentRequestWaterMark = ConcurrentRequestWaterMark(low, high)
     }
 

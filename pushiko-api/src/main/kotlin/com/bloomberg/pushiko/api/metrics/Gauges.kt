@@ -18,7 +18,7 @@ package com.bloomberg.pushiko.api.metrics
 
 import kotlin.time.Duration
 
-interface Gauges {
+public interface Gauges {
     @JvmSynthetic
-    suspend fun read(timeout: Duration): Metrics
+    public suspend fun read(timeout: Duration): Metrics
 }

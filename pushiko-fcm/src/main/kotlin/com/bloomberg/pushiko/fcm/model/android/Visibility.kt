@@ -23,7 +23,7 @@ import kotlinx.serialization.Serializable
  * @since 0.26.3
  */
 @Serializable
-enum class Visibility(
+public enum class Visibility(
     internal val value: String
 ) {
     @SerialName("PRIVATE") PRIVATE("PRIVATE"),

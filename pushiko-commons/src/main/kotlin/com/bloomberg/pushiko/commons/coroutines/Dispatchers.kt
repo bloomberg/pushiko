@@ -16,7 +16,8 @@
 
 package com.bloomberg.pushiko.commons.coroutines
 
+import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.asCoroutineDispatcher
 import java.util.concurrent.ForkJoinPool
 
-val CommonPoolDispatcher = ForkJoinPool.commonPool().asCoroutineDispatcher()
+public val CommonPoolDispatcher: ExecutorCoroutineDispatcher = ForkJoinPool.commonPool().asCoroutineDispatcher()

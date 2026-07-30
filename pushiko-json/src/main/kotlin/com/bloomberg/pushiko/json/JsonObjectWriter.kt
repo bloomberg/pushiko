@@ -26,7 +26,7 @@ import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
 @DslMarker
-annotation class JsonMarker
+public annotation class JsonMarker
 
 @OptIn(ExperimentalContracts::class)
 @JvmSynthetic
@@ -46,50 +46,50 @@ internal inline fun <R> JsonObjectWriter.use(block: JsonObjectWriter.() -> R): R
  */
 @JsonMarker
 @NotThreadSafe
-class JsonObjectWriter(sink: BufferedSink) {
+public class JsonObjectWriter(sink: BufferedSink) {
     @get:JvmSynthetic @JvmField @PublishedApi
-    internal val writer = JsonWriter.of(sink).apply {
+    internal val writer: JsonWriter = JsonWriter.of(sink).apply {
         beginObject()
     }
 
     /**
      * Whether null objects are serialized. The default is false.
      */
-    var serializeNulls: Boolean
+    public var serializeNulls: Boolean
         get() = writer.serializeNulls
         set(value) { writer.serializeNulls = value }
 
-    fun close() {
+    public fun close() {
         writer.use {
             it.endObject()
         }
     }
 
-    fun booleanValue(key: String, value: Boolean) = apply {
+    public fun booleanValue(key: String, value: Boolean): JsonObjectWriter = apply {
         writer.name(key).value(value)
     }
 
-    fun intValue(key: String, value: Int) = apply {
+    public fun intValue(key: String, value: Int): JsonObjectWriter = apply {
         writer.name(key).value(value)
     }
 
-    fun longValue(key: String, value: Long) = apply {
+    public fun longValue(key: String, value: Long): JsonObjectWriter = apply {
         writer.name(key).value(value)
     }
 
-    fun doubleValue(key: String, value: Double) = apply {
+    public fun doubleValue(key: String, value: Double): JsonObjectWriter = apply {
         writer.name(key).value(value)
     }
 
-    fun stringValue(key: String, value: String) = apply {
+    public fun stringValue(key: String, value: String): JsonObjectWriter = apply {
         writer.name(key).value(value)
     }
 
-    fun numericalValue(key: String, value: Number) = apply {
+    public fun numericalValue(key: String, value: Number): JsonObjectWriter = apply {
         writer.name(key).value(value)
     }
 
-    fun nullValue(key: String) = apply {
+    public fun nullValue(key: String): JsonObjectWriter = apply {
         writer.name(key).nullValue()
     }
 
@@ -100,7 +100,7 @@ class JsonObjectWriter(sink: BufferedSink) {
      * @param value to write directly.
      * @return this JsonObjectWriter.
      */
-    fun literalValue(key: String, value: String) = apply {
+    public fun literalValue(key: String, value: String): JsonObjectWriter = apply {
         writer.name(key).valueSink().use {
             it.writeUtf8(value)
         }
@@ -113,7 +113,7 @@ class JsonObjectWriter(sink: BufferedSink) {
      * @param value to write directly.
      * @return this JsonObjectWriter.
      */
-    fun literalValue(key: String, value: ByteArray) = apply {
+    public fun literalValue(key: String, value: ByteArray): JsonObjectWriter = apply {
         writer.name(key).valueSink().use {
             it.write(value)
         }
@@ -121,7 +121,7 @@ class JsonObjectWriter(sink: BufferedSink) {
 
     @OptIn(ExperimentalContracts::class)
     @JvmSynthetic
-    inline fun objectValue(key: String, block: JsonObjectWriter.() -> Unit): JsonObjectWriter {
+    public inline fun objectValue(key: String, block: JsonObjectWriter.() -> Unit): JsonObjectWriter {
         contract {
             callsInPlace(block, InvocationKind.EXACTLY_ONCE)
         }
@@ -138,5 +138,6 @@ class JsonObjectWriter(sink: BufferedSink) {
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun objectValue(key: String, consumer: Consumer<JsonObjectWriter>) = objectValue(key, consumer::accept)
+    public fun objectValue(key: String, consumer: Consumer<JsonObjectWriter>): JsonObjectWriter =
+        objectValue(key, consumer::accept)
 }

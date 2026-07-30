@@ -24,7 +24,7 @@ import java.util.Queue
  *
  * @param predicate to satisfy.
  */
-inline fun <T : Any> Queue<T>.removeUntil(predicate: (T) -> Boolean) {
+public inline fun <T : Any> Queue<T>.removeUntil(predicate: (T) -> Boolean) {
     while (true) {
         (peek() ?: break).let {
             if (predicate(it)) {
@@ -43,7 +43,7 @@ inline fun <T : Any> Queue<T>.removeUntil(predicate: (T) -> Boolean) {
  *
  * @return the first removed element to satisfy the predicate, or null if the buffer is or has become empty.
  */
-inline fun <T : Any> Queue<T>.removeUntilInclusiveOrNull(predicate: (T) -> Boolean): T? {
+public inline fun <T : Any> Queue<T>.removeUntilInclusiveOrNull(predicate: (T) -> Boolean): T? {
     while (true) {
         (poll() ?: break).let {
             if (predicate(it)) {

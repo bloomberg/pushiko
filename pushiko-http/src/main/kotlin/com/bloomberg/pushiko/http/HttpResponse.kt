@@ -24,10 +24,10 @@ import java.io.InputStream
 import javax.annotation.concurrent.NotThreadSafe
 
 @NotThreadSafe
-class HttpResponse private constructor(
-    val code: Int,
+public class HttpResponse private constructor(
+    public val code: Int,
     private val headers: Http2Headers,
-    val body: InputStream? = null
+    public val body: InputStream? = null
 ) : Closeable {
     internal constructor(
         code: Int,
@@ -39,7 +39,7 @@ class HttpResponse private constructor(
         body?.let { ByteBufInputStream(it.retain(), true) }
     )
 
-    fun header(key: CharSequence): CharSequence? = headers[key]
+    public fun header(key: CharSequence): CharSequence? = headers[key]
 
     override fun close() {
         body?.close()

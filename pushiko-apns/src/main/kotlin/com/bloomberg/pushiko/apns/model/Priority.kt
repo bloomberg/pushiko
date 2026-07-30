@@ -23,8 +23,8 @@ private const val PRIORITY_TEN = 10
 /**
  * @see <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/sending_notification_requests_to_apns">Sending requests to APNs</a>
  */
-enum class Priority(
-    val code: Int
+public enum class Priority(
+    public val code: Int
 ) {
     /**
      * Send the notification based on power considerations on the user’s device.

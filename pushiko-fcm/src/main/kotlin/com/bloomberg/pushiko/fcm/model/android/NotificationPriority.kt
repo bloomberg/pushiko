@@ -27,7 +27,7 @@ import kotlinx.serialization.Serializable
  * @since 0.1.0
  */
 @Serializable
-enum class NotificationPriority(
+public enum class NotificationPriority(
     internal val value: String
 ) {
     /**

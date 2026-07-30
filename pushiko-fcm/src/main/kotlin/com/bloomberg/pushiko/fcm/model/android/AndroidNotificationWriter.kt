@@ -23,7 +23,7 @@ import com.bloomberg.pushiko.json.JsonObjectWriter
  * @see <a href="https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#androidnotification">AndroidNotification</a>
  */
 @FcmMarker
-class AndroidNotificationWriter @PublishedApi internal constructor(
+public class AndroidNotificationWriter @PublishedApi internal constructor(
     @get:JvmSynthetic @PublishedApi internal val writer: JsonObjectWriter
 ) {
     /**
@@ -31,7 +31,7 @@ class AndroidNotificationWriter @PublishedApi internal constructor(
      *
      * @since 0.28.0
      */
-    fun defaultSound(value: Boolean) = apply {
+    public fun defaultSound(value: Boolean): AndroidNotificationWriter = apply {
         writer.booleanValue("default_sound", value)
     }
 
@@ -43,7 +43,7 @@ class AndroidNotificationWriter @PublishedApi internal constructor(
      *
      * @since 0.26.3
      */
-    fun image(value: String) = apply {
+    public fun image(value: String): AndroidNotificationWriter = apply {
         writer.stringValue("image", value)
     }
 
@@ -54,7 +54,7 @@ class AndroidNotificationWriter @PublishedApi internal constructor(
      *
      * @since 0.1.0
      */
-    fun notificationPriority(value: NotificationPriority) = apply {
+    public fun notificationPriority(value: NotificationPriority): AndroidNotificationWriter = apply {
         writer.stringValue("notification_priority", value.value)
     }
 
@@ -66,14 +66,14 @@ class AndroidNotificationWriter @PublishedApi internal constructor(
      * @since 0.28.0
      */
     @JvmOverloads
-    fun sound(value: String = "default") = apply {
+    public fun sound(value: String = "default"): AndroidNotificationWriter = apply {
         writer.stringValue("sound", value)
     }
 
     /**
      * @since 0.26.3
      */
-    fun visibility(value: Visibility) = apply {
+    public fun visibility(value: Visibility): AndroidNotificationWriter = apply {
         writer.stringValue("visibility", value.value)
     }
 }

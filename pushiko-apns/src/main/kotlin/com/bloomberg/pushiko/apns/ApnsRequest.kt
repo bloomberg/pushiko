@@ -38,7 +38,7 @@ import kotlin.contracts.contract
  */
 @OptIn(ExperimentalContracts::class)
 @JvmSynthetic
-inline fun ApnsRequest(block: ApnsRequest.Builder.() -> Unit): ApnsRequest {
+public inline fun ApnsRequest(block: ApnsRequest.Builder.() -> Unit): ApnsRequest {
     contract {
         callsInPlace(block, InvocationKind.EXACTLY_ONCE)
     }
@@ -55,7 +55,7 @@ inline fun ApnsRequest(block: ApnsRequest.Builder.() -> Unit): ApnsRequest {
 
 @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
 @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-fun ApnsRequest(consumer: Consumer<ApnsRequest.Builder>) = ApnsRequest(consumer::accept)
+public fun ApnsRequest(consumer: Consumer<ApnsRequest.Builder>): ApnsRequest = ApnsRequest(consumer::accept)
 
 private fun String.requireInjectionSafe(field: String) = require(none { it.isWhitespace() || it.isISOControl() }) {
     "$field must not contain whitespace or control characters"
@@ -64,14 +64,14 @@ private fun String.requireInjectionSafe(field: String) = require(none { it.isWhi
 /**
  * @since 0.12.0
  */
-class ApnsRequest private constructor(
+public class ApnsRequest private constructor(
     /**
      * The device token that identifies the user device to receive the notification.
      */
     @JvmField
-    val deviceToken: String,
+    public val deviceToken: String,
     @JvmField
-    val headers: Headers,
+    public val headers: Headers,
     @get:JvmSynthetic
     @JvmField
     internal val payload: ByteArray
@@ -85,7 +85,7 @@ class ApnsRequest private constructor(
         }
     }
 
-    data class Headers internal constructor(
+    public data class Headers internal constructor(
         /**
          * An identifier for coalescing multiple notifications into a single notification for the user.
          */
@@ -123,18 +123,18 @@ class ApnsRequest private constructor(
     /**
      * @since 0.18.3
      */
-    fun payloadString() = String(payload, charset = Charsets.UTF_8)
+    public fun payloadString(): String = String(payload, charset = Charsets.UTF_8)
 
     /**
      * @since 0.12.0
      */
     @ApnsMarker
     @NotThreadSafe
-    class Builder @PublishedApi internal constructor() {
+    public class Builder @PublishedApi internal constructor() {
         @get:JvmSynthetic @PublishedApi
-        internal val buffer = Buffer()
+        internal val buffer: Buffer = Buffer()
         @get:JvmSynthetic @PublishedApi
-        internal val writer = JsonObjectWriter(buffer)
+        internal val writer: JsonObjectWriter = JsonObjectWriter(buffer)
 
         private var collapseId: String? = null
         private lateinit var deviceToken: String
@@ -160,7 +160,7 @@ class ApnsRequest private constructor(
          */
         @OptIn(ExperimentalContracts::class)
         @JvmSynthetic
-        inline fun payload(block: JsonObjectWriter.() -> Unit): Builder {
+        public inline fun payload(block: JsonObjectWriter.() -> Unit): Builder {
             contract {
                 callsInPlace(block, InvocationKind.EXACTLY_ONCE)
             }
@@ -175,14 +175,14 @@ class ApnsRequest private constructor(
          */
         @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
         @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-        fun payload(consumer: Consumer<JsonObjectWriter>) = payload(consumer::accept)
+        public fun payload(consumer: Consumer<JsonObjectWriter>): Builder = payload(consumer::accept)
 
         /**
          * @since 0.18.0
          */
         @OptIn(ExperimentalContracts::class)
         @JvmSynthetic
-        inline fun aps(block: ApsWriter.() -> Unit): Builder {
+        public inline fun aps(block: ApsWriter.() -> Unit): Builder {
             contract {
                 callsInPlace(block, InvocationKind.EXACTLY_ONCE)
             }
@@ -197,33 +197,33 @@ class ApnsRequest private constructor(
          */
         @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
         @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-        fun aps(consumer: Consumer<ApsWriter>) = aps(consumer::accept)
+        public fun aps(consumer: Consumer<ApsWriter>): Builder = aps(consumer::accept)
 
-        fun collapseId(value: String) = apply {
+        public fun collapseId(value: String): Builder = apply {
             collapseId = value
         }
 
-        fun deviceToken(value: String) = apply {
+        public fun deviceToken(value: String): Builder = apply {
             deviceToken = value
         }
 
-        fun expiration(value: Instant) = apply {
+        public fun expiration(value: Instant): Builder = apply {
             expiration = value
         }
 
-        fun id(value: UUID) = apply {
+        public fun id(value: UUID): Builder = apply {
             id = value
         }
 
-        fun priority(value: Priority) = apply {
+        public fun priority(value: Priority): Builder = apply {
             priority = value
         }
 
-        fun pushType(value: PushType) = apply {
+        public fun pushType(value: PushType): Builder = apply {
             pushType = value
         }
 
-        fun topic(value: String) = apply {
+        public fun topic(value: String): Builder = apply {
             topic = value
         }
 

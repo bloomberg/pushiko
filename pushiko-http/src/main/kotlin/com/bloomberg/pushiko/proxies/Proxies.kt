@@ -21,7 +21,7 @@ import java.net.Proxy
 import java.net.ProxySelector
 import java.net.URI
 
-fun systemHttpsProxyAddress(host: String) = URI("https", host, null, null).httpProxyAddress()
+public fun systemHttpsProxyAddress(host: String): InetSocketAddress? = URI("https", host, null, null).httpProxyAddress()
 
 private fun URI.httpProxyAddress() = ProxySelector.getDefault().select(this).firstOrNull {
     Proxy.Type.HTTP === it.type() && it.address().run { this is InetSocketAddress && isUnresolved }

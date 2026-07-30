@@ -41,7 +41,7 @@ import javax.annotation.concurrent.ThreadSafe
  * @return true if sending a request can safely be retried after meeting with an exception.
  */
 @ThreadSafe
-object DefaultHttpRetryPolicy : HttpRetryPolicy {
+public object DefaultHttpRetryPolicy : HttpRetryPolicy {
     override fun canRetryRequestAfter(throwable: Throwable): Boolean = when (throwable) {
         is ChannelInactiveException,
         is ChannelStreamQuotaException,

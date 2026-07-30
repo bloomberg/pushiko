@@ -17,4 +17,4 @@
 package com.bloomberg.pushiko.apns.annotations
 
 @DslMarker
-annotation class ApnsMarker
+public annotation class ApnsMarker

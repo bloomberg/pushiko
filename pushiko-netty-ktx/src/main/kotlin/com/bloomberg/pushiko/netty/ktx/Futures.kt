@@ -28,7 +28,7 @@ import kotlin.coroutines.resumeWithException
  * Converts this Netty [Future] into an instance of [Deferred].
  */
 @Suppress("DeferredIsResult")
-fun <T> Future<T>.asDeferred(): Deferred<T> = if (isDone) {
+public fun <T> Future<T>.asDeferred(): Deferred<T> = if (isDone) {
     if (isSuccess) {
         CompletableDeferred(now as T)
     } else {
@@ -58,7 +58,7 @@ fun <T> Future<T>.asDeferred(): Deferred<T> = if (isDone) {
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @JvmSynthetic
-suspend fun <T> Future<T>.awaitKt(): T = if (isDone) {
+public suspend fun <T> Future<T>.awaitKt(): T = if (isDone) {
     if (isSuccess) {
         now as T
     } else {

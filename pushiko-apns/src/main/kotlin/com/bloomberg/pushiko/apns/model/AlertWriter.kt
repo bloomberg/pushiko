@@ -23,18 +23,18 @@ import com.bloomberg.pushiko.json.JsonObjectWriter
  * @since 0.18.0
  */
 @ApnsMarker
-class AlertWriter @PublishedApi internal constructor(
+public class AlertWriter @PublishedApi internal constructor(
     @get:JvmSynthetic @PublishedApi internal val writer: JsonObjectWriter
 ) {
-    fun body(value: String) = apply {
+    public fun body(value: String): AlertWriter = apply {
         writer.stringValue("body", value)
     }
 
-    fun subtitle(value: String) = apply {
+    public fun subtitle(value: String): AlertWriter = apply {
         writer.stringValue("subtitle", value)
     }
 
-    fun title(value: String) = apply {
+    public fun title(value: String): AlertWriter = apply {
         writer.stringValue("title", value)
     }
 }

@@ -16,4 +16,4 @@
 
 package com.bloomberg.pushiko.commons
 
-const val UNREACHABLE_KOTLIN_VERSION = "9999999999999.9"
+public const val UNREACHABLE_KOTLIN_VERSION: String = "9999999999999.9"

@@ -21,7 +21,7 @@ import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-fun HttpResponse.retryAfterMillis() = retryAfterHeader?.toString()?.let {
+public fun HttpResponse.retryAfterMillis(): Long? = retryAfterHeader?.toString()?.let {
     try {
         TimeUnit.SECONDS.toMillis(it.toLong())
     } catch (_: NumberFormatException) {

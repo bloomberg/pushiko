@@ -16,7 +16,7 @@
 
 package com.bloomberg.pushiko.apns
 
-enum class ApnsEnvironment(
+public enum class ApnsEnvironment(
     internal val host: String,
     internal val port: Int
 ) {

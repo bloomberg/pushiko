@@ -16,6 +16,6 @@
 
 package com.bloomberg.pushiko.pools
 
-interface Recycler<R : Any> {
-    fun recycle(obj: R)
+public interface Recycler<R : Any> {
+    public fun recycle(obj: R)
 }

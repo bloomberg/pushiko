@@ -25,7 +25,7 @@ import java.util.function.Function
 import kotlin.time.Duration
 import kotlin.time.toKotlinDuration
 
-fun <R : Any, P : Poolable<R>> SuspendPool<R, P>.asLazyPool(
+public fun <R : Any, P : Poolable<R>> SuspendPool<R, P>.asLazyPool(
     executor: ExecutorService? = null
 ): LazyPool<R> = object : LazyPool<R> {
     private val dispatcher = executor?.asCoroutineDispatcher() ?: Dispatchers.Default
@@ -63,22 +63,22 @@ fun <R : Any, P : Poolable<R>> SuspendPool<R, P>.asLazyPool(
     ) = testAcquisition(acquisitionTimeout.toKotlinDuration())
 }
 
-interface LazyPool<R : Any> {
-    fun close(): Mono<*>
+public interface LazyPool<R : Any> {
+    public fun close(): Mono<*>
 
-    fun <T : Any> withPermit(
+    public fun <T : Any> withPermit(
         acquisitionTimeout: Duration,
         block: Function<R, T>
     ): Mono<T>
 
-    fun <T : Any> withPermit(
+    public fun <T : Any> withPermit(
         acquisitionTimeout: java.time.Duration,
         block: Function<R, T>
     ): Mono<T>
 
-    fun prepare(): Mono<*>
+    public fun prepare(): Mono<*>
 
-    fun testAcquisition(acquisitionTimeout: Duration): Mono<*>
+    public fun testAcquisition(acquisitionTimeout: Duration): Mono<*>
 
-    fun testAcquisition(acquisitionTimeout: java.time.Duration): Mono<*>
+    public fun testAcquisition(acquisitionTimeout: java.time.Duration): Mono<*>
 }

@@ -16,7 +16,7 @@
 
 package com.bloomberg.pushiko.fcm.model
 
-enum class ErrorCode {
+public enum class ErrorCode {
     INTERNAL,
     INVALID_ARGUMENT,
     QUOTA_EXCEEDED,

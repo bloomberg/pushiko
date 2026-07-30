@@ -22,10 +22,10 @@ import java.net.HttpURLConnection.HTTP_BAD_REQUEST
 import java.net.HttpURLConnection.HTTP_OK
 import java.time.Instant
 
-sealed interface ApnsResponse
+public sealed interface ApnsResponse
 
 @Serializable
-data class ApnsClientErrorResponse(
+public data class ApnsClientErrorResponse(
     @JvmField
     val reason: String?,
     private val timestamp: Long? = null,
@@ -36,24 +36,24 @@ data class ApnsClientErrorResponse(
     @Transient
     private val timestampInstant = timestamp?.let { Instant.ofEpochMilli(it) }
 
-    fun apnsId() = apnsId
+    public fun apnsId(): CharSequence = apnsId
 
-    fun code() = code
+    public fun code(): Int = code
 
     /**
      * The time at which APNs confirmed the device token was no longer valid for the topic.
      */
-    fun timestamp() = timestampInstant
+    public fun timestamp(): Instant? = timestampInstant
 }
 
-data class ApnsServerErrorResponse(
+public data class ApnsServerErrorResponse(
     @JvmField
     val code: Int,
     @JvmField
     val body: String?
 ) : ApnsResponse
 
-data class ApnsSuccessResponse(
+public data class ApnsSuccessResponse(
     @JvmField
     val apnsId: CharSequence,
     /**

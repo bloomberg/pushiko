@@ -19,7 +19,7 @@ package com.bloomberg.pushiko.fcm.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Error(
+public data class Error(
     @JvmField
     val code: Int,
     @JvmField

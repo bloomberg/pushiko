@@ -25,7 +25,7 @@ import javax.annotation.concurrent.NotThreadSafe
  * the caller's responsibility to ensure the buffer's capacity is never exceeded.
  */
 @NotThreadSafe
-class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
+public class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
     init {
         require(capacity > -1)
     }
@@ -40,7 +40,7 @@ class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
     /**
      * The current number of items held by this buffer.
      */
-    var size = 0
+    public var size: Int = 0
         private set
 
     /**
@@ -48,7 +48,7 @@ class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
      *
      * @param item to add at the end.
      */
-    fun addLast(item: T) {
+    public fun addLast(item: T) {
         items[preDecrementLast()] = item
         assert("Buffer was already full") { first != last }
         ++size
@@ -59,7 +59,7 @@ class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
      *
      * @param item to add at the start.
      */
-    fun addFirst(item: T) {
+    public fun addFirst(item: T) {
         items[postIncrementFirst()] = item
         assert("Buffer was already full") { first != last }
         ++size
@@ -73,7 +73,7 @@ class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
      *
      * @return the first removed element to satisfy the predicate, or null if the buffer is or has become empty.
      */
-    inline fun removeUntilFirstInclusiveOrNull(predicate: (T) -> Boolean): T? {
+    public inline fun removeUntilFirstInclusiveOrNull(predicate: (T) -> Boolean): T? {
         while (true) {
             (removeFirstOrNull() ?: break).let {
                 if (predicate(it)) {
@@ -89,7 +89,7 @@ class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
      *
      * @return the removed first element from this buffer, or null if this buffer is empty.
      */
-    fun removeFirstOrNull(): T? = if (isNotEmpty()) {
+    public fun removeFirstOrNull(): T? = if (isNotEmpty()) {
         removeFirst()
     } else {
         null
@@ -100,7 +100,7 @@ class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
      *
      * @param predicate to satisfy.
      */
-    inline fun removeAll(predicate: (T) -> Boolean) {
+    public inline fun removeAll(predicate: (T) -> Boolean) {
         repeat(size) {
             removeFirst().let {
                 if (!predicate(it)) {
@@ -115,7 +115,7 @@ class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
      *
      * @return the removed first element from this buffer.
      */
-    fun removeFirst(): T {
+    public fun removeFirst(): T {
         val index = preDecrementFirst()
         return items[index]!!.also {
             items[index] = null
@@ -128,7 +128,7 @@ class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
      *
      * @return the removed last element from this buffer.
      */
-    fun removeLast(): T {
+    public fun removeLast(): T {
         val index = postIncrementLast()
         return items[index]!!.also {
             items[index] = null
@@ -139,7 +139,7 @@ class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
     override fun iterator(): Iterator<T> = BufferIterator(this)
 
     @JvmSynthetic @PublishedApi
-    internal fun isNotEmpty() = first != last
+    internal fun isNotEmpty(): Boolean = first != last
 
     private fun postIncrementFirst() = first.also {
         first = if (it == lastIndex) { 0 } else { it + 1 }

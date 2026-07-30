@@ -100,7 +100,7 @@ private fun ApnsEnvironment.maxConnectionAge() = when (this) {
 @OptIn(ExperimentalContracts::class)
 @ApnsMarker
 @JvmSynthetic
-fun ApnsClient(block: ApnsClient.Builder.() -> Unit): ApnsClient {
+public fun ApnsClient(block: ApnsClient.Builder.() -> Unit): ApnsClient {
     contract {
         callsInPlace(block, InvocationKind.EXACTLY_ONCE)
     }
@@ -109,7 +109,7 @@ fun ApnsClient(block: ApnsClient.Builder.() -> Unit): ApnsClient {
 
 @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
 @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-fun ApnsClient(consumer: Consumer<ApnsClient.Builder>) = ApnsClient(consumer::accept)
+public fun ApnsClient(consumer: Consumer<ApnsClient.Builder>): ApnsClient = ApnsClient(consumer::accept)
 
 private fun ApnsEnvironment.eventLoopGroupType() = when (this) {
     ApnsEnvironment.PRODUCTION -> EventLoopGroupType.PRIMARY
@@ -127,7 +127,7 @@ private fun ApnsEnvironment.eventLoopGroupType() = when (this) {
  * @since 0.12.0
  */
 @ThreadSafe
-class ApnsClient private constructor(
+public class ApnsClient private constructor(
     private val httpClient: HttpClient,
     javaDispatcher: CoroutineDispatcher? = null
 ) {
@@ -138,10 +138,10 @@ class ApnsClient private constructor(
      * @since 0.24.0
      */
     @JvmField
-    val healthComponent = HealthComponent()
+    public val healthComponent: HealthComponent = HealthComponent()
 
     @JvmField
-    val metricsComponent = MetricsComponent()
+    public val metricsComponent: MetricsComponent = MetricsComponent()
 
     /**
      * Suspends the current coroutine until this [ApnsClient] has been allowed to complete all of its initial
@@ -152,7 +152,7 @@ class ApnsClient private constructor(
      * @since 0.19.0
      */
     @JvmSynthetic
-    suspend fun joinStart() {
+    public suspend fun joinStart() {
         httpClient.prepare()
     }
 
@@ -163,7 +163,7 @@ class ApnsClient private constructor(
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun joinStartFuture(): CompletableFuture<Unit> = javaScope.future(start = CoroutineStart.UNDISPATCHED) {
+    public fun joinStartFuture(): CompletableFuture<Unit> = javaScope.future(start = CoroutineStart.UNDISPATCHED) {
         joinStart()
     }
 
@@ -190,7 +190,7 @@ class ApnsClient private constructor(
      * @since 0.12.0
      */
     @JvmSynthetic
-    suspend fun send(
+    public suspend fun send(
         request: ApnsRequest
     ): ApnsResponse = runCatching {
         doSend(HttpRequest {
@@ -229,7 +229,7 @@ class ApnsClient private constructor(
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun sendFuture(request: ApnsRequest): CompletableFuture<ApnsResponse> = javaScope.future(
+    public fun sendFuture(request: ApnsRequest): CompletableFuture<ApnsResponse> = javaScope.future(
         start = CoroutineStart.UNDISPATCHED
     ) {
         send(request)
@@ -243,7 +243,7 @@ class ApnsClient private constructor(
      * @since 0.12.0
      */
     @JvmSynthetic
-    suspend fun close() {
+    public suspend fun close() {
         httpClient.close()
     }
 
@@ -254,7 +254,7 @@ class ApnsClient private constructor(
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    fun closeFuture(): CompletableFuture<Unit> = javaScope.future(start = CoroutineStart.UNDISPATCHED) {
+    public fun closeFuture(): CompletableFuture<Unit> = javaScope.future(start = CoroutineStart.UNDISPATCHED) {
         close()
     }
 
@@ -302,7 +302,7 @@ class ApnsClient private constructor(
      * A re-usable builder for constructing fully configured [ApnsClient] instances.
      */
     @NotThreadSafe
-    class Builder internal constructor() {
+    public class Builder internal constructor() {
         private val logger = Logger()
 
         @JvmSynthetic
@@ -329,34 +329,34 @@ class ApnsClient private constructor(
          * and private key pair, and the keystore password and alias password are assumed to be the same. The
          * credentials must correspond to the chosen APNs environment.
          */
-        fun clientCredentials(p12File: File, password: CharArray) = apply {
+        public fun clientCredentials(p12File: File, password: CharArray): Builder = apply {
             this.p12File = p12File
             keyPassword = password.copyOf()
         }
 
-        fun environment(value: ApnsEnvironment) = apply {
+        public fun environment(value: ApnsEnvironment): Builder = apply {
             environment = value
         }
 
         @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
         @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-        fun executor(value: Executor) = apply {
+        public fun executor(value: Executor): Builder = apply {
             executor = value
         }
 
-        fun connectionAcquisitionTimeout(value: Duration) = apply {
+        public fun connectionAcquisitionTimeout(value: Duration): Builder = apply {
             connectionAcquisitionTimeout = value
         }
 
-        fun maximumConnections(value: Int) = apply {
+        public fun maximumConnections(value: Int): Builder = apply {
             maximumConnections = value
         }
 
-        fun minimumConnections(value: Int) = apply {
+        public fun minimumConnections(value: Int): Builder = apply {
             minimumConnections = value
         }
 
-        fun proxy(host: String, port: Int) = apply {
+        public fun proxy(host: String, port: Int): Builder = apply {
             proxyAddress = InetSocketAddress.createUnresolved(host, port)
         }
 
@@ -404,7 +404,7 @@ class ApnsClient private constructor(
      * @since 0.24.0
      */
     @ThreadSafe
-    inner class HealthComponent internal constructor() {
+    public inner class HealthComponent internal constructor() {
         /**
          * Performs a connectivity health check on this APNs client. This check does not send a request.
          *
@@ -413,7 +413,7 @@ class ApnsClient private constructor(
          * @since 0.24.0
          */
         @JvmField
-        val connectivity: HealthCheck = ConnectivityHealthCheck()
+        public val connectivity: HealthCheck = ConnectivityHealthCheck()
     }
 
     @ThreadSafe
@@ -426,7 +426,7 @@ class ApnsClient private constructor(
     }
 
     @ThreadSafe
-    inner class MetricsComponent internal constructor() : com.bloomberg.pushiko.api.metrics.MetricsComponent {
+    public inner class MetricsComponent internal constructor() : com.bloomberg.pushiko.api.metrics.MetricsComponent {
         override val gauges: Gauges = object : Gauges {
             override suspend fun read(timeout: Duration) = httpClient.metricsComponent.gauges.read(timeout).let {
                 Metrics(

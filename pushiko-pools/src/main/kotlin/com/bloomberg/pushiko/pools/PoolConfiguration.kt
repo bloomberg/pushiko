@@ -23,13 +23,13 @@ private const val HIGH_WATERMARK_SCALE_FACTOR: Double = 1.0
 private const val LOW_WATERMARK_SCALE_FACTOR: Double = 1.0 / 3
 
 @ThreadSafe
-data class WaterMarkScaleFactor(
+public data class WaterMarkScaleFactor(
     val low: Double = LOW_WATERMARK_SCALE_FACTOR,
     val high: Double = HIGH_WATERMARK_SCALE_FACTOR
 )
 
 @ThreadSafe
-data class PoolConfiguration(
+public data class PoolConfiguration(
     val acquisitionAttemptsThreshold: Int,
     val maximumPendingAcquisitions: Int,
     val maximumSize: Int,

@@ -20,7 +20,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Details(
+public data class Details(
     /**
      * Type of error that has occurred.
      *

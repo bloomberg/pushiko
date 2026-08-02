@@ -19,6 +19,7 @@ package com.bloomberg.pushiko.server
 import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.bloomberg.pushiko.netty.ktx.awaitKt
 import io.netty.bootstrap.ServerBootstrap
+import io.netty.channel.Channel
 import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.ChannelInitializer
 import io.netty.channel.ChannelOption
@@ -46,6 +47,7 @@ import io.netty.handler.ssl.SslContextBuilder
 import io.netty.handler.ssl.SslProvider
 import io.netty.handler.ssl.SupportedCipherSuiteFilter
 import io.netty.handler.ssl.util.SelfSignedCertificate
+import java.net.InetSocketAddress
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -56,7 +58,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.concurrent.thread
 
 suspend fun main() {
-    FakeHttp2Server().also {
+    FakeHttp2Server(requestedPort = 8443).also {
         Runtime.getRuntime().addShutdownHook(thread(start = false, isDaemon = false) {
             runBlocking {
                 it.close()
@@ -67,7 +69,7 @@ suspend fun main() {
 
 class FakeHttp2Server(
     private val eventLoopGroup: EventLoopGroup = NioEventLoopGroup(1),
-    private val port: Int = 8443,
+    private val requestedPort: Int = 0,
     private val maxConcurrentStreams: Long = 100L
 ) {
     private val logger = Logger()
@@ -105,13 +107,21 @@ class FakeHttp2Server(
     }
     private val channels: ChannelGroup = DefaultChannelGroup(bootstrap.config().group().next())
 
+    private lateinit var serverChannel: Channel
+
+    val port: Int
+        get() = (serverChannel.localAddress() as InetSocketAddress).port
+
     suspend fun start() = startDeferred.apply { start() }.await()
 
     suspend fun close() = closedDeferred.apply { start() }.await()
 
     private suspend fun doStart() {
-        bootstrap.bind(port).awaitKt()
-        logger.info("Server {} has started", this)
+        serverChannel = bootstrap.bind(requestedPort).run {
+            awaitKt()
+            channel()
+        }
+        logger.info("Server {} has started on port {}", this, port)
     }
 
     private suspend fun doClose() {

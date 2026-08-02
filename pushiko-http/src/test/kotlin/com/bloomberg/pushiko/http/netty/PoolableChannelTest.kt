@@ -24,28 +24,28 @@ import kotlin.test.assertEquals
 internal class PoolableChannelTest {
     @Test
     fun lowWatermark() {
-        PoolableChannel(mock(), ConcurrentRequestWaterMark(30L, 150L)).apply {
+        PoolableChannel(mock(), ConcurrentRequestWaterMark(30L, 150L)).run {
             assertEquals(30L, waterMark.low)
         }
     }
 
     @Test
     fun highWatermark() {
-        PoolableChannel(mock(), ConcurrentRequestWaterMark(30L, 150L)).apply {
+        PoolableChannel(mock(), ConcurrentRequestWaterMark(30L, 150L)).run {
             assertEquals(150L, waterMark.high)
         }
     }
 
     @Test
     fun lowWatermarkNullSettings() {
-        PoolableChannel(mock(), ConcurrentRequestWaterMark(30L, 150L)).apply {
+        PoolableChannel(mock(), ConcurrentRequestWaterMark(30L, 150L)).run {
             assertEquals(30L, waterMark.low)
         }
     }
 
     @Test
     fun highWatermarkNullSettings() {
-        PoolableChannel(mock(), ConcurrentRequestWaterMark(30L, 150L)).apply {
+        PoolableChannel(mock(), ConcurrentRequestWaterMark(30L, 150L)).run {
             assertEquals(150L, waterMark.high)
         }
     }

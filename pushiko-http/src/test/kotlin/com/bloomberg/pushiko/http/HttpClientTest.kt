@@ -115,7 +115,7 @@ internal class HttpClientTest {
 
     private val eventLoopGroup = NioEventLoopGroup(1)
     private val client = HttpClient(
-        InetSocketAddress.createUnresolved("localhost", 8443),
+        InetSocketAddress.createUnresolved("localhost", server.port),
         sslContext,
         eventLoopGroup,
         properties = clientProperties

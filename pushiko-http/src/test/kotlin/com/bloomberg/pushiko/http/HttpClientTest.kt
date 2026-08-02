@@ -61,6 +61,7 @@ import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.mock
 import java.io.IOException
 import java.net.InetSocketAddress
+import java.net.ServerSocket
 import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -392,8 +393,9 @@ internal class HttpClientTest {
 
     @Test
     fun retryExhausts(): Unit = runTest {
+        val closedPort = ServerSocket(0).use { it.localPort }
         val client = HttpClient(
-            InetSocketAddress.createUnresolved("localhost", 8444),
+            InetSocketAddress.createUnresolved("localhost", closedPort),
             sslContext,
             eventLoopGroup,
             properties = clientProperties

@@ -108,7 +108,7 @@ internal class HttpClientTest {
         .build()
 
     private val client = HttpClient(
-        InetSocketAddress.createUnresolved("localhost", 8443),
+        InetSocketAddress.createUnresolved("localhost", server.port),
         sslContext,
         clientEventLoopGroup,
         properties = OptionalHttpProperties().copy(

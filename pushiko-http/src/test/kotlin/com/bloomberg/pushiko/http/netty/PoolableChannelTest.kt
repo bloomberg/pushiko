@@ -16,37 +16,87 @@
 
 package com.bloomberg.pushiko.http.netty
 
-import com.bloomberg.pushiko.http.ConcurrentRequestWaterMark
+import com.bloomberg.pushiko.http.IHttpClientProperties
+import com.bloomberg.pushiko.pools.WaterMarkScaleFactor
+import io.netty.channel.Channel
+import io.netty.util.Attribute
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 internal class PoolableChannelTest {
-    @Test
-    fun lowWatermark() {
-        PoolableChannel(mock(), ConcurrentRequestWaterMark(30L, 150L)).run {
-            assertEquals(30L, waterMark.low)
-        }
+    private fun properties(default: Long) = mock<IHttpClientProperties>().apply {
+        whenever(defaultMaximumConcurrentStreams) doReturn default
+    }
+
+    private fun maxConcurrentStreamsAttribute(value: Long?) = mock<Attribute<Long>>().apply {
+        value?.let { whenever(get()) doReturn it }
+    }
+
+    private fun channelReporting(attribute: Attribute<Long>) = mock<Channel>().apply {
+        whenever(attr(maxConcurrentStreamsAttributeKey)) doReturn attribute
     }
 
     @Test
-    fun highWatermark() {
-        PoolableChannel(mock(), ConcurrentRequestWaterMark(30L, 150L)).run {
-            assertEquals(150L, waterMark.high)
-        }
+    fun derivesWatermarkFromNegotiatedMaxConcurrentStreams() {
+        val poolable = PoolableChannel(
+            channelReporting(maxConcurrentStreamsAttribute(150L)),
+            properties(default = 1L),
+            WaterMarkScaleFactor(low = 0.5, high = 1.0)
+        )
+        assertEquals(75L, poolable.lowWaterMark)
+        assertEquals(150L, poolable.highWaterMark)
+        assertEquals(150, poolable.maximumPermits)
     }
 
     @Test
-    fun lowWatermarkNullSettings() {
-        PoolableChannel(mock(), ConcurrentRequestWaterMark(30L, 150L)).run {
-            assertEquals(30L, waterMark.low)
-        }
+    fun watermarkIsFlooredByDefaultWhenNoSettingsNegotiated() {
+        val poolable = PoolableChannel(
+            channelReporting(maxConcurrentStreamsAttribute(null)),
+            properties(default = 100L),
+            WaterMarkScaleFactor(low = 0.5, high = 1.0)
+        )
+        assertEquals(50L, poolable.lowWaterMark)
+        assertEquals(100L, poolable.highWaterMark)
     }
 
     @Test
-    fun highWatermarkNullSettings() {
-        PoolableChannel(mock(), ConcurrentRequestWaterMark(30L, 150L)).run {
-            assertEquals(150L, waterMark.high)
+    fun watermarkShrinksWhenPeerLowersMaxConcurrentStreams() {
+        val attribute = maxConcurrentStreamsAttribute(100L)
+        val poolable = PoolableChannel(
+            channelReporting(attribute),
+            properties(default = 1L),
+            WaterMarkScaleFactor(low = 0.5, high = 1.0)
+        ).apply {
+            repeat(40) { acquirePermit() }
         }
+        assertEquals(100L, poolable.highWaterMark)
+        assertTrue(poolable.isCanAcquire)
+        whenever(attribute.get()) doReturn 10L
+        assertEquals(10L, poolable.highWaterMark)
+        assertEquals(10, poolable.maximumPermits)
+        assertFalse(poolable.isCanAcquire)
+    }
+
+    @Test
+    fun watermarkGrowsWhenPeerRaisesMaxConcurrentStreams() {
+        val attribute = maxConcurrentStreamsAttribute(50L)
+        val poolable = PoolableChannel(
+            channelReporting(attribute),
+            properties(default = 1L),
+            WaterMarkScaleFactor(low = 0.5, high = 1.0)
+        ).apply {
+            repeat(50) { acquirePermit() }
+        }
+        assertEquals(50L, poolable.highWaterMark)
+        assertFalse(poolable.isCanAcquire)
+        whenever(attribute.get()) doReturn 200L
+        assertEquals(200L, poolable.highWaterMark)
+        assertEquals(200, poolable.maximumPermits)
+        assertTrue(poolable.isCanAcquire)
     }
 }

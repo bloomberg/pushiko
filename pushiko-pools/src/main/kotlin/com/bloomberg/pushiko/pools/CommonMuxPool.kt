@@ -52,6 +52,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.suspendCancellableCoroutine
+import org.jetbrains.annotations.VisibleForTesting
 import java.io.StringWriter
 import java.util.LinkedList
 import javax.annotation.concurrent.ThreadSafe
@@ -124,6 +125,10 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     override fun onAvailable(poolable: P) {
         resumeNextPendingAcquisitions()
     }
+
+    @JvmSynthetic
+    @VisibleForTesting
+    internal suspend fun pendingAcquisitionCount(): Int = withWorkContext { pendingAcquisitions.size }
 
     @JvmSynthetic
     private suspend fun summarize() = withMainContext {

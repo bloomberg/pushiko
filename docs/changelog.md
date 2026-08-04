@@ -1,3 +1,28 @@
+## Version 2.0.0
+
+### Breaking
+
+* Move pushiko-api types under com.bloomberg.pushiko.api.
+* Move pushiko-netty-ktx types under com.bloomberg.pushiko.netty.ktx.
+* Move pushiko-pools types under com.bloomberg.pushiko.pools.
+* Set Automatic-Module-Name on published module jars.
+
+### Fixes
+
+* Select from CommonMuxPool according to poolable health.
+* Honour mid-connection SETTINGS_MAX_CONCURRENT_STREAMS.
+* Guard against NPE cancelling absent response timeout in ConnectionHandler.
+* Close FCM server-error response body reader.
+* Cap accumulated HTTP/2 response body size.
+* Reject control and whitespace characters in APNs request fields.
+* Enforce semantic versioning at publication with japicmp.
+* Enable explicit API.
+
+### Dependencies
+
+* Gradle 8.14.5
+* Netty 4.1.136.Final
+
 ## Version 1.0.9
 
 ### Dependencies

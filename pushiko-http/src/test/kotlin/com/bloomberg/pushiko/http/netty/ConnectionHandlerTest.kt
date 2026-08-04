@@ -31,6 +31,7 @@ import io.netty.handler.codec.http2.Http2ConnectionDecoder
 import io.netty.handler.codec.http2.Http2ConnectionEncoder
 import io.netty.handler.codec.http2.Http2LocalFlowController
 import io.netty.handler.codec.http2.Http2RemoteFlowController
+import io.netty.handler.codec.http2.Http2Settings
 import io.netty.handler.codec.http2.Http2Stream
 import io.netty.handler.timeout.IdleStateEvent
 import io.netty.util.Attribute
@@ -39,6 +40,7 @@ import io.netty.util.concurrent.GenericFutureListener
 import io.netty.util.concurrent.ScheduledFuture
 import io.netty.util.concurrent.SucceededFuture
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doReturn
@@ -48,6 +50,7 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import kotlin.coroutines.Continuation
 import kotlin.test.Test
 
 internal class ConnectionHandlerTest {
@@ -89,6 +92,36 @@ internal class ConnectionHandlerTest {
     fun onGoAwayReadClosesChannel() {
         ConnectionHandler().onGoAwayRead(context, 1, 1, mock())
         verify(channel, times(1)).close()
+    }
+
+    @Test
+    fun firstSettingsFrameCapturesStreamCapacity() {
+        val readyContinuation = mock<Continuation<Channel>>()
+        val continuationAttribute = mock<Attribute<Continuation<Channel>>>().apply {
+            whenever(getAndSet(anyOrNull())) doReturn readyContinuation
+        }
+        val maxConcurrentStreamsAttribute = mock<Attribute<Long>>()
+        whenever(channel.attr(channelContinuationAttributeKey)) doReturn continuationAttribute
+        whenever(channel.attr(maxConcurrentStreamsAttributeKey)) doReturn maxConcurrentStreamsAttribute
+        ConnectionHandler().onSettingsRead(context, Http2Settings().maxConcurrentStreams(150L))
+        verify(maxConcurrentStreamsAttribute, times(1)).set(150L)
+    }
+
+    @Test
+    fun subsequentSettingsFrameUpdatesStreamCapacity() {
+        val readyContinuation = mock<Continuation<Channel>>()
+        val continuationAttribute = mock<Attribute<Continuation<Channel>>>().apply {
+            whenever(getAndSet(anyOrNull())).doReturn(readyContinuation, null)
+        }
+        val maxConcurrentStreamsAttribute = mock<Attribute<Long>>()
+        whenever(channel.attr(channelContinuationAttributeKey)) doReturn continuationAttribute
+        whenever(channel.attr(maxConcurrentStreamsAttributeKey)) doReturn maxConcurrentStreamsAttribute
+        ConnectionHandler().apply {
+            onSettingsRead(context, Http2Settings().maxConcurrentStreams(150L))
+            onSettingsRead(context, Http2Settings().maxConcurrentStreams(30L))
+        }
+        verify(maxConcurrentStreamsAttribute, times(1)).set(150L)
+        verify(maxConcurrentStreamsAttribute, times(1)).set(30L)
     }
 
     @Test

@@ -16,7 +16,6 @@
 
 package com.bloomberg.pushiko.http.netty
 
-import com.bloomberg.pushiko.http.ConcurrentRequestWaterMark
 import com.bloomberg.pushiko.http.IHttpClientProperties
 import com.bloomberg.pushiko.pools.Poolable
 import com.bloomberg.pushiko.pools.WaterMarkScaleFactor
@@ -27,50 +26,78 @@ import java.time.Duration
 import java.time.Instant
 import javax.annotation.concurrent.NotThreadSafe
 
-internal val initialMaxConcurrentStreamsAttributeKey = AttributeKey.valueOf<Long>(
+internal val maxConcurrentStreamsAttributeKey = AttributeKey.valueOf<Long>(
     Channel::class.java,
-    "channelInitialMaxConcurrentStreams"
+    "channelMaxConcurrentStreams"
 )
 
-internal val Channel.initialMaxConcurrentStreams: Long?
-    get() = attr(initialMaxConcurrentStreamsAttributeKey).get()
+internal val Channel.maxConcurrentStreams: Long?
+    get() = attr(maxConcurrentStreamsAttributeKey).get()
+
+private const val NO_NEGOTIATED_LIMIT = -1L
+private const val UNOBSERVED = Long.MIN_VALUE
 
 @NotThreadSafe
 internal class PoolableChannel internal constructor(
     private val channel: Channel,
-    internal val waterMark: ConcurrentRequestWaterMark
+    private val properties: IHttpClientProperties,
+    private val waterMarkScaleFactor: WaterMarkScaleFactor = WaterMarkScaleFactor()
 ) : Poolable<Channel>(channel) {
     private val createdAt: Instant = Instant.now()
 
-    constructor(
-        channel: Channel,
-        properties: IHttpClientProperties,
-        waterMarkScaleFactor: WaterMarkScaleFactor = WaterMarkScaleFactor(),
-        maxOutstandingResponses: Long? = channel.initialMaxConcurrentStreams
-    ) : this(
-        channel,
-        ConcurrentRequestWaterMark(
-            low = maxOf(
-                maxOutstandingResponses?.let { (waterMarkScaleFactor.low * it).toLong() } ?: 1L,
-                (waterMarkScaleFactor.low * properties.defaultMaximumConcurrentStreams).toLong()
-            ),
-            high = maxOf(
-                maxOutstandingResponses?.let { (waterMarkScaleFactor.high * it).toLong() } ?: 1L,
-                properties.defaultMaximumConcurrentStreams
-            )
-        )
-    )
+    private var observedMaxConcurrentStreams: Long = UNOBSERVED
+    private var cachedLowWaterMark: Long = 0L
+    private var cachedHighWaterMark: Long = 0L
 
-    override val maximumPermits: Int = waterMark.high.toInt()
+    internal val lowWaterMark: Long
+        get() {
+            refreshWaterMark()
+            return cachedLowWaterMark
+        }
+
+    internal val highWaterMark: Long
+        get() {
+            refreshWaterMark()
+            return cachedHighWaterMark
+        }
+
+    override val maximumPermits: Int
+        get() {
+            refreshWaterMark()
+            return cachedHighWaterMark.toInt()
+        }
 
     override val isAlive: Boolean
         get() = channel.let { it.isActive && !it.isClosing() }
 
     override val isCanAcquire: Boolean
-        get() = allocatedPermits < waterMark.high
+        get() {
+            refreshWaterMark()
+            return allocatedPermits < cachedHighWaterMark
+        }
 
     override val isShouldAcquire: Boolean
-        get() = allocatedPermits < waterMark.low
+        get() {
+            refreshWaterMark()
+            return allocatedPermits < cachedLowWaterMark
+        }
+
+    private fun refreshWaterMark() {
+        val observed = channel.maxConcurrentStreams ?: NO_NEGOTIATED_LIMIT
+        if (observed == observedMaxConcurrentStreams) {
+            return
+        }
+        observedMaxConcurrentStreams = observed
+        val negotiated = observed.takeIf { it != NO_NEGOTIATED_LIMIT }
+        cachedLowWaterMark = maxOf(
+            negotiated?.let { (waterMarkScaleFactor.low * it).toLong() } ?: 1L,
+            (waterMarkScaleFactor.low * properties.defaultMaximumConcurrentStreams).toLong()
+        )
+        cachedHighWaterMark = maxOf(
+            negotiated?.let { (waterMarkScaleFactor.high * it).toLong() } ?: 1L,
+            properties.defaultMaximumConcurrentStreams
+        )
+    }
 
     fun close() {
         channel.close()
@@ -92,9 +119,10 @@ internal class PoolableChannel internal constructor(
             .appendLine("    Is active: ${channel.isActive}")
             .appendLine("    Is open: ${channel.isOpen}")
             .appendLine("    Is writable: ${channel.isWritable}")
+            .appendLine("    Maximum permits: $maximumPermits")
+            .appendLine("      Low watermark: $lowWaterMark")
+            .appendLine("      High watermark: $highWaterMark")
             .appendLine("    Outstanding requests: $allocatedPermits")
-            .appendLine("      Low watermark: ${waterMark.low}")
-            .appendLine("      High watermark: ${waterMark.high}")
             .appendLine("    Remote address: ${channel.remoteAddress()}")
             .appendLine("    Encoder $encoder:")
             .appendLine("      Buffered streams: ${encoder?.numBufferedStreams()}")

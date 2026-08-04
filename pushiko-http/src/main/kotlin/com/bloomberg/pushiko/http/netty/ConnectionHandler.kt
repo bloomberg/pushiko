@@ -99,8 +99,8 @@ private val unrecognisedMessageException = IllegalArgumentException("Unrecognise
 private fun Channel.removeChannelContinuation(): Continuation<Channel>? =
     attr(channelContinuationAttributeKey).getAndSet(null)
 
-private fun Channel.initialMaxConcurrentStreams(maxConcurrentStreams: Long) =
-    attr(initialMaxConcurrentStreamsAttributeKey).set(maxConcurrentStreams)
+private fun Channel.recordMaxConcurrentStreams(maxConcurrentStreams: Long) =
+    attr(maxConcurrentStreamsAttributeKey).set(maxConcurrentStreams)
 
 private val channelIsClosingAttributeKey = AttributeKey.valueOf<Boolean>("channelIsClosing")
 @JvmSynthetic
@@ -302,13 +302,17 @@ internal class ConnectionHandler(
     override fun onSettingsAckRead(context: ChannelHandlerContext) = Unit
 
     override fun onSettingsRead(context: ChannelHandlerContext, settings: Http2Settings) {
-        // Always try to resume the "channel ready" continuation as a success after we receive a SETTINGS frame.
-        // If it's the first SETTINGS frame, we know all handshaking and connection setup is done and the channel
-        // is ready to use. If it's a subsequent SETTINGS frame, this will have no effect.
         context.channel().apply {
+            settings.maxConcurrentStreams()?.let {
+                val previous = maxConcurrentStreams
+                recordMaxConcurrentStreams(it)
+                if (previous != null && previous != it) {
+                    logger.info("Peer changed SETTINGS_MAX_CONCURRENT_STREAMS from: {} to: {} channel: {}",
+                        previous, it, this)
+                }
+            }
             removeChannelContinuation()?.let {
                 logger.info("Initial settings from peer: {}", settings)
-                settings.maxConcurrentStreams()?.run { initialMaxConcurrentStreams(this) }
                 it.resume(this)
             } ?: logger.info("Received settings from peer: {}", settings)
         }

@@ -19,19 +19,18 @@ package com.bloomberg.pushiko.pools
 import javax.annotation.concurrent.ThreadSafe
 import kotlin.time.Duration
 
-private const val HIGH_WATERMARK_SCALE_FACTOR: Double = 1.0
-private const val LOW_WATERMARK_SCALE_FACTOR: Double = 1.0 / 3
-
 @ThreadSafe
 public data class WaterMarkScaleFactor(
-    val low: Double = LOW_WATERMARK_SCALE_FACTOR,
-    val high: Double = HIGH_WATERMARK_SCALE_FACTOR
+    val low: Double = 1.0 / 3,
+    val high: Double = 1.0
 )
 
 @ThreadSafe
 public data class PoolConfiguration(
-    val acquisitionAttemptsThreshold: Int,
+    val errorRateThreshold: Double,
+    val fullScanPoolSize: Int,
     val maximumPendingAcquisitions: Int,
+    val maximumSampledScan: Int,
     val maximumSize: Int,
     val minimumSize: Int,
     val name: String = "Pushiko.Pool",
@@ -41,6 +40,12 @@ public data class PoolConfiguration(
     init {
         require(minimumSize in 1..maximumSize || minimumSize == 0 && maximumSize > 0) {
             "Invalid pool size configuration min: $minimumSize max: $maximumSize"
+        }
+        require(errorRateThreshold in 0.0..1.0) {
+            "Invalid error rate threshold: $errorRateThreshold"
+        }
+        require(fullScanPoolSize in 1..maximumSampledScan) {
+            "Invalid scan bounds fullScanPoolSize: $fullScanPoolSize maximumSampledScan: $maximumSampledScan"
         }
     }
 }

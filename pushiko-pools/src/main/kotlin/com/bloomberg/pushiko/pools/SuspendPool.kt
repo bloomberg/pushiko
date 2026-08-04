@@ -59,6 +59,8 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
         //          even right before returning from inside the timeout block.
         // See: https://kotlinlang.org/docs/cancellation-and-timeouts.html#asynchronous-timeout-and-resources
         var poolable: P? = null
+        var startNanos: Long? = null
+        var failure: Throwable? = null
         try {
             withWorkContext(acquisitionTimeout) {
                 @Suppress("UNCHECKED_CAST")
@@ -66,18 +68,27 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
             }
             // The acquisition of the reference, and then a permit, was definitely successful.
             // Execution continues off the pool's thread, in the caller's context.
+            startNanos = System.nanoTime()
             return block(poolable!!.value)
+        } catch (e: Throwable) {
+            failure = e
+            throw e
         } finally {
             // The acquisition of the reference, and then a permit, may have failed. This reference
             // is null if and only if acquisition did indeed fail.
             //
-            // This can happen if the acquisition was cancelled, perhaps the acquisition timeout
-            // was met or a coroutine was otherwise cancelled out of band.
-            poolable?.let {
+            // This can happen if the acquisition was canceled, perhaps the acquisition timeout
+            // was met or a coroutine was otherwise canceled out of band.
+            poolable?.let { acquired ->
+                val cause = failure
+                val holdNanos = startNanos?.let { System.nanoTime() - it }
                 launchInWorkScope {
-                    it.releasePermit()
-                    if (it.isCanAcquire) {
-                        onAvailable(it)
+                    if (holdNanos != null) {
+                        acquired.recordOutcome(holdNanos, cause == null || !acquired.isError(cause))
+                    }
+                    acquired.releasePermit()
+                    if (acquired.isCanAcquire) {
+                        onAvailable(acquired)
                     }
                 }
             }

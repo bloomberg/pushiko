@@ -65,8 +65,7 @@ internal class CommonMuxPoolFactoryFailureTest {
         minimumSize: Int,
         maximumSize: Int
     ) = CommonMuxPool(
-        configuration = PoolConfiguration(
-            acquisitionAttemptsThreshold = 3,
+        configuration = poolConfiguration(
             maximumPendingAcquisitions = 1_000,
             maximumSize = maximumSize,
             minimumSize = minimumSize,

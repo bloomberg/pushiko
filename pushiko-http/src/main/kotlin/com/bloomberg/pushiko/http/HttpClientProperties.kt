@@ -36,13 +36,16 @@ public data class HttpClientProperties internal constructor(
     override val connectionFuzzInterval: Duration,
     override val connectTimeout: Duration,
     override val defaultMaximumConcurrentStreams: Long,
+    override val errorRateThreshold: Double,
+    override val fullScanPoolSize: Int,
     override val idleConnectionInterval: Duration,
     override val isMonitorConnections: Boolean,
-    override val maximumConnectRetries: Int,
     override val maximumConnectionAge: Duration,
     override val maximumConnections: Int,
+    override val maximumConnectRetries: Int,
     override val maximumPendingAcquisitions: Int,
     override val maximumRequestRetries: Int,
+    override val maximumSampledScan: Int,
     override val minimumConnections: Int,
     override val reaperDelay: Duration,
     override val retryPolicy: HttpRetryPolicy,
@@ -61,6 +64,12 @@ public data class HttpClientProperties internal constructor(
         require(minimumConnections <= maximumConnections) {
             "Minimum number of connections must not exceed the maximum number of connections"
         }
+        require(errorRateThreshold in 0.0..1.0) {
+            "Error rate threshold must be within [0.0, 1.0]"
+        }
+        require(fullScanPoolSize in 1..maximumSampledScan) {
+            "Full scan pool size must be within [1, maximumSampledScan]"
+        }
         unresolvedProxyAddress?.let {
             require(it.isUnresolved) { "Proxy address must not be resolved" }
         }
@@ -76,12 +85,15 @@ public data class HttpClientProperties internal constructor(
             connectionFuzzInterval: Duration? = null,
             connectTimeout: Duration? = null,
             defaultMaximumConcurrentStreams: Long? = null,
+            errorRateThreshold: Double? = null,
+            fullScanPoolSize: Int? = null,
             idleConnectionInterval: Duration? = null,
             isMonitorConnections: Boolean? = null,
             maximumConnectionAge: Duration? = null,
-            maximumConnectRetries: Int? = null,
             maximumConnections: Int? = null,
+            maximumConnectRetries: Int? = null,
             maximumPendingAcquisitions: Int? = null,
+            maximumSampledScan: Int? = null,
             minimumConnections: Int? = null,
             reaperDelay: Duration? = null,
             retryPolicy: HttpRetryPolicy? = null,
@@ -92,6 +104,8 @@ public data class HttpClientProperties internal constructor(
             connectionFuzzInterval = connectionFuzzInterval ?: 500L.milliseconds,
             connectTimeout = connectTimeout ?: 3L.seconds,
             defaultMaximumConcurrentStreams = defaultMaximumConcurrentStreams ?: 100L,
+            errorRateThreshold = errorRateThreshold ?: 0.5,
+            fullScanPoolSize = fullScanPoolSize ?: 10,
             idleConnectionInterval = idleConnectionInterval ?: 59L.toDuration(DurationUnit.MINUTES),
             isMonitorConnections = isMonitorConnections ?: false,
             maximumConnectionAge = maximumConnectionAge ?: 1L.hours,
@@ -99,6 +113,7 @@ public data class HttpClientProperties internal constructor(
             maximumConnectRetries = maximumConnectRetries ?: DEFAULT_MAX_CREATE_CHANNEL_RETRIES,
             maximumPendingAcquisitions = maximumPendingAcquisitions ?: DEFAULT_MAX_PENDING_ACQUISITIONS,
             maximumRequestRetries = DEFAULT_MAX_RETRIES_MULTIPLE * (maximumConnections ?: 1),
+            maximumSampledScan = maximumSampledScan ?: 20,
             minimumConnections = minimumConnections ?: 0,
             reaperDelay = reaperDelay ?: 1L.minutes,
             retryPolicy = retryPolicy ?: DefaultHttpRetryPolicy,
@@ -115,6 +130,8 @@ public interface IHttpClientProperties {
     public val connectionFuzzInterval: Duration
     public val connectTimeout: Duration
     public val defaultMaximumConcurrentStreams: Long
+    public val errorRateThreshold: Double
+    public val fullScanPoolSize: Int
     public val idleConnectionInterval: Duration
     public val isMonitorConnections: Boolean
     public val maximumConnectionAge: Duration
@@ -122,6 +139,7 @@ public interface IHttpClientProperties {
     public val maximumConnections: Int
     public val maximumPendingAcquisitions: Int
     public val maximumRequestRetries: Int
+    public val maximumSampledScan: Int
     public val minimumConnections: Int
     public val reaperDelay: Duration
     public val retryPolicy: HttpRetryPolicy

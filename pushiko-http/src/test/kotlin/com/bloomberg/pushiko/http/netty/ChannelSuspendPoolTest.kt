@@ -35,12 +35,21 @@ import kotlin.time.Duration
 
 @ExperimentalCoroutinesApi
 internal class ChannelSuspendPoolTest {
+    private fun poolConfiguration() = PoolConfiguration(
+        errorRateThreshold = 0.5,
+        fullScanPoolSize = 10,
+        maximumPendingAcquisitions = 10,
+        maximumSampledScan = 20,
+        maximumSize = 1,
+        minimumSize = 0,
+        name = "pool",
+        reaperDelay = Duration.INFINITE,
+        summaryInterval = Duration.INFINITE
+    )
+
     @Test
     fun emptyChannelPoolSize() {
-        val configuration = mock<PoolConfiguration> {
-            whenever(it.name) doReturn "pool"
-        }
-        ChannelPool(mock(), configuration).run {
+        ChannelPool(mock(), poolConfiguration()).run {
             runTest {
                 withContext(Dispatchers.Default.limitedParallelism(1)) {
                     assertEquals(0, metricsComponent.gauges.read(Duration.INFINITE).activeChannelCount)
@@ -51,11 +60,6 @@ internal class ChannelSuspendPoolTest {
 
     @Test
     fun close() = runTest {
-        val configuration = mock<PoolConfiguration> {
-            whenever(it.maximumPendingAcquisitions) doReturn 10
-            whenever(it.maximumSize) doReturn 1
-            whenever(it.name) doReturn "pool"
-        }
         val factory = mock<PoolableChannelFactory> {
             onBlocking { make() } doSuspendableAnswer {
                 mock {
@@ -66,7 +70,7 @@ internal class ChannelSuspendPoolTest {
                 }
             }
         }
-        ChannelPool(factory, configuration).run {
+        ChannelPool(factory, poolConfiguration()).run {
             runCatching {
                 withContext(Dispatchers.Default.limitedParallelism(1)) {
                     withPermit(Duration.INFINITE, mock<(Channel)->Unit>())

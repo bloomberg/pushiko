@@ -66,25 +66,6 @@ public class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
     }
 
     /**
-     * Continues to remove elements until the first element to satisfy the predicate has been removed or the buffer
-     * is empty.
-     *
-     * @param predicate to satisfy.
-     *
-     * @return the first removed element to satisfy the predicate, or null if the buffer is or has become empty.
-     */
-    public inline fun removeUntilFirstInclusiveOrNull(predicate: (T) -> Boolean): T? {
-        while (true) {
-            (removeFirstOrNull() ?: break).let {
-                if (predicate(it)) {
-                    return it
-                }
-            }
-        }
-        return null
-    }
-
-    /**
      * Removes the first element added to this buffer if the buffer is not empty.
      *
      * @return the removed first element from this buffer, or null if this buffer is empty.
@@ -136,10 +117,10 @@ public class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
         }
     }
 
-    override fun iterator(): Iterator<T> = BufferIterator(this)
+    @JvmSynthetic
+    public fun isNotEmpty(): Boolean = first != last
 
-    @JvmSynthetic @PublishedApi
-    internal fun isNotEmpty(): Boolean = first != last
+    override fun iterator(): Iterator<T> = BufferIterator(this)
 
     private fun postIncrementFirst() = first.also {
         first = if (it == lastIndex) { 0 } else { it + 1 }

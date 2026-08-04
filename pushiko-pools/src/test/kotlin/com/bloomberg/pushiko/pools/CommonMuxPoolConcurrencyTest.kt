@@ -61,8 +61,7 @@ internal class CommonMuxPoolConcurrencyTest {
         val maximumSize = 8
         val factory = PeakTrackingFactory(maximumPermits = 1)
         val pool = CommonMuxPool(
-            configuration = PoolConfiguration(
-                acquisitionAttemptsThreshold = 3,
+            configuration = poolConfiguration(
                 maximumPendingAcquisitions = 10_000,
                 maximumSize = maximumSize,
                 minimumSize = minimumSize,

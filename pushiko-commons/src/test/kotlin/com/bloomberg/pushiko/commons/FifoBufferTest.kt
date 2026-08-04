@@ -142,25 +142,6 @@ internal class FifoBufferTest {
     }
 
     @Test
-    fun removeUntilFirst(): Unit = FifoBuffer<Int>(3).run {
-        addLast(1)
-        addLast(2)
-        addLast(3)
-        assertEquals(2, removeUntilFirstInclusiveOrNull { it == 2 })
-        assertEquals(1, size)
-        assertEquals(3, removeFirstOrNull())
-    }
-
-    @Test
-    fun removeUntilFirstNone(): Unit = FifoBuffer<Int>(3).run {
-        addLast(1)
-        addLast(2)
-        addLast(3)
-        assertNull(removeUntilFirstInclusiveOrNull { it == 4 })
-        assertEquals(0, size)
-    }
-
-    @Test
     fun removeLast(): Unit = FifoBuffer<Int>(3).run {
         addLast(1)
         addLast(2)
@@ -197,11 +178,6 @@ internal class FifoBufferTest {
         assertEquals(2, size)
         assertEquals(1, removeFirstOrNull())
         assertEquals(2, removeFirstOrNull())
-    }
-
-    @Test
-    fun emptyRemoveUntilFirst(): Unit = FifoBuffer<Int>(1).run {
-        assertNull(removeUntilFirstInclusiveOrNull { true })
     }
 
     @Test

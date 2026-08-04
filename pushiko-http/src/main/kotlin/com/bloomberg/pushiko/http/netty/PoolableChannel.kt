@@ -20,11 +20,15 @@ import com.bloomberg.pushiko.http.IHttpClientProperties
 import com.bloomberg.pushiko.pools.Poolable
 import com.bloomberg.pushiko.pools.WaterMarkScaleFactor
 import io.netty.channel.Channel
+import io.netty.channel.ChannelException
+import io.netty.handler.codec.http2.Http2Exception
 import io.netty.handler.codec.http2.StreamBufferingEncoder
 import io.netty.util.AttributeKey
+import java.io.IOException
 import java.time.Duration
 import java.time.Instant
 import javax.annotation.concurrent.NotThreadSafe
+import kotlin.coroutines.cancellation.CancellationException
 
 internal val maxConcurrentStreamsAttributeKey = AttributeKey.valueOf<Long>(
     Channel::class.java,
@@ -97,6 +101,14 @@ internal class PoolableChannel internal constructor(
             negotiated?.let { (waterMarkScaleFactor.high * it).toLong() } ?: 1L,
             properties.defaultMaximumConcurrentStreams
         )
+    }
+
+    override fun isError(throwable: Throwable): Boolean = when (throwable) {
+        is CancellationException -> false
+        is IOException,
+        is Http2Exception,
+        is ChannelException -> true
+        else -> false
     }
 
     fun close() {

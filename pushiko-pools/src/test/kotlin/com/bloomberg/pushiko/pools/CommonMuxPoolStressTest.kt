@@ -22,13 +22,18 @@ import org.jetbrains.kotlinx.lincheck.check
 import org.jetbrains.kotlinx.lincheck.strategy.stress.StressOptions
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
 internal class AnyPoolable(
-    override val maximumPermits: Int = 100
-) : Poolable<Any>(Any()) {
+    override val maximumPermits: Int = 100,
+    ewmaAlpha: Double = 0.2,
+    errorRateHalfLife: Duration = 30.seconds,
+    nanoTime: () -> Long = { 0L }
+) : Poolable<Any>(Any(), ewmaAlpha = ewmaAlpha, errorRateHalfLife = errorRateHalfLife, nanoTime = nanoTime) {
     override val isAlive: Boolean = true
 
     override val isCanAcquire
@@ -57,8 +62,7 @@ internal class CommonMuxPoolStressTest {
         }
     }
     private val pool = CommonMuxPool(
-        configuration = PoolConfiguration(
-            acquisitionAttemptsThreshold = 3,
+        configuration = poolConfiguration(
             maximumPendingAcquisitions = 1_000,
             maximumSize = 10,
             minimumSize = 4,

@@ -36,8 +36,7 @@ import kotlin.time.measureTime
 
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalStdlibApi::class)
 internal class CommonMuxPoolTest {
-    private val configuration = PoolConfiguration(
-        acquisitionAttemptsThreshold = 3,
+    private val configuration = poolConfiguration(
         maximumPendingAcquisitions = 1_000,
         maximumSize = 1,
         minimumSize = 1,

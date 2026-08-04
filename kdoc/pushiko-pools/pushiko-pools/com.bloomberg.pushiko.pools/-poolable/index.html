@@ -716,7 +716,7 @@
 <h1 id="poolable">Poolable</h1>
 <p>[jvm]\
 @NotThreadSafe</p>
-<p>abstract class <a href="./">Poolable</a>&lt;out <a href="./">R</a> : <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-any/index.html">Any</a>&gt;(value: <a href="./">R</a>)</p>
+<p>abstract class <a href="./">Poolable</a>&lt;out <a href="./">R</a> : <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-any/index.html">Any</a>&gt;(value: <a href="./">R</a>, ewmaAlpha: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a> = 0.2, errorRateHalfLife: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a> = 30.seconds, nanoTime: () -&gt; <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a> = System::nanoTime)</p>
 <h2 id="constructors">Constructors</h2>
 <table>
 <thead>
@@ -728,7 +728,7 @@
 <tbody>
 <tr>
 <td><a href="-poolable/">Poolable</a></td>
-<td>[jvm]<br>constructor(value: <a href="./">R</a>)</td>
+<td>[jvm]<br>constructor(value: <a href="./">R</a>, ewmaAlpha: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a> = 0.2, errorRateHalfLife: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a> = 30.seconds, nanoTime: () -&gt; <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a> = System::nanoTime)</td>
 </tr>
 </tbody>
 </table>
@@ -775,6 +775,14 @@
 <tr>
 <td><a href="acquire-permit/">acquirePermit</a></td>
 <td>[jvm]<br>fun <a href="acquire-permit/">acquirePermit</a>(): <a href="./">Poolable</a>&lt;<a href="./">R</a>&gt;</td>
+</tr>
+<tr>
+<td><a href="is-error/">isError</a></td>
+<td>[jvm]<br>open fun <a href="is-error/">isError</a>(throwable: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-throwable/index.html">Throwable</a>): <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></td>
+</tr>
+<tr>
+<td><a href="record-outcome/">recordOutcome</a></td>
+<td>[jvm]<br>fun <a href="record-outcome/">recordOutcome</a>(holdNanos: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a>, wasSuccess: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a>)</td>
 </tr>
 <tr>
 <td><a href="release-permit/">releasePermit</a></td>

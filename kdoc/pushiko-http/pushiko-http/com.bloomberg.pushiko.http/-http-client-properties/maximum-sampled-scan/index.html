@@ -12,7 +12,7 @@
         <meta name="author" content="Bloomberg L.P.">
       
       
-        <link rel="canonical" href="https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-commons/pushiko-commons/com.bloomberg.pushiko.commons/-fifo-buffer/remove-until-first-inclusive-or-null/">
+        <link rel="canonical" href="https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-http/pushiko-http/com.bloomberg.pushiko.http/-http-client-properties/maximum-sampled-scan/">
       
       
       
@@ -25,7 +25,7 @@
     
     
       
-        <title>Remove until first inclusive or null - Pushiko</title>
+        <title>Maximum sampled scan - Pushiko</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#removeuntilfirstinclusiveornull" class="md-skip">
+        <a href="#maximumsampledscan" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Remove until first inclusive or null
+              Maximum sampled scan
             
           </span>
         </div>
@@ -656,36 +656,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#return" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Return
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -701,29 +671,10 @@
 
 
 
-<p>//<a href="../../../../">pushiko-commons</a>/<a href="../../">com.bloomberg.pushiko.commons</a>/<a href="../">FifoBuffer</a>/<a href="./">removeUntilFirstInclusiveOrNull</a></p>
-<h1 id="removeuntilfirstinclusiveornull">removeUntilFirstInclusiveOrNull</h1>
+<p>//<a href="../../../../">pushiko-http</a>/<a href="../../">com.bloomberg.pushiko.http</a>/<a href="../">HttpClientProperties</a>/<a href="./">maximumSampledScan</a></p>
+<h1 id="maximumsampledscan">maximumSampledScan</h1>
 <p>[jvm]\
-inline fun <a href="./">removeUntilFirstInclusiveOrNull</a>(predicate: (<a href="../">T</a>) -&gt; <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a>): <a href="../">T</a>?</p>
-<p>Continues to remove elements until the first element to satisfy the predicate has been removed or the buffer is empty.</p>
-<h4 id="return">Return</h4>
-<p>the first removed element to satisfy the predicate, or null if the buffer is or has become empty.</p>
-<h4 id="parameters">Parameters</h4>
-<p>jvm</p>
-<table>
-<thead>
-<tr>
-<th></th>
-<th></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>predicate</td>
-<td>to satisfy.</td>
-</tr>
-</tbody>
-</table>
+open override val <a href="./">maximumSampledScan</a>: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a></p>
 
 
 

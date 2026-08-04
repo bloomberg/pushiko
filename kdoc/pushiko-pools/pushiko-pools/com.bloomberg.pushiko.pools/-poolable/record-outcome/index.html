@@ -12,7 +12,7 @@
         <meta name="author" content="Bloomberg L.P.">
       
       
-        <link rel="canonical" href="https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-http/pushiko-http/com.bloomberg.pushiko.http/-http-client-properties/-companion/">
+        <link rel="canonical" href="https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-pools/pushiko-pools/com.bloomberg.pushiko.pools/-poolable/record-outcome/">
       
       
       
@@ -25,7 +25,7 @@
     
     
       
-        <title>Index - Pushiko</title>
+        <title>Record outcome - Pushiko</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#companion" class="md-skip">
+        <a href="#recordoutcome" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Index
+              Record outcome
             
           </span>
         </div>
@@ -656,36 +656,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#properties" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Properties
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#functions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Functions
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -701,40 +671,10 @@
 
 
 
-<p>//<a href="../../../../">pushiko-http</a>/<a href="../../">com.bloomberg.pushiko.http</a>/<a href="../">HttpClientProperties</a>/<a href="./">Companion</a></p>
-<h1 id="companion">Companion</h1>
+<p>//<a href="../../../../">pushiko-pools</a>/<a href="../../">com.bloomberg.pushiko.pools</a>/<a href="../">Poolable</a>/<a href="./">recordOutcome</a></p>
+<h1 id="recordoutcome">recordOutcome</h1>
 <p>[jvm]\
-object <a href="./">Companion</a></p>
-<h2 id="properties">Properties</h2>
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Summary</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><a href="logger/">logger</a></td>
-<td>[jvm]<br>val <a href="logger/">logger</a>: Logger</td>
-</tr>
-</tbody>
-</table>
-<h2 id="functions">Functions</h2>
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Summary</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><a href="-optional-http-properties/">OptionalHttpProperties</a></td>
-<td>[jvm]<br>fun <a href="-optional-http-properties/">OptionalHttpProperties</a>(connectionAcquisitionTimeout: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a>? = null, connectionFuzzInterval: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a>? = null, connectTimeout: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a>? = null, defaultMaximumConcurrentStreams: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a>? = null, errorRateThreshold: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a>? = null, fullScanPoolSize: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>? = null, idleConnectionInterval: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a>? = null, isMonitorConnections: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a>? = null, maximumConnectionAge: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a>? = null, maximumConnections: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>? = null, maximumConnectRetries: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>? = null, maximumPendingAcquisitions: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>? = null, maximumSampledScan: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>? = null, minimumConnections: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>? = null, reaperDelay: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a>? = null, retryPolicy: <a href="../../-http-retry-policy/">HttpRetryPolicy</a>? = null, summaryInterval: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a>? = null, unresolvedProxyAddress: <a href="https://docs.oracle.com/javase/8/docs/api/java/net/InetSocketAddress.html">InetSocketAddress</a>? = null): <a href="../">HttpClientProperties</a></td>
-</tr>
-</tbody>
-</table>
+fun <a href="./">recordOutcome</a>(holdNanos: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a>, wasSuccess: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a>)</p>
 
 
 

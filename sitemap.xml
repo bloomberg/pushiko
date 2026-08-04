@@ -577,6 +577,10 @@
          <lastmod>2026-08-04</lastmod>
     </url>
     <url>
+         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-commons/pushiko-commons/com.bloomberg.pushiko.commons/-fifo-buffer/is-not-empty/</loc>
+         <lastmod>2026-08-04</lastmod>
+    </url>
+    <url>
          <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-commons/pushiko-commons/com.bloomberg.pushiko.commons/-fifo-buffer/iterator/</loc>
          <lastmod>2026-08-04</lastmod>
     </url>
@@ -594,10 +598,6 @@
     </url>
     <url>
          <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-commons/pushiko-commons/com.bloomberg.pushiko.commons/-fifo-buffer/remove-last/</loc>
-         <lastmod>2026-08-04</lastmod>
-    </url>
-    <url>
-         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-commons/pushiko-commons/com.bloomberg.pushiko.commons/-fifo-buffer/remove-until-first-inclusive-or-null/</loc>
          <lastmod>2026-08-04</lastmod>
     </url>
     <url>
@@ -1397,6 +1397,14 @@
          <lastmod>2026-08-04</lastmod>
     </url>
     <url>
+         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-http/pushiko-http/com.bloomberg.pushiko.http/-http-client-properties/error-rate-threshold/</loc>
+         <lastmod>2026-08-04</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-http/pushiko-http/com.bloomberg.pushiko.http/-http-client-properties/full-scan-pool-size/</loc>
+         <lastmod>2026-08-04</lastmod>
+    </url>
+    <url>
          <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-http/pushiko-http/com.bloomberg.pushiko.http/-http-client-properties/idle-connection-interval/</loc>
          <lastmod>2026-08-04</lastmod>
     </url>
@@ -1422,6 +1430,10 @@
     </url>
     <url>
          <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-http/pushiko-http/com.bloomberg.pushiko.http/-http-client-properties/maximum-request-retries/</loc>
+         <lastmod>2026-08-04</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-http/pushiko-http/com.bloomberg.pushiko.http/-http-client-properties/maximum-sampled-scan/</loc>
          <lastmod>2026-08-04</lastmod>
     </url>
     <url>
@@ -1541,6 +1553,14 @@
          <lastmod>2026-08-04</lastmod>
     </url>
     <url>
+         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-http/pushiko-http/com.bloomberg.pushiko.http/-i-http-client-properties/error-rate-threshold/</loc>
+         <lastmod>2026-08-04</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-http/pushiko-http/com.bloomberg.pushiko.http/-i-http-client-properties/full-scan-pool-size/</loc>
+         <lastmod>2026-08-04</lastmod>
+    </url>
+    <url>
          <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-http/pushiko-http/com.bloomberg.pushiko.http/-i-http-client-properties/idle-connection-interval/</loc>
          <lastmod>2026-08-04</lastmod>
     </url>
@@ -1566,6 +1586,10 @@
     </url>
     <url>
          <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-http/pushiko-http/com.bloomberg.pushiko.http/-i-http-client-properties/maximum-request-retries/</loc>
+         <lastmod>2026-08-04</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-http/pushiko-http/com.bloomberg.pushiko.http/-i-http-client-properties/maximum-sampled-scan/</loc>
          <lastmod>2026-08-04</lastmod>
     </url>
     <url>
@@ -1893,11 +1917,19 @@
          <lastmod>2026-08-04</lastmod>
     </url>
     <url>
-         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-pools/pushiko-pools/com.bloomberg.pushiko.pools/-pool-configuration/acquisition-attempts-threshold/</loc>
+         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-pools/pushiko-pools/com.bloomberg.pushiko.pools/-pool-configuration/error-rate-threshold/</loc>
+         <lastmod>2026-08-04</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-pools/pushiko-pools/com.bloomberg.pushiko.pools/-pool-configuration/full-scan-pool-size/</loc>
          <lastmod>2026-08-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-pools/pushiko-pools/com.bloomberg.pushiko.pools/-pool-configuration/maximum-pending-acquisitions/</loc>
+         <lastmod>2026-08-04</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-pools/pushiko-pools/com.bloomberg.pushiko.pools/-pool-configuration/maximum-sampled-scan/</loc>
          <lastmod>2026-08-04</lastmod>
     </url>
     <url>
@@ -1945,11 +1977,19 @@
          <lastmod>2026-08-04</lastmod>
     </url>
     <url>
+         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-pools/pushiko-pools/com.bloomberg.pushiko.pools/-poolable/is-error/</loc>
+         <lastmod>2026-08-04</lastmod>
+    </url>
+    <url>
          <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-pools/pushiko-pools/com.bloomberg.pushiko.pools/-poolable/is-should-acquire/</loc>
          <lastmod>2026-08-04</lastmod>
     </url>
     <url>
          <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-pools/pushiko-pools/com.bloomberg.pushiko.pools/-poolable/maximum-permits/</loc>
+         <lastmod>2026-08-04</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/pages/bloomberg/pushiko/kdoc/pushiko-pools/pushiko-pools/com.bloomberg.pushiko.pools/-poolable/record-outcome/</loc>
          <lastmod>2026-08-04</lastmod>
     </url>
     <url>

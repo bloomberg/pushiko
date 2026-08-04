@@ -730,11 +730,11 @@
 </tr>
 <tr>
 <td><a href="-poolable/">Poolable</a></td>
-<td>[jvm]<br>@NotThreadSafe<br>abstract class <a href="-poolable/">Poolable</a>&lt;out <a href="-poolable/">R</a> : <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-any/index.html">Any</a>&gt;(value: <a href="-poolable/">R</a>)</td>
+<td>[jvm]<br>@NotThreadSafe<br>abstract class <a href="-poolable/">Poolable</a>&lt;out <a href="-poolable/">R</a> : <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-any/index.html">Any</a>&gt;(value: <a href="-poolable/">R</a>, ewmaAlpha: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a> = 0.2, errorRateHalfLife: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a> = 30.seconds, nanoTime: () -&gt; <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a> = System::nanoTime)</td>
 </tr>
 <tr>
 <td><a href="-pool-configuration/">PoolConfiguration</a></td>
-<td>[jvm]<br>@ThreadSafe<br>data class <a href="-pool-configuration/">PoolConfiguration</a>(val acquisitionAttemptsThreshold: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>, val maximumPendingAcquisitions: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>, val maximumSize: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>, val minimumSize: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>, val name: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a> = &quot;Pushiko.Pool&quot;, val reaperDelay: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a>, val summaryInterval: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a>)</td>
+<td>[jvm]<br>@ThreadSafe<br>data class <a href="-pool-configuration/">PoolConfiguration</a>(val errorRateThreshold: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a>, val fullScanPoolSize: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>, val maximumPendingAcquisitions: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>, val maximumSampledScan: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>, val maximumSize: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>, val minimumSize: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a>, val name: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a> = &quot;Pushiko.Pool&quot;, val reaperDelay: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a>, val summaryInterval: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.time/-duration/index.html">Duration</a>)</td>
 </tr>
 <tr>
 <td><a href="-recycler/">Recycler</a></td>
@@ -750,7 +750,7 @@
 </tr>
 <tr>
 <td><a href="-water-mark-scale-factor/">WaterMarkScaleFactor</a></td>
-<td>[jvm]<br>@ThreadSafe<br>data class <a href="-water-mark-scale-factor/">WaterMarkScaleFactor</a>(val low: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a> = LOW_WATERMARK_SCALE_FACTOR, val high: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a> = HIGH_WATERMARK_SCALE_FACTOR)</td>
+<td>[jvm]<br>@ThreadSafe<br>data class <a href="-water-mark-scale-factor/">WaterMarkScaleFactor</a>(val low: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a> = 1.0 / 3, val high: <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-double/index.html">Double</a> = 1.0)</td>
 </tr>
 </tbody>
 </table>

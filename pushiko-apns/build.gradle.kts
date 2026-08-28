@@ -41,6 +41,7 @@ dependencies {
     api(projects.pushikoApi)
     api(projects.pushikoJson)
     compileOnly(libs.findbugs.jsr305)
+    implementation(platform(libs.okio.bom))
     implementation(projects.pushikoCommons)
     implementation(projects.pushikoHealth)
     implementation(projects.pushikoHttp)

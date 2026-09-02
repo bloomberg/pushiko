@@ -1,7 +1,7 @@
 # See: https://docs.gradle.org/current/userguide/version_catalogs.html
 
 [versions]
-kotlin = "1.9.24"
+kotlin = "2.4.10"
 
 [libraries]
 atomicfu = { module = "org.jetbrains.kotlinx:atomicfu-gradle-plugin", version = "0.22.0" }

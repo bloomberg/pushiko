@@ -35,7 +35,7 @@ netty-transport-classes-epoll = { module = "io.netty:netty-transport-classes-epo
 netty-transport-classes-kqueue = { module = "io.netty:netty-transport-classes-kqueue" }
 netty-transport-native-epoll = { module = "io.netty:netty-transport-native-epoll" }
 netty-transport-native-kqueue = { module = "io.netty:netty-transport-native-kqueue" }
-okio = { module = "com.squareup.okio:okio", version = "3.9.0" }
+okio = { module = "com.squareup.okio:okio", version = "3.18.1" }
 reactor-bom = { module = "io.projectreactor:reactor-bom", version = "2023.0.7" }
 reactor-core = { module = "io.projectreactor:reactor-core" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version = "1.7.36" }

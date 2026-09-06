@@ -48,22 +48,18 @@ plugins {
     alias(libs.plugins.ktlint)
     alias(libs.plugins.dependencyCheck) apply false
     alias(libs.plugins.ideaExt)
-    alias(libs.plugins.nexus.publish)
+    alias(libs.plugins.nmcp)
 }
 
 logger.quiet("Group: {}; Version: {}", group, version)
 
-nexusPublishing {
-    repositories {
-        // See: https://central.sonatype.org/publish/publish-portal-ossrh-staging-api/
-        sonatype {
-            nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
-            snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
-        }
-    }
-    transitionCheckOptions {
-        maxRetries.set(180)
-        delayBetween.set(Duration.ofSeconds(10L))
+nmcpAggregation {
+    centralPortal {
+        username.set(providers.gradleProperty("centralPortalUsername"))
+        password.set(providers.gradleProperty("centralPortalPassword"))
+        publishingType.set("AUTOMATIC")
+        validationTimeout.set(Duration.ofMinutes(30L))
+        publishingTimeout.set(Duration.ofMinutes(30L))
     }
 }
 
@@ -78,16 +74,35 @@ dependencies {
     kover(projects.pushikoMetrics)
     kover(projects.pushikoNettyKtx)
     kover(projects.pushikoPools)
+
+    listOf(
+        projects.pushikoApi,
+        projects.pushikoApns,
+        projects.pushikoCommons,
+        projects.pushikoFcm,
+        projects.pushikoHealth,
+        projects.pushikoHttp,
+        projects.pushikoJson,
+        projects.pushikoMetrics,
+        projects.pushikoNettyKtx,
+        projects.pushikoPools
+    ).forEach {
+        add("nmcpAggregation", it)
+    }
 }
 
 subprojects {
     group = rootProject.group
+    plugins.withId("maven-publish") {
+        pluginManager.apply("com.gradleup.nmcp")
+    }
     apply {
         plugin("org.jlleitschuh.gradle.ktlint")
         plugin("org.owasp.dependencycheck")
     }
     plugins.withType<JavaPlugin>().configureEach {
         configure<JavaPluginExtension> {
+            sourceCompatibility = JavaVersion.VERSION_11
             withSourcesJar()
         }
         dependencies {
@@ -134,7 +149,10 @@ subprojects {
         ).forEach {
             systemProperty(it.key, it.value)
         }
-        jvmArgs("-Dio.netty.leakDetection.level=paranoid")
+        jvmArgs(
+            "-Dio.netty.leakDetection.level=paranoid",
+            "--add-exports=java.base/sun.security.x509=ALL-UNNAMED"
+        )
     }
     plugins.withType<PitestPlugin> {
         configure<PitestPluginExtension> {

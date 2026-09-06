@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
       - name: 'Build cache'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:

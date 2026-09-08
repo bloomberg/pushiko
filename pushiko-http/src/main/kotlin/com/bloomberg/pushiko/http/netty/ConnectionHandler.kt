@@ -189,8 +189,21 @@ internal class ConnectionHandler(
             context.channel().close()
             return
         }
+        write(context, requestContinuation, writePromise, streamId)
+    }
 
+    private fun write(
+        context: ChannelHandlerContext,
+        requestContinuation: HttpRequestContinuation,
+        writePromise: ChannelPromise,
+        streamId: Int
+    ) {
         requestContinuations[streamId] = requestContinuation
+        context.scheduleResponseTimeout(streamId)?.let {
+            requestContinuations.remove(streamId)
+            writePromise.tryFailure(it)
+            return
+        }
 
         val headersPromise = context.newPromise()
         encoder().writeHeaders(context, streamId, requestContinuation.request.headers, 0, false, headersPromise)
@@ -210,7 +223,10 @@ internal class ConnectionHandler(
         writePromise.addListener {
             if (it.isSuccess) {
                 pingedSinceLastWrite = false
-                context.scheduleResponseTimeout(streamId)
+            } else {
+                responseTimeouts.remove(streamId)?.cancel(false)
+                requestContinuations.remove(streamId)
+                connection().stream(streamId)?.removeRequestContinuation()
             }
         }
 
@@ -546,25 +562,35 @@ internal class ConnectionHandler(
     private fun ChannelHandlerContext.scheduleResponseTimeout(
         streamId: Int,
         timeoutSeconds: Long = RESPONSE_TIMEOUT_SECONDS
-    ) {
-        runCatching {
-            responseTimeouts[streamId] = channel().eventLoop().schedule({
-                connection().stream(streamId).run {
-                    requestContinuation()?.tryResumeWithException(SocketTimeoutException(
-                        "Response timed out after ${timeoutSeconds}s channel: ${channel()}"))
-                    close()
+    ): Throwable? = runCatching {
+        responseTimeouts[streamId] = channel().eventLoop().schedule({
+            responseTimeouts.remove(streamId)
+            val stream = connection().stream(streamId)
+            val continuation = requestContinuations.remove(streamId) ?: stream?.removeRequestContinuation()
+            if (continuation != null) {
+                continuation.tryResumeWithException(SocketTimeoutException(
+                    "Response timed out after ${timeoutSeconds}s channel: ${channel()}"))
+                if (stream == null) {
+                    encoder().writeRstStream(this, streamId, Http2Error.CANCEL.code(), newPromise())
+                } else {
+                    stream.close()
                 }
                 if (!(monitorConnectionHealth || pingedSinceLastWrite) &&
                     secondsSinceLastPingWrite() >= timeoutSeconds) {
                     sendPing()
                 }
-            }, timeoutSeconds, TimeUnit.SECONDS)
-        }.onFailure {
-            logger.warn("Failed to register response timeout", it)
-        }.onSuccess {
+            }
+        }, timeoutSeconds, TimeUnit.SECONDS)
+    }.fold(
+        onSuccess = {
             logger.debug("Successfully registered response timeout: {}s", timeoutSeconds)
+            null
+        },
+        onFailure = {
+            logger.warn("Failed to register response timeout", it)
+            it
         }
-    }
+    )
 
     private fun ChannelHandlerContext.sendPing(timeoutSeconds: Long = PING_TIMEOUT_SECONDS) {
         if (pingFuture?.isDone == false || !channel().isActive || channel().isClosing()) {

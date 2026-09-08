@@ -111,6 +111,31 @@ internal class PoolableChannelTest {
     }
 
     @Test
+    fun negotiatedLimitBelowDefaultIsHonored() {
+        val poolable = PoolableChannel(
+            channelReporting(maxConcurrentStreamsAttribute(10L)),
+            properties(default = 100L),
+            WaterMarkScaleFactor(low = 0.5, high = 1.0)
+        )
+        assertEquals(5L, poolable.lowWaterMark)
+        assertEquals(10L, poolable.highWaterMark)
+        assertEquals(10, poolable.maximumPermits)
+    }
+
+    @Test
+    fun zeroNegotiatedLimitPreventsAcquisition() {
+        val poolable = PoolableChannel(
+            channelReporting(maxConcurrentStreamsAttribute(0L)),
+            properties(default = 100L)
+        )
+        assertEquals(0L, poolable.lowWaterMark)
+        assertEquals(0L, poolable.highWaterMark)
+        assertEquals(0, poolable.maximumPermits)
+        assertFalse(poolable.isCanAcquire)
+        assertFalse(poolable.isShouldAcquire)
+    }
+
+    @Test
     fun watermarkShrinksWhenPeerLowersMaxConcurrentStreams() {
         val attribute = maxConcurrentStreamsAttribute(100L)
         val poolable = PoolableChannel(

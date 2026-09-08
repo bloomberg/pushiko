@@ -18,6 +18,7 @@ package com.bloomberg.pushiko.http.netty
 
 import com.bloomberg.pushiko.http.HttpRequest
 import com.bloomberg.pushiko.http.HttpRequestContinuation
+import com.bloomberg.pushiko.http.HttpResponse
 import com.bloomberg.pushiko.http.exceptions.ChannelInactiveException
 import com.bloomberg.pushiko.http.exceptions.ChannelStreamQuotaException
 import io.netty.channel.Channel
@@ -30,6 +31,7 @@ import io.netty.handler.codec.http2.Http2Connection
 import io.netty.handler.codec.http2.Http2Connection.Endpoint
 import io.netty.handler.codec.http2.Http2ConnectionDecoder
 import io.netty.handler.codec.http2.Http2ConnectionEncoder
+import io.netty.handler.codec.http2.Http2Error
 import io.netty.handler.codec.http2.Http2LocalFlowController
 import io.netty.handler.codec.http2.Http2RemoteFlowController
 import io.netty.handler.codec.http2.Http2Settings
@@ -86,14 +88,15 @@ internal class ConnectionHandlerTest {
     @Suppress("TestFunctionName")
     private fun ConnectionHandler(
         monitorConnectionHealth: Boolean = false,
-        settingsReadTimeoutMillis: Long = DEFAULT_SETTINGS_READ_TIMEOUT_MILLIS
+        settingsReadTimeoutMillis: Long = DEFAULT_SETTINGS_READ_TIMEOUT_MILLIS,
+        encoder: Http2ConnectionEncoder = mock<Http2ConnectionEncoder>().apply {
+            whenever(connection()) doReturn connection
+            whenever(flowController()) doReturn flowController
+        }
     ) = ConnectionHandler(
         mock<Http2ConnectionDecoder>().apply {
             whenever(connection()) doReturn connection
-        }, mock<Http2ConnectionEncoder>().apply {
-            whenever(connection()) doReturn connection
-            whenever(flowController()) doReturn flowController
-        }, mock(),
+        }, encoder, mock(),
         monitorConnectionHealth = monitorConnectionHealth,
         settingsReadTimeoutMillis = settingsReadTimeoutMillis
     )
@@ -309,6 +312,58 @@ internal class ConnectionHandlerTest {
         ConnectionHandler(monitorConnectionHealth = true).write(context, continuation, promise)
         verify(stream, times(1)).close()
         verify(channel, never()).close()
+    }
+
+    @Test
+    fun responseTimeoutCoversPendingWrite() {
+        lateinit var timeoutTask: Runnable
+        val timeoutFuture = mock<ScheduledFuture<Void>>()
+        whenever(eventLoop.schedule(any<Runnable>(), eq(11L), eq(TimeUnit.SECONDS))) doAnswer {
+            timeoutTask = it.arguments.first() as Runnable
+            timeoutFuture
+        }
+        whenever(local.incrementAndGetNextStreamId()) doReturn 3
+        whenever(channel.isActive) doReturn true
+        val encoder = mock<Http2ConnectionEncoder>().apply {
+            whenever(connection()) doReturn connection
+            whenever(flowController()) doReturn flowController
+        }
+        var failure: Throwable? = null
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, object : Continuation<HttpResponse> {
+            override val context = EmptyCoroutineContext
+
+            override fun resumeWith(result: Result<HttpResponse>) {
+                failure = result.exceptionOrNull()
+            }
+        })
+        ConnectionHandler(monitorConnectionHealth = true, encoder = encoder).write(context, continuation, mock())
+        timeoutTask.run()
+        assertIs<SocketTimeoutException>(failure)
+        verify(encoder, times(1)).writeRstStream(
+            eq(context), eq(3), eq(Http2Error.CANCEL.code()), any()
+        )
+    }
+
+    @Test
+    fun writeFailureCancelsResponseTimeout() {
+        val timeoutFuture = mock<ScheduledFuture<Void>>()
+        whenever(eventLoop.schedule(any<Runnable>(), eq(11L), eq(TimeUnit.SECONDS))) doReturn timeoutFuture
+        whenever(local.incrementAndGetNextStreamId()) doReturn 3
+        whenever(channel.isActive) doReturn true
+        val failedWrite = mock<Future<Void>>().apply {
+            whenever(isSuccess) doReturn false
+            whenever(cause()) doReturn IllegalStateException("write failed")
+        }
+        val writePromise = mock<ChannelPromise>().apply {
+            whenever(addListener(any<GenericFutureListener<Future<Void>>>())) doAnswer {
+                @Suppress("UNCHECKED_CAST")
+                (it.arguments.first() as GenericFutureListener<Future<Void>>).operationComplete(failedWrite)
+                this@apply
+            }
+        }
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, mock())
+        ConnectionHandler().write(context, continuation, writePromise)
+        verify(timeoutFuture, times(1)).cancel(false)
     }
 
     @Test

@@ -20,6 +20,7 @@ import io.netty.handler.codec.http2.DefaultHttp2Headers
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 internal class HttpResponseExtensionsTest {
     @Test
@@ -38,5 +39,32 @@ internal class HttpResponseExtensionsTest {
     @Test
     fun retryAfterJunk() {
         assertNull(HttpResponse(503, DefaultHttp2Headers().add("retry-after", "foo")).retryAfterMillis())
+    }
+
+    @Test
+    fun retryAfterNegativeSeconds() {
+        assertNull(HttpResponse(503, DefaultHttp2Headers().add("retry-after", "-1")).retryAfterMillis())
+    }
+
+    @Test
+    fun retryAfterOverflowingSeconds() {
+        assertNull(HttpResponse(503,
+            DefaultHttp2Headers().add("retry-after", Long.MAX_VALUE.toString())).retryAfterMillis())
+        assertNull(HttpResponse(503,
+            DefaultHttp2Headers().add("retry-after", "9223372036854775808")).retryAfterMillis())
+    }
+
+    @Test
+    fun retryAfterMaximumConvertibleSeconds() {
+        val seconds = Long.MAX_VALUE / 1_000L
+        assertEquals(seconds * 1_000L,
+            HttpResponse(503,
+                DefaultHttp2Headers().add("retry-after", seconds.toString())).retryAfterMillis())
+    }
+
+    @Test
+    fun retryAfterFarFutureDate() {
+        assertTrue(requireNotNull(HttpResponse(503,
+            DefaultHttp2Headers().add("retry-after", "Fri, 31 Dec 9999 23:59:59 GMT")).retryAfterMillis()) > 60_000L)
     }
 }

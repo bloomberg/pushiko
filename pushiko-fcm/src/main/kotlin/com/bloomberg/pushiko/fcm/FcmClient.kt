@@ -66,6 +66,7 @@ import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toKotlinDuration
 import kotlinx.coroutines.joinAll
@@ -82,6 +83,7 @@ private const val HIGH_WATERMARK = 150L
 private const val MAX_RETRIES_DEFAULT = 2
 private const val INITIAL_BACKOFF_MILLIS = 1_000L
 private const val BAD_GATEWAY_BACKOFF_MILLIS = 30_000L
+private const val MAXIMUM_RETRY_DELAY_MILLIS_DEFAULT = 60_000L
 private const val POST = "POST"
 private const val AUTHORIZATION_HEADER = "authorization"
 private const val CONTENT_TYPE_HEADER = "content-type"
@@ -117,7 +119,8 @@ public fun FcmClient(consumer: Consumer<FcmClient.Builder>): FcmClient = FcmClie
 public class FcmClient private constructor(
     private val sessions: Map<String, Session>,
     private val httpClient: HttpClient,
-    javaDispatcher: CoroutineDispatcher? = null
+    javaDispatcher: CoroutineDispatcher? = null,
+    private val maximumRetryDelayMillis: Long = MAXIMUM_RETRY_DELAY_MILLIS_DEFAULT
 ) {
     /**
      * @since 0.24.0
@@ -269,13 +272,13 @@ public class FcmClient private constructor(
         close()
     }
 
-    private tailrec suspend fun doSend(
+    private suspend fun doSend(
         httpRequest: HttpRequest,
         fcmRequest: FcmRequest,
         retries: Int,
         backOffMillis: Long
     ): FcmResponse {
-        httpClient.send(httpRequest).run {
+        val response = httpClient.send(httpRequest).run {
             runCatching {
                 use {
                     process(fcmRequest)
@@ -283,34 +286,76 @@ public class FcmClient private constructor(
             }.getOrElse {
                 throw FcmException("Failed to parse HTTP response, code: $code", it)
             }
-        }.let {
-            return if (retries > 0 && it is FcmServerErrorResponse) {
-                when (it.code) {
-                    HttpURLConnection.HTTP_BAD_GATEWAY -> {
-                        // Firebase has been seen to respond with HTML saying it had encountered a temporary error and
-                        // could not complete the request, and that the request should be retried in 30 seconds time.
-                        val intervalMillis = it.retryAfterMillis ?: BAD_GATEWAY_BACKOFF_MILLIS
-                        logger.info("Encountered {}, retrying request once in {} milliseconds", it.code,
-                            intervalMillis)
-                        delay(intervalMillis)
-                        doSend(httpRequest, fcmRequest, 0, 0L)
-                    }
-                    HttpURLConnection.HTTP_UNAVAILABLE -> {
-                        // Firebase responds with a 503 when the server is overloaded and asks that the request be
-                        // retried in this case. The scheduling of the retry must honour the retry-after header if
-                        // this is included in the response and follow an exponential back-off mechanism.
-                        // ref: https://firebase.google.com/docs/reference/fcm/rest/v1/ErrorCode
-                        logger.info("Encountered {}, retrying request with {} attempt{} remaining", it.code,
-                            retries, retries.commonPluralSuffix())
-                        delay(maxOf(it.retryAfterMillis ?: 0L, backOffMillis))
-                        doSend(httpRequest, fcmRequest, retries - 1, backOffMillis shl 1)
-                    }
-                    else -> it
-                }
-            } else {
-                it
-            }
         }
+        return if (retries > 0 && response is FcmServerErrorResponse) {
+            retryServerError(response, httpRequest, fcmRequest, retries, backOffMillis)
+        } else {
+            response
+        }
+    }
+
+    private suspend fun retryServerError(
+        response: FcmServerErrorResponse,
+        httpRequest: HttpRequest,
+        fcmRequest: FcmRequest,
+        retries: Int,
+        backOffMillis: Long
+    ): FcmResponse = when (response.code) {
+        HttpURLConnection.HTTP_BAD_GATEWAY -> retryBadGateway(response, httpRequest, fcmRequest)
+        HttpURLConnection.HTTP_UNAVAILABLE -> retryUnavailable(
+            response, httpRequest, fcmRequest, retries, backOffMillis)
+        else -> response
+    }
+
+    private suspend fun retryBadGateway(
+        response: FcmServerErrorResponse,
+        httpRequest: HttpRequest,
+        fcmRequest: FcmRequest
+    ): FcmResponse {
+        // Firebase has been seen to respond with HTML saying it had encountered a temporary error and could not
+        // complete the request, and that the request should be retried in 30 seconds time.
+        val intervalMillis = response.retryAfterMillis ?: BAD_GATEWAY_BACKOFF_MILLIS
+        if (!isRetryDelayAllowed(response.code, intervalMillis)) {
+            return response
+        }
+        logger.info("Encountered {}, retrying request once in {} milliseconds", response.code, intervalMillis)
+        delay(intervalMillis)
+        return doSend(httpRequest, fcmRequest, 0, 0L)
+    }
+
+    private suspend fun retryUnavailable(
+        response: FcmServerErrorResponse,
+        httpRequest: HttpRequest,
+        fcmRequest: FcmRequest,
+        retries: Int,
+        backOffMillis: Long
+    ): FcmResponse {
+        // Firebase responds with a 503 when the server is overloaded and asks that the request be retried in this
+        // case. The scheduling of the retry must honour the retry-after header if this is included in the response
+        // and follow an exponential back-off mechanism.
+        // ref: https://firebase.google.com/docs/reference/fcm/rest/v1/ErrorCode
+        val intervalMillis = maxOf(response.retryAfterMillis ?: 0L, backOffMillis)
+        if (!isRetryDelayAllowed(response.code, intervalMillis)) {
+            return response
+        }
+        logger.info("Encountered {}, retrying request with {} attempt{} remaining", response.code,
+            retries, retries.commonPluralSuffix())
+        delay(intervalMillis)
+        return doSend(httpRequest, fcmRequest, retries - 1, backOffMillis shl 1)
+    }
+
+    private fun isRetryDelayAllowed(code: Int, intervalMillis: Long): Boolean {
+        if (intervalMillis <= maximumRetryDelayMillis) {
+            return true
+        }
+        logger.info(
+            "Encountered {}, not retrying because the retry delay of {} milliseconds exceeds the configured " +
+                "maximum of {} milliseconds",
+            code,
+            intervalMillis,
+            maximumRetryDelayMillis
+        )
+        return false
     }
 
     @OptIn(ExperimentalSerializationApi::class)
@@ -345,6 +390,8 @@ public class FcmClient private constructor(
         @JvmSynthetic
         internal var minimumConnections: Int? = null
 
+        private var maximumRetryDelay: Duration = MAXIMUM_RETRY_DELAY_MILLIS_DEFAULT.milliseconds
+
         private var proxyAddress: InetSocketAddress? = systemHttpsProxyAddress(FCM_HOST)
 
         @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
@@ -376,6 +423,28 @@ public class FcmClient private constructor(
             minimumConnections = value
         }
 
+        /**
+         * Sets the maximum delay that automatic FCM retries will honour. If a response requests a longer delay,
+         * the response is returned to the caller without an automatic retry. The default is one minute.
+         */
+        @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
+        @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
+        public fun maximumRetryDelay(value: java.time.Duration): Builder = apply {
+            maximumRetryDelay(value.toKotlinDuration())
+        }
+
+        /**
+         * Sets the maximum delay that automatic FCM retries will honour. If a response requests a longer delay,
+         * the response is returned to the caller without an automatic retry. The default is one minute.
+         */
+        @JvmSynthetic
+        public fun maximumRetryDelay(value: Duration): Builder = apply {
+            require(value.isFinite() && value.inWholeMilliseconds > 0L) {
+                "Maximum retry delay must be finite and at least one millisecond."
+            }
+            maximumRetryDelay = value
+        }
+
         public fun proxy(host: String, port: Int): Builder = apply {
             proxyAddress = InetSocketAddress.createUnresolved(host, port)
         }
@@ -403,7 +472,8 @@ public class FcmClient private constructor(
                 monitorConnectionHealth = false
                 concurrentRequestWatermark(LOW_WATERMARK, HIGH_WATERMARK)
             },
-            executor?.asCoroutineDispatcher()
+            executor?.asCoroutineDispatcher(),
+            maximumRetryDelay.inWholeMilliseconds
         )
     }
 

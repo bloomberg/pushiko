@@ -3,6 +3,7 @@
 ### Fixes
 
 * Bound HTTP/2 SETTINGS wait after TLS handshake.
+* Encode and bound peer-provided HTTP/2 GOAWAY debug data in logs.
 
 ## Version 2.0.0
 

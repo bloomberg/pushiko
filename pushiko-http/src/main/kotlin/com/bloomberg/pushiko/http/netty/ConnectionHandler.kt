@@ -48,6 +48,7 @@ import com.bloomberg.pushiko.http.exceptions.ChannelInactiveException
 import com.bloomberg.pushiko.http.exceptions.ChannelStreamQuotaException
 import com.bloomberg.pushiko.http.exceptions.ChannelWriteFailedException
 import io.netty.buffer.ByteBuf
+import io.netty.buffer.ByteBufUtil
 import io.netty.buffer.Unpooled
 import io.netty.channel.Channel
 import io.netty.channel.ChannelFuture
@@ -94,6 +95,7 @@ internal const val DEFAULT_SETTINGS_READ_TIMEOUT_MILLIS = 5_000L
 
 private const val MAX_RESPONSE_BODY_BYTES = 256 * 1_024
 private const val INITIAL_RESPONSE_BODY_CAPACITY = 256
+private const val MAX_GOAWAY_DEBUG_DATA_LOG_BYTES = 64
 
 private val channelInactiveWriteException = ChannelInactiveException("Channel inactive when writing")
 private val streamsExhaustedException = ChannelStreamQuotaException("HTTP/2 streams exhausted; closing connection")
@@ -122,6 +124,29 @@ internal fun Slf4jLogger.traceRequestHeaders(streamId: Int, headers: Http2Header
 
 internal fun Slf4jLogger.traceResponseHeaders(channel: Channel, streamId: Int, headers: Http2Headers) =
     trace("Read response headers: channel={} stream={} status={}", channel, streamId, headers.status())
+
+internal fun ByteBuf.goAwayDebugDataHex(): String =
+    ByteBufUtil.hexDump(this, readerIndex(), minOf(readableBytes(), MAX_GOAWAY_DEBUG_DATA_LOG_BYTES))
+
+internal fun Slf4jLogger.logGoAwaySent(lastStreamId: Int, errorCode: Long, data: ByteBuf) =
+    debug(
+        "Sent GOAWAY lastStreamId: {} errorCode: {} dataLength: {} dataHex: {} truncated: {}",
+        lastStreamId,
+        errorCode,
+        data.readableBytes(),
+        data.goAwayDebugDataHex(),
+        data.readableBytes() > MAX_GOAWAY_DEBUG_DATA_LOG_BYTES
+    )
+
+internal fun Slf4jLogger.logGoAwayReceived(lastStreamId: Int, errorCode: Long, data: ByteBuf) =
+    info(
+        "Received GOAWAY lastStreamId: {} errorCode: {} dataLength: {} dataHex: {} truncated: {}",
+        lastStreamId,
+        errorCode,
+        data.readableBytes(),
+        data.goAwayDebugDataHex(),
+        data.readableBytes() > MAX_GOAWAY_DEBUG_DATA_LOG_BYTES
+    )
 
 private val channelIsClosingAttributeKey = AttributeKey.valueOf<Boolean>("channelIsClosing")
 @JvmSynthetic
@@ -416,8 +441,7 @@ internal class ConnectionHandler(
         data: ByteBuf
     ) {
         logger.ifDebugEnabled {
-            debug("Sent GOAWAY lastStreamId: {} errorCode: {} data: {}", lastStreamId, errorCode,
-                data.toString(Charsets.UTF_8))
+            logGoAwaySent(lastStreamId, errorCode, data)
         }
     }
 
@@ -427,8 +451,7 @@ internal class ConnectionHandler(
         data: ByteBuf
     ) {
         logger.ifInfoEnabled {
-            info("Received GOAWAY lastStreamId: {} errorCode: {} data: {}", lastStreamId, errorCode,
-                data.toString(Charsets.UTF_8))
+            logGoAwayReceived(lastStreamId, errorCode, data)
         }
     }
 

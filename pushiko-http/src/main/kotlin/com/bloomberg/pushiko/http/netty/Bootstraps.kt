@@ -115,6 +115,8 @@ private class PushikoChannelInitializer(
             addLast(ConnectionHandler {
                 frameLogger = this@PushikoChannelInitializer.frameLogger
                 monitorConnection = this@PushikoChannelInitializer.channelConfiguration.isMonitored
+                settingsReadTimeoutMillis =
+                    this@PushikoChannelInitializer.channelConfiguration.settingsReadTimeout.inWholeMilliseconds
             }.apply {
                 gracefulShutdownTimeoutMillis(SHUTDOWN_TIMEOUT_MILLIS)
             })

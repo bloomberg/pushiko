@@ -39,6 +39,7 @@ internal fun ConnectionHandler(
         block(it)
     }.let {
         ConnectionHandlerBuilder().apply {
+            settingsReadTimeoutMillis = it.settingsReadTimeoutMillis
             it.frameLogger?.run {
                 setFrameLogger(this)
                 monitorConnection = it.monitorConnection
@@ -51,6 +52,7 @@ internal fun ConnectionHandler(
 internal class ConnectionHandlerConfiguration {
     var frameLogger: Http2FrameLogger? = null
     var monitorConnection = false
+    var settingsReadTimeoutMillis = DEFAULT_SETTINGS_READ_TIMEOUT_MILLIS
 }
 
 @NotThreadSafe
@@ -61,6 +63,7 @@ private class ConnectionHandlerBuilder : AbstractHttp2ConnectionHandlerBuilder
     }
 
     var monitorConnection = false
+    var settingsReadTimeoutMillis = DEFAULT_SETTINGS_READ_TIMEOUT_MILLIS
 
     fun setFrameLogger(frameLogger: Http2FrameLogger) {
         super.frameLogger(frameLogger)
@@ -80,7 +83,8 @@ private class ConnectionHandlerBuilder : AbstractHttp2ConnectionHandlerBuilder
         decoder,
         encoder,
         initialSettings,
-        monitorConnection
+        monitorConnection,
+        settingsReadTimeoutMillis
     ).apply {
         frameListener(this)
     }

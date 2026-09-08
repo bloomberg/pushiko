@@ -48,7 +48,6 @@ import com.bloomberg.pushiko.http.exceptions.ChannelInactiveException
 import com.bloomberg.pushiko.http.exceptions.ChannelStreamQuotaException
 import com.bloomberg.pushiko.http.exceptions.ChannelWriteFailedException
 import io.netty.buffer.ByteBuf
-import io.netty.buffer.CompositeByteBuf
 import io.netty.buffer.Unpooled
 import io.netty.channel.Channel
 import io.netty.channel.ChannelFuture
@@ -94,6 +93,7 @@ private const val RESPONSE_TIMEOUT_SECONDS = 11L
 internal const val DEFAULT_SETTINGS_READ_TIMEOUT_MILLIS = 5_000L
 
 private const val MAX_RESPONSE_BODY_BYTES = 256 * 1_024
+private const val INITIAL_RESPONSE_BODY_CAPACITY = 256
 
 private val channelInactiveWriteException = ChannelInactiveException("Channel inactive when writing")
 private val streamsExhaustedException = ChannelStreamQuotaException("HTTP/2 streams exhausted; closing connection")
@@ -104,6 +104,18 @@ private fun Channel.removeChannelContinuation(): Continuation<Channel>? =
 
 private fun Channel.recordMaxConcurrentStreams(maxConcurrentStreams: Long) =
     attr(maxConcurrentStreamsAttributeKey).set(maxConcurrentStreams)
+
+internal fun newResponseBodyBuffer(): ByteBuf =
+    Unpooled.buffer(INITIAL_RESPONSE_BODY_CAPACITY, MAX_RESPONSE_BODY_BYTES)
+
+internal fun ByteBuf.tryAppendResponseData(data: ByteBuf): Boolean {
+    val length = data.readableBytes()
+    if (length > MAX_RESPONSE_BODY_BYTES - readableBytes()) {
+        return false
+    }
+    writeBytes(data, data.readerIndex(), length)
+    return true
+}
 
 internal fun Slf4jLogger.traceRequestHeaders(streamId: Int, headers: Http2Headers) =
     trace("Wrote request headers on stream {}: method={}", streamId, headers.method())
@@ -259,18 +271,13 @@ internal class ConnectionHandler(
         val bytesRead = bytesAvailable + padding
         logger.debug("onDataRead: available: {} read: {} stream: {}", bytesAvailable, bytesRead, streamId)
         val stream = connection().stream(streamId)
-        val body = stream.run {
-            if (bytesAvailable < 1) {
-                getProperty<CompositeByteBuf>(responseBodyPropertyKey)
-            } else {
-                responseBodyBuffer()?.apply {
-                    // The data buffer will be released by the codec.
-                    addComponent(data.retain())
-                    writerIndex(writerIndex() + bytesAvailable)
-                }
-            }
+        val body = if (bytesAvailable < 1) {
+            stream.getProperty<ByteBuf>(responseBodyPropertyKey)
+        } else {
+            stream.responseBodyBuffer()
         }
-        if (body != null && body.readableBytes() > MAX_RESPONSE_BODY_BYTES) {
+        // The data buffer will be released by the codec.
+        if (body != null && !body.tryAppendResponseData(data)) {
             context.abortStreamForOversizedBody(stream, streamId)
             return bytesRead
         }
@@ -671,14 +678,14 @@ internal class ConnectionHandler(
         ) {
             // Firebase Cloud Messaging empirically sometimes responds in one part and indicates the end of stream,
             // and sometimes responds with an empty second part and indicates the end of the stream.
-            Unpooled.compositeBuffer().also { setProperty(responseBodyPropertyKey, it) }
+            newResponseBodyBuffer().also { setProperty(responseBodyPropertyKey, it) }
         } else {
             null
         }
     }
 
     private fun Http2Stream.relinquishResponseBody() {
-        removeProperty<CompositeByteBuf>(responseBodyPropertyKey)?.release()
+        removeProperty<ByteBuf>(responseBodyPropertyKey)?.release()
     }
 
     private fun <T> Continuation<T>.tryResumeWithException(cause: Throwable) = runCatching {

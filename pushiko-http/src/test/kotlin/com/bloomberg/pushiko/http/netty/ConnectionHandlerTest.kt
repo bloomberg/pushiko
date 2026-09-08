@@ -21,6 +21,8 @@ import com.bloomberg.pushiko.http.HttpRequestContinuation
 import com.bloomberg.pushiko.http.HttpResponse
 import com.bloomberg.pushiko.http.exceptions.ChannelInactiveException
 import com.bloomberg.pushiko.http.exceptions.ChannelStreamQuotaException
+import io.netty.buffer.CompositeByteBuf
+import io.netty.buffer.Unpooled
 import io.netty.channel.Channel
 import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.ChannelPipeline
@@ -61,7 +63,10 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 internal class ConnectionHandlerTest {
     private val pipeline = mock<ChannelPipeline>()
@@ -226,6 +231,41 @@ internal class ConnectionHandlerTest {
             eq(headers.status())
         )
         verifyNoMoreInteractions(logger)
+    }
+
+    @Test
+    fun responseBodyBufferCopiesTinyFramesWithoutComponents() {
+        val body = newResponseBodyBuffer()
+        val oneByteFrame = Unpooled.wrappedBuffer(byteArrayOf(7))
+        try {
+            repeat(1_024) {
+                assertTrue(body.tryAppendResponseData(oneByteFrame))
+            }
+            assertFalse(body is CompositeByteBuf)
+            assertEquals(1_024, body.readableBytes())
+            assertEquals(0, oneByteFrame.readerIndex())
+            assertEquals(7, body.getByte(1_023).toInt())
+        } finally {
+            oneByteFrame.release()
+            body.release()
+        }
+    }
+
+    @Test
+    fun responseBodyBufferRejectsOversizedFrameBeforeCopying() {
+        val body = newResponseBodyBuffer()
+        val maximumBody = Unpooled.wrappedBuffer(ByteArray(body.maxCapacity()))
+        val extraFrame = Unpooled.wrappedBuffer(byteArrayOf(1))
+        try {
+            assertTrue(body.tryAppendResponseData(maximumBody))
+            assertFalse(body.tryAppendResponseData(extraFrame))
+            assertEquals(body.maxCapacity(), body.readableBytes())
+            assertEquals(0, extraFrame.readerIndex())
+        } finally {
+            extraFrame.release()
+            maximumBody.release()
+            body.release()
+        }
     }
 
     @Test

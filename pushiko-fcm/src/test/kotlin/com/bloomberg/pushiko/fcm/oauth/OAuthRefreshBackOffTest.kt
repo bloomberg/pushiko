@@ -31,7 +31,7 @@ internal class OAuthRefreshBackOffTest {
         val token = AccessToken(FAKE_TOKEN, Date(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(600L)))
         val credentials = createCredentials(FAKE_TOKEN)
         assertEquals(token.tokenValue, credentials.accessToken.tokenValue)
-        assertTrue(token.expiresInSeconds <= credentials.accessToken.expiresInSeconds)
+        assertTrue(token.expirationTime.time <= credentials.accessToken.expirationTime.time)
     }
 
     @Test

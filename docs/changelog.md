@@ -3,7 +3,10 @@
 ### Fixes
 
 * Bound HTTP/2 SETTINGS wait after TLS handshake.
+* Always redact sensitive headers from trace logs.
 * Encode and bound peer-provided HTTP/2 GOAWAY debug data in logs.
+* Neutralize GOAWAY debug data in logs.
+* Prevent quadratic response body consolidation.
 * Bound automatic FCM retry delays derived from `Retry-After` responses.
 
 ## Version 2.0.0

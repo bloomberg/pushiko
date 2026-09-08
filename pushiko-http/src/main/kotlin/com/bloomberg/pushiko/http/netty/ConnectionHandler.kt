@@ -75,6 +75,7 @@ import io.netty.util.AttributeKey
 import io.netty.util.collection.IntObjectHashMap
 import io.netty.util.concurrent.Future
 import io.netty.util.concurrent.PromiseCombiner
+import org.slf4j.Logger as Slf4jLogger
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
@@ -103,6 +104,12 @@ private fun Channel.removeChannelContinuation(): Continuation<Channel>? =
 
 private fun Channel.recordMaxConcurrentStreams(maxConcurrentStreams: Long) =
     attr(maxConcurrentStreamsAttributeKey).set(maxConcurrentStreams)
+
+internal fun Slf4jLogger.traceRequestHeaders(streamId: Int, headers: Http2Headers) =
+    trace("Wrote request headers on stream {}: method={}", streamId, headers.method())
+
+internal fun Slf4jLogger.traceResponseHeaders(channel: Channel, streamId: Int, headers: Http2Headers) =
+    trace("Read response headers: channel={} stream={} status={}", channel, streamId, headers.status())
 
 private val channelIsClosingAttributeKey = AttributeKey.valueOf<Boolean>("channelIsClosing")
 @JvmSynthetic
@@ -187,7 +194,7 @@ internal class ConnectionHandler(
 
         val headersPromise = context.newPromise()
         encoder().writeHeaders(context, streamId, requestContinuation.request.headers, 0, false, headersPromise)
-        logger.trace("Wrote headers on stream {}: {}", streamId, requestContinuation.request.headers)
+        logger.traceRequestHeaders(streamId, requestContinuation.request.headers)
 
         val bodyPromise = context.newPromise()
         // encoder().writeData() will release the ByteBuf.
@@ -266,7 +273,7 @@ internal class ConnectionHandler(
         padding: Int,
         endOfStream: Boolean
     ) {
-        logger.trace("onHeadersRead: channel: {} stream: {} headers: {}", context.channel(), streamId, headers)
+        logger.traceResponseHeaders(context.channel(), streamId, headers)
         connection().stream(streamId).apply {
             if (endOfStream) {
                 handleEndOfStream(this, headers, null)

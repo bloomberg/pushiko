@@ -25,6 +25,7 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.ChannelPipeline
 import io.netty.channel.ChannelPromise
 import io.netty.channel.EventLoop
+import io.netty.handler.codec.http2.DefaultHttp2Headers
 import io.netty.handler.codec.http2.Http2Connection
 import io.netty.handler.codec.http2.Http2Connection.Endpoint
 import io.netty.handler.codec.http2.Http2ConnectionDecoder
@@ -50,7 +51,9 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyNoMoreInteractions
 import org.mockito.kotlin.whenever
+import org.slf4j.Logger
 import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.Continuation
@@ -188,6 +191,38 @@ internal class ConnectionHandlerTest {
         ConnectionHandler(settingsReadTimeoutMillis = 25L).userEventTriggered(
             context, SslHandshakeCompletionEvent(IllegalStateException("TLS failed")))
         verify(eventLoop, never()).schedule(any<Runnable>(), any<Long>(), any<TimeUnit>())
+    }
+
+    @Test
+    fun requestHeaderLogOmitsCredentialsAndPath() {
+        val logger = mock<Logger>()
+        val headers = DefaultHttp2Headers()
+            .method("POST")
+            .path("/3/device/sensitive-device-token")
+            .add("authorization", "Bearer sensitive-oauth-token")
+        logger.traceRequestHeaders(3, headers)
+        verify(logger, times(1)).trace(
+            eq("Wrote request headers on stream {}: method={}"),
+            eq(3),
+            eq(headers.method())
+        )
+        verifyNoMoreInteractions(logger)
+    }
+
+    @Test
+    fun responseHeaderLogOmitsHeaderValues() {
+        val logger = mock<Logger>()
+        val headers = DefaultHttp2Headers()
+            .status("200")
+            .add("set-cookie", "sensitive-session-cookie")
+        logger.traceResponseHeaders(channel, 3, headers)
+        verify(logger, times(1)).trace(
+            eq("Read response headers: channel={} stream={} status={}"),
+            eq(channel),
+            eq(3),
+            eq(headers.status())
+        )
+        verifyNoMoreInteractions(logger)
     }
 
     @Test

@@ -67,6 +67,7 @@ import java.lang.Long.min
 import java.net.ConnectException
 import java.net.InetSocketAddress
 import java.net.SocketAddress
+import java.net.SocketTimeoutException
 import java.util.concurrent.ThreadLocalRandom
 import javax.annotation.concurrent.ThreadSafe
 import kotlin.coroutines.Continuation
@@ -74,6 +75,7 @@ import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import kotlin.math.max
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
@@ -92,6 +94,7 @@ internal data class ChannelFactoryConfiguration(
     val maximumConnectRetryAttempts: Int,
     val maximumConnectRetryDelay: Duration = (10 * 1_000L).toDuration(DurationUnit.MILLISECONDS),
     val minimumConnectRetryDelay: Duration = 500L.toDuration(DurationUnit.MILLISECONDS),
+    val settingsReadTimeout: Duration = 5L.seconds,
     val tcpUserTimeout: Duration = 10_000L.toDuration(DurationUnit.MILLISECONDS)
 )
 
@@ -234,4 +237,5 @@ internal class ChannelFactory(
 }
 
 private val Throwable.canRetryAfter: Boolean
-    get() = this is ConnectException || this is TimeoutException || this is ChannelInactiveException
+    get() = this is ConnectException || this is SocketTimeoutException || this is TimeoutException ||
+        this is ChannelInactiveException

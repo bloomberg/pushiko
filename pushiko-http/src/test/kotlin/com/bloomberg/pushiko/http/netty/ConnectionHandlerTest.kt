@@ -33,6 +33,7 @@ import io.netty.handler.codec.http2.Http2LocalFlowController
 import io.netty.handler.codec.http2.Http2RemoteFlowController
 import io.netty.handler.codec.http2.Http2Settings
 import io.netty.handler.codec.http2.Http2Stream
+import io.netty.handler.ssl.SslHandshakeCompletionEvent
 import io.netty.handler.timeout.IdleStateEvent
 import io.netty.util.Attribute
 import io.netty.util.concurrent.Future
@@ -50,8 +51,12 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.net.SocketTimeoutException
+import java.util.concurrent.TimeUnit
 import kotlin.coroutines.Continuation
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
+import kotlin.test.assertIs
 
 internal class ConnectionHandlerTest {
     private val pipeline = mock<ChannelPipeline>()
@@ -77,7 +82,8 @@ internal class ConnectionHandlerTest {
 
     @Suppress("TestFunctionName")
     private fun ConnectionHandler(
-        monitorConnectionHealth: Boolean = false
+        monitorConnectionHealth: Boolean = false,
+        settingsReadTimeoutMillis: Long = DEFAULT_SETTINGS_READ_TIMEOUT_MILLIS
     ) = ConnectionHandler(
         mock<Http2ConnectionDecoder>().apply {
             whenever(connection()) doReturn connection
@@ -85,7 +91,8 @@ internal class ConnectionHandlerTest {
             whenever(connection()) doReturn connection
             whenever(flowController()) doReturn flowController
         }, mock(),
-        monitorConnectionHealth = monitorConnectionHealth
+        monitorConnectionHealth = monitorConnectionHealth,
+        settingsReadTimeoutMillis = settingsReadTimeoutMillis
     )
 
     @Test
@@ -122,6 +129,65 @@ internal class ConnectionHandlerTest {
         }
         verify(maxConcurrentStreamsAttribute, times(1)).set(150L)
         verify(maxConcurrentStreamsAttribute, times(1)).set(30L)
+    }
+
+    @Test
+    fun initialSettingsTimeoutFailsCreationAndClosesChannel() {
+        var failure: Throwable? = null
+        val readyContinuation = object : Continuation<Channel> {
+            override val context = EmptyCoroutineContext
+
+            override fun resumeWith(result: Result<Channel>) {
+                failure = result.exceptionOrNull()
+            }
+        }
+        val continuationAttribute = mock<Attribute<Continuation<Channel>>>().apply {
+            whenever(getAndSet(anyOrNull())) doReturn readyContinuation
+        }
+        whenever(channel.attr(channelContinuationAttributeKey)) doReturn continuationAttribute
+        val scheduledFuture = mock<ScheduledFuture<Void>>()
+        lateinit var timeoutTask: Runnable
+        whenever(eventLoop.schedule(any<Runnable>(), eq(25L), eq(TimeUnit.MILLISECONDS))) doAnswer {
+            timeoutTask = it.arguments.first() as Runnable
+            scheduledFuture
+        }
+
+        ConnectionHandler(settingsReadTimeoutMillis = 25L).userEventTriggered(
+            context, SslHandshakeCompletionEvent.SUCCESS)
+        timeoutTask.run()
+
+        assertIs<SocketTimeoutException>(failure)
+        verify(channel, times(1)).close()
+    }
+
+    @Test
+    fun initialSettingsCancelsSettingsTimeout() {
+        val readyContinuation = mock<Continuation<Channel>>()
+        val continuationAttribute = mock<Attribute<Continuation<Channel>>>().apply {
+            whenever(getAndSet(anyOrNull())) doReturn readyContinuation
+        }
+        val maxConcurrentStreamsAttribute = mock<Attribute<Long>>()
+        whenever(channel.attr(channelContinuationAttributeKey)) doReturn continuationAttribute
+        whenever(channel.attr(maxConcurrentStreamsAttributeKey)) doReturn maxConcurrentStreamsAttribute
+        val scheduledFuture = mock<ScheduledFuture<Void>>()
+        lateinit var timeoutTask: Runnable
+        whenever(eventLoop.schedule(any<Runnable>(), eq(25L), eq(TimeUnit.MILLISECONDS))) doAnswer {
+            timeoutTask = it.arguments.first() as Runnable
+            scheduledFuture
+        }
+        val handler = ConnectionHandler(settingsReadTimeoutMillis = 25L)
+        handler.userEventTriggered(context, SslHandshakeCompletionEvent.SUCCESS)
+        handler.onSettingsRead(context, Http2Settings().maxConcurrentStreams(150L))
+        timeoutTask.run()
+        verify(scheduledFuture, times(1)).cancel(false)
+        verify(channel, never()).close()
+    }
+
+    @Test
+    fun failedTlsHandshakeDoesNotScheduleSettingsTimeout() {
+        ConnectionHandler(settingsReadTimeoutMillis = 25L).userEventTriggered(
+            context, SslHandshakeCompletionEvent(IllegalStateException("TLS failed")))
+        verify(eventLoop, never()).schedule(any<Runnable>(), any<Long>(), any<TimeUnit>())
     }
 
     @Test

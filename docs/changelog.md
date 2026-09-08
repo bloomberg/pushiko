@@ -1,3 +1,9 @@
+## Version 2.0.1
+
+### Fixes
+
+* Bound HTTP/2 SETTINGS wait after TLS handshake.
+
 ## Version 2.0.0
 
 ### Breaking

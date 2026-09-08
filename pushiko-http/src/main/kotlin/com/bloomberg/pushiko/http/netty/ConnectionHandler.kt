@@ -66,6 +66,7 @@ import io.netty.handler.codec.http2.Http2FrameListener
 import io.netty.handler.codec.http2.Http2Headers
 import io.netty.handler.codec.http2.Http2Settings
 import io.netty.handler.codec.http2.Http2Stream
+import io.netty.handler.ssl.SslHandshakeCompletionEvent
 import io.netty.handler.timeout.IdleStateEvent
 import io.netty.handler.timeout.IdleStateHandler
 import io.netty.handler.timeout.WriteTimeoutException
@@ -89,6 +90,7 @@ private const val PING_TIMEOUT_SECONDS = 1L
 // Firebase Cloud Messaging empirically has an undocumented internal timeout of 5 seconds, eventually responding with
 // 500 Internal Error.
 private const val RESPONSE_TIMEOUT_SECONDS = 11L
+internal const val DEFAULT_SETTINGS_READ_TIMEOUT_MILLIS = 5_000L
 
 private const val MAX_RESPONSE_BODY_BYTES = 256 * 1_024
 
@@ -111,7 +113,8 @@ internal class ConnectionHandler(
     decoder: Http2ConnectionDecoder,
     encoder: Http2ConnectionEncoder,
     settings: Http2Settings,
-    private val monitorConnectionHealth: Boolean = false
+    private val monitorConnectionHealth: Boolean = false,
+    private val settingsReadTimeoutMillis: Long = DEFAULT_SETTINGS_READ_TIMEOUT_MILLIS
 ) : Http2ConnectionHandler(
     decoder,
     encoder,
@@ -127,6 +130,8 @@ internal class ConnectionHandler(
     private val logger = Logger()
 
     private var pingFuture: Future<*>? = null
+    private var settingsReadTimeoutFuture: Future<*>? = null
+    private var initialSettingsReceived = false
     private var pingWriteTimeNanos = System.nanoTime()
     // Firebase Cloud Messaging empirically closes connections whenever it receives 3 pings without a request.
     private var pingedSinceLastWrite = false
@@ -302,6 +307,8 @@ internal class ConnectionHandler(
     override fun onSettingsAckRead(context: ChannelHandlerContext) = Unit
 
     override fun onSettingsRead(context: ChannelHandlerContext, settings: Http2Settings) {
+        initialSettingsReceived = true
+        cancelSettingsReadTimeout()
         context.channel().apply {
             settings.maxConcurrentStreams()?.let {
                 val previous = maxConcurrentStreams
@@ -417,6 +424,7 @@ internal class ConnectionHandler(
 
     override fun channelInactive(context: ChannelHandlerContext) {
         pingFuture?.cancel(false)
+        cancelSettingsReadTimeout()
         requestContinuations.apply {
             entries.forEach {
                 it.value.tryResumeWithException(streamClosedBeforeReplyException(it.key, context.channel()))
@@ -475,8 +483,11 @@ internal class ConnectionHandler(
 
     override fun userEventTriggered(context: ChannelHandlerContext, event: Any) {
         logger.debug("userEventTriggered: {} channel: {}", event, context.channel())
-        if (event is IdleStateEvent) {
-            if (monitorConnectionHealth) {
+        when (event) {
+            is SslHandshakeCompletionEvent -> if (event.isSuccess) {
+                context.scheduleSettingsReadTimeout()
+            }
+            is IdleStateEvent -> if (monitorConnectionHealth) {
                 context.sendPing()
             } else {
                 context.closeForIdle()
@@ -491,7 +502,30 @@ internal class ConnectionHandler(
     ) {
         context.doSignalIsClosing()
         pingFuture?.cancel(false)
+        cancelSettingsReadTimeout()
         super.close(context, promise)
+    }
+
+    private fun ChannelHandlerContext.scheduleSettingsReadTimeout() {
+        if (initialSettingsReceived || settingsReadTimeoutFuture != null) {
+            return
+        }
+        settingsReadTimeoutFuture = executor().schedule({
+            settingsReadTimeoutFuture = null
+            if (!initialSettingsReceived) {
+                val cause = SocketTimeoutException(
+                    "Initial HTTP/2 SETTINGS frame was not received within ${settingsReadTimeoutMillis}ms")
+                connectionError = connectionError ?: cause
+                logger.warn("{}; closing channel {}", cause.message, channel())
+                channel().removeChannelContinuation()?.tryResumeWithException(cause)
+                channel().close()
+            }
+        }, settingsReadTimeoutMillis, TimeUnit.MILLISECONDS)
+    }
+
+    private fun cancelSettingsReadTimeout() {
+        settingsReadTimeoutFuture?.cancel(false)
+        settingsReadTimeoutFuture = null
     }
 
     private fun ChannelHandlerContext.doSignalIsClosing() {

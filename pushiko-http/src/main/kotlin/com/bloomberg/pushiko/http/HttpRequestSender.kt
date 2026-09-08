@@ -17,25 +17,37 @@
 package com.bloomberg.pushiko.http
 
 import com.bloomberg.pushiko.http.netty.ChannelPool
+import com.bloomberg.pushiko.http.netty.ConnectionHandler
 import io.netty.channel.Channel
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 internal class HttpRequestSender(
     internal val pool: ChannelPool,
     private val properties: IHttpClientProperties
 ) {
     @JvmSynthetic
-    suspend fun send(request: HttpRequest): HttpResponse = pool.withPermit(properties.connectionAcquisitionTimeout) {
-        suspendCoroutine { continuation ->
-            it.send(HttpRequestContinuation(request, it, continuation))
+    suspend fun send(request: HttpRequest): HttpResponse =
+        pool.withPermit(properties.connectionAcquisitionTimeout) { channel ->
+        suspendCancellableCoroutine { continuation ->
+            val requestContinuation = HttpRequestContinuation(request, channel, continuation)
+            continuation.invokeOnCancellation {
+                requestContinuation.cancel()
+                channel.eventLoop().execute {
+                    channel.pipeline().get(ConnectionHandler::class.java)?.cancel(requestContinuation)
+                }
+            }
+            channel.send(requestContinuation)
         }
     }
 
     private fun Channel.send(continuation: HttpRequestContinuation) {
         writeAndFlush(continuation).addListener {
             if (!it.isSuccess) {
-                close()
+                if (!continuation.isCancelled && it.cause() !is CancellationException) {
+                    close()
+                }
                 runCatching {
                     continuation.resumeWithException(it.cause())
                 }

@@ -23,4 +23,16 @@ internal class HttpRequestContinuation(
     val request: HttpRequest,
     val channel: Channel,
     private val continuation: Continuation<HttpResponse>
-) : Continuation<HttpResponse> by continuation
+) : Continuation<HttpResponse> by continuation {
+    @Volatile
+    private var cancelled = false
+
+    internal var streamId: Int? = null
+
+    internal val isCancelled: Boolean
+        get() = cancelled
+
+    internal fun cancel() {
+        cancelled = true
+    }
+}

@@ -80,6 +80,7 @@ import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.Continuation
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.random.Random
@@ -215,18 +216,21 @@ internal class ConnectionHandler(
         requestContinuation: HttpRequestContinuation,
         writePromise: ChannelPromise
     ) {
-        if (!context.channel().isActive) {
+        if (requestContinuation.isCancelled) {
+            writePromise.tryFailure(CancellationException("HTTP/2 request was cancelled before writing"))
+        } else if (!context.channel().isActive) {
             writePromise.tryFailure(channelInactiveWriteException)
-            return
+        } else {
+            val streamId = connection().local().incrementAndGetNextStreamId()
+            if (streamId < 0) {
+                logger.info("Connection has exhausted its stream identifiers")
+                writePromise.tryFailure(streamsExhaustedException)
+                context.channel().close()
+            } else {
+                requestContinuation.streamId = streamId
+                write(context, requestContinuation, writePromise, streamId)
+            }
         }
-        val streamId = connection().local().incrementAndGetNextStreamId()
-        if (streamId < 0) {
-            logger.info("Connection has exhausted its stream identifiers")
-            writePromise.tryFailure(streamsExhaustedException)
-            context.channel().close()
-            return
-        }
-        write(context, requestContinuation, writePromise, streamId)
     }
 
     private fun write(
@@ -237,6 +241,7 @@ internal class ConnectionHandler(
     ) {
         requestContinuations[streamId] = requestContinuation
         context.scheduleResponseTimeout(streamId)?.let {
+            requestContinuation.streamId = null
             requestContinuations.remove(streamId)
             writePromise.tryFailure(it)
             return
@@ -264,6 +269,7 @@ internal class ConnectionHandler(
                 responseTimeouts.remove(streamId)?.cancel(false)
                 requestContinuations.remove(streamId)
                 connection().stream(streamId)?.removeRequestContinuation()
+                requestContinuation.streamId = null
             }
         }
 
@@ -496,6 +502,27 @@ internal class ConnectionHandler(
     override fun onStreamAdded(stream: Http2Stream) {
         logger.trace("onStreamAdded: connection {} stream {}", connection(), stream.id())
         stream.setProperty(requestContinuationPropertyKey, requestContinuations.remove(stream.id()))
+    }
+
+    internal fun cancel(requestContinuation: HttpRequestContinuation) {
+        check(requestContinuation.channel.eventLoop().inEventLoop()) {
+            "Request cancellation must run on the channel event loop"
+        }
+        val streamId = requestContinuation.streamId ?: return
+        responseTimeouts.remove(streamId)?.cancel(false)
+        val stream = connection().stream(streamId)
+        val removed = requestContinuations.remove(streamId) ?: stream?.removeRequestContinuation()
+        if (removed !== requestContinuation) {
+            return
+        }
+        if (stream == null) {
+            requestContinuation.channel.pipeline().context(this)?.let {
+                encoder().writeRstStream(it, streamId, Http2Error.CANCEL.code(), it.newPromise())
+            }
+        } else {
+            stream.close()
+        }
+        requestContinuation.streamId = null
     }
 
     override fun onStreamActive(stream: Http2Stream) {

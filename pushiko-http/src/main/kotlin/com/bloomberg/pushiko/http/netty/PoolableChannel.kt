@@ -93,14 +93,12 @@ internal class PoolableChannel internal constructor(
         }
         observedMaxConcurrentStreams = observed
         val negotiated = observed.takeIf { it != NO_NEGOTIATED_LIMIT }
-        cachedLowWaterMark = maxOf(
-            negotiated?.let { (waterMarkScaleFactor.low * it).toLong() } ?: 1L,
-            (waterMarkScaleFactor.low * properties.defaultMaximumConcurrentStreams).toLong()
-        )
-        cachedHighWaterMark = maxOf(
-            negotiated?.let { (waterMarkScaleFactor.high * it).toLong() } ?: 1L,
-            properties.defaultMaximumConcurrentStreams
-        )
+        cachedLowWaterMark = negotiated?.let {
+            (waterMarkScaleFactor.low * it).toLong().coerceIn(0L, it)
+        } ?: (waterMarkScaleFactor.low * properties.defaultMaximumConcurrentStreams).toLong()
+        cachedHighWaterMark = negotiated?.let {
+            (waterMarkScaleFactor.high * it).toLong().coerceIn(0L, it)
+        } ?: properties.defaultMaximumConcurrentStreams
     }
 
     override fun isError(throwable: Throwable): Boolean = when (throwable) {

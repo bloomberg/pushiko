@@ -61,6 +61,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
 private const val PROJECT_ID = "foo"
+private const val MAXIMUM_RETRY_DELAY_MILLIS = 60_000L
 private val fakeSendPath = "/v1/projects/%s/messages:send".format(Locale.US, PROJECT_ID)
 
 internal class FcmClientTest {
@@ -83,7 +84,8 @@ internal class FcmClientTest {
         val session = mock<Session>().apply {
             whenever(projectId) doReturn "abc"
         }
-        assertSame("abc", fcmClientConstructor().call(listOf(session), httpClient, null).projectId)
+        assertSame("abc", fcmClientConstructor().call(
+            listOf(session), httpClient, null, MAXIMUM_RETRY_DELAY_MILLIS).projectId)
         verify(session, times(1)).projectId
     }
      */
@@ -94,7 +96,8 @@ internal class FcmClientTest {
             whenever(sendPath) doReturn fakeSendPath
             whenever(currentAuthorization) doReturn "fake"
         }
-        val client = fcmClientConstructor().call(mapOf(PROJECT_ID to session), httpClient, null).apply {
+        val client = fcmClientConstructor().call(
+            mapOf(PROJECT_ID to session), httpClient, null, MAXIMUM_RETRY_DELAY_MILLIS).apply {
             close()
         }
         verifyBlocking(session, times(1)) {
@@ -117,7 +120,8 @@ internal class FcmClientTest {
             whenever(sendPath) doReturn fakeSendPath
             whenever(currentAuthorization) doReturn "fake"
         }
-        val client = fcmClientConstructor().call(mapOf(PROJECT_ID to session), httpClient, null)
+        val client = fcmClientConstructor().call(
+            mapOf(PROJECT_ID to session), httpClient, null, MAXIMUM_RETRY_DELAY_MILLIS)
         client.close()
         client.close()
     }
@@ -126,6 +130,7 @@ internal class FcmClientTest {
     fun fcmClientBuilder(): Unit = runTest {
         FcmClient {
             connectionAcquisitionTimeout(1L.minutes)
+            maximumRetryDelay(1L.minutes)
             maximumConnections(1)
             minimumConnections(0)
         }.run {
@@ -144,7 +149,7 @@ internal class FcmClientTest {
             whenever(currentAuthorization) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doThrow RuntimeException()
-        }, null)
+        }, null, MAXIMUM_RETRY_DELAY_MILLIS)
         assertFailsWith<RuntimeException> { client.send("", FcmRequest { message { token("abc") } }) }
     }
 
@@ -154,7 +159,8 @@ internal class FcmClientTest {
             whenever(sendPath) doReturn fakeSendPath
             whenever(currentAuthorization) doReturn "fake"
         }
-        val client = fcmClientConstructor().call(mapOf(PROJECT_ID to session), httpClient, null)
+        val client = fcmClientConstructor().call(
+            mapOf(PROJECT_ID to session), httpClient, null, MAXIMUM_RETRY_DELAY_MILLIS)
         client.close()
         assertFailsWith<ClientClosedException> {
             client.send(PROJECT_ID, FcmRequest { message { token("abc") } })
@@ -172,7 +178,7 @@ internal class FcmClientTest {
             whenever(currentAuthorization) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null).send(PROJECT_ID, FcmRequest { message { token("abc") } })
+        }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, FcmRequest { message { token("abc") } })
         assertTrue(response is FcmSuccessResponse)
         assertEquals(200, response.code)
         assertEquals("xyz", response.name)
@@ -191,7 +197,7 @@ internal class FcmClientTest {
             whenever(currentAuthorization) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null).send(PROJECT_ID, FcmRequest { message { token("abc") } })
+        }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, FcmRequest { message { token("abc") } })
         assertTrue(response is FcmClientErrorResponse)
         assertEquals(400, response.error.code)
         assertEquals("Requested entity was not found.", response.error.message)
@@ -210,7 +216,7 @@ internal class FcmClientTest {
             whenever(currentAuthorization) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null).send(PROJECT_ID, FcmRequest { message { token("abc") } })
+        }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, FcmRequest { message { token("abc") } })
         assertTrue(response is FcmServerErrorResponse)
         assertEquals(500, response.code)
         assertEquals(html, response.body)
@@ -230,7 +236,7 @@ internal class FcmClientTest {
             whenever(currentAuthorization) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null).send(PROJECT_ID, request)
+        }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, request)
         assertTrue(response is FcmServerErrorResponse)
         assertSame(request, response.request)
         assertEquals(503, response.code)
@@ -249,18 +255,18 @@ internal class FcmClientTest {
             whenever(currentAuthorization) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null).send(PROJECT_ID, FcmRequest { message { token("abc") } })
+        }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, FcmRequest { message { token("abc") } })
         assertTrue(response is FcmServerErrorResponse)
         assertEquals(0L, response.retryAfterMillis)
     }
 
     @Test
-    fun serverError503RetryAfterSecondsRetries(): Unit = runTest {
+    fun serverError503RetryAfterAtMaximumRetries(): Unit = runTest {
         val request = FcmRequest { message { token("abc") } }
         val serverErrorResponse = mock<HttpResponse>().apply {
             whenever(code) doReturn 503
             whenever(body) doReturn "<!DOCTYPE html></html>".byteInputStream(Charsets.UTF_8)
-            whenever(header(eq("retry-after"))) doReturn "30"
+            whenever(header(eq("retry-after"))) doReturn "60"
         }
         val serverSuccessResponse = mock<HttpResponse>().apply {
             whenever(code) doReturn 200
@@ -278,9 +284,65 @@ internal class FcmClientTest {
                     else -> serverSuccessResponse
                 }
             }
-        }, null).send(PROJECT_ID, request)
+        }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, request)
         assertTrue(response is FcmSuccessResponse)
         assertEquals(200, response.code)
+    }
+
+    @Test
+    fun serverError503RetryAfterExceedsMaximumDoesNotRetry(): Unit = runTest {
+        val request = FcmRequest { message { token("abc") } }
+        val httpResponse = mock<HttpResponse>().apply {
+            whenever(code) doReturn 503
+            whenever(body) doReturn "<!DOCTYPE html></html>".byteInputStream(Charsets.UTF_8)
+            whenever(header(eq("retry-after"))) doReturn "61"
+        }
+        val clientHttpClient = mock<HttpClient>().apply {
+            whenever(send(any())) doReturn httpResponse
+        }
+        val response = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
+            whenever(sendPath) doReturn fakeSendPath
+            whenever(currentAuthorization) doReturn "Bearer xyz"
+        }), clientHttpClient, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, request)
+        assertTrue(response is FcmServerErrorResponse)
+        assertSame(request, response.request)
+        assertEquals(61_000L, response.retryAfterMillis)
+        verifyBlocking(clientHttpClient, times(1)) {
+            send(any())
+        }
+    }
+
+    @Test
+    fun serverError502RetryAfterExceedsMaximumDoesNotRetry(): Unit = runTest {
+        val request = FcmRequest { message { token("abc") } }
+        val httpResponse = mock<HttpResponse>().apply {
+            whenever(code) doReturn 502
+            whenever(body) doReturn "<!DOCTYPE html></html>".byteInputStream(Charsets.UTF_8)
+            whenever(header(eq("retry-after"))) doReturn "61"
+        }
+        val clientHttpClient = mock<HttpClient>().apply {
+            whenever(send(any())) doReturn httpResponse
+        }
+        val response = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
+            whenever(sendPath) doReturn fakeSendPath
+            whenever(currentAuthorization) doReturn "Bearer xyz"
+        }), clientHttpClient, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, request)
+        assertTrue(response is FcmServerErrorResponse)
+        assertSame(request, response.request)
+        assertEquals(61_000L, response.retryAfterMillis)
+        verifyBlocking(clientHttpClient, times(1)) {
+            send(any())
+        }
+    }
+
+    @Test
+    fun maximumRetryDelayMustBePositiveAndFinite() {
+        assertFailsWith<IllegalArgumentException> {
+            FcmClient.Builder().maximumRetryDelay(0L.milliseconds)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            FcmClient.Builder().maximumRetryDelay(INFINITE)
+        }
     }
 
     @Test
@@ -294,7 +356,7 @@ internal class FcmClientTest {
             whenever(currentAuthorization) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null)
+        }, null, MAXIMUM_RETRY_DELAY_MILLIS)
         assertFailsWith<FcmException> {
             client.send(PROJECT_ID, FcmRequest { message { token("abc") } })
         }
@@ -310,7 +372,7 @@ internal class FcmClientTest {
                 delay(1L.minutes)
                 fail("Timeout was expected")
             }
-        }, null)
+        }, null, MAXIMUM_RETRY_DELAY_MILLIS)
         assertFailsWith<TimeoutCancellationException> {
             withTimeout(100L.milliseconds) {
                 client.send(PROJECT_ID, FcmRequest { message { token("abc") } })

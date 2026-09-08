@@ -113,6 +113,74 @@ internal class ConnectionHandlerTest {
     }
 
     @Test
+    fun goAwayDebugDataIsEncodedWithoutChangingReaderIndex() {
+        val data = Unpooled.wrappedBuffer(byteArrayOf(
+            0,
+            '\r'.code.toByte(),
+            '\n'.code.toByte(),
+            0,
+            0xE2.toByte(), 0x80.toByte(), 0xA8.toByte(),
+            0xE2.toByte(), 0x80.toByte(), 0xA9.toByte(),
+            0x1B,
+            '['.code.toByte(), '3'.code.toByte(), '1'.code.toByte(), 'm'.code.toByte(),
+            0xFF.toByte()
+        )).apply {
+            skipBytes(1)
+        }
+        try {
+            assertEquals("0d0a00e280a8e280a91b5b33316dff", data.goAwayDebugDataHex())
+            assertEquals(1, data.readerIndex())
+        } finally {
+            data.release()
+        }
+    }
+
+    @Test
+    fun receivedGoAwayDebugDataLogIsBounded() {
+        val logger = mock<Logger>()
+        val data = Unpooled.wrappedBuffer(ByteArray(65) { it.toByte() })
+        try {
+            val encoded = data.goAwayDebugDataHex()
+            logger.logGoAwayReceived(7, 11L, data)
+            assertEquals(128, encoded.length)
+            assertTrue(encoded.all { it in '0'..'9' || it in 'a'..'f' })
+            assertTrue(encoded.startsWith("00010203"))
+            assertTrue(encoded.endsWith("3c3d3e3f"))
+            verify(logger, times(1)).info(
+                eq("Received GOAWAY lastStreamId: {} errorCode: {} dataLength: {} dataHex: {} truncated: {}"),
+                eq(7),
+                eq(11L),
+                eq(65),
+                eq(encoded),
+                eq(true)
+            )
+            verifyNoMoreInteractions(logger)
+        } finally {
+            data.release()
+        }
+    }
+
+    @Test
+    fun sentGoAwayDebugDataLogIncludesUntruncatedLength() {
+        val logger = mock<Logger>()
+        val data = Unpooled.wrappedBuffer(byteArrayOf('\r'.code.toByte(), '\n'.code.toByte(), 0))
+        try {
+            logger.logGoAwaySent(3, 0L, data)
+            verify(logger, times(1)).debug(
+                eq("Sent GOAWAY lastStreamId: {} errorCode: {} dataLength: {} dataHex: {} truncated: {}"),
+                eq(3),
+                eq(0L),
+                eq(3),
+                eq("0d0a00"),
+                eq(false)
+            )
+            verifyNoMoreInteractions(logger)
+        } finally {
+            data.release()
+        }
+    }
+
+    @Test
     fun firstSettingsFrameCapturesStreamCapacity() {
         val readyContinuation = mock<Continuation<Channel>>()
         val continuationAttribute = mock<Attribute<Continuation<Channel>>>().apply {

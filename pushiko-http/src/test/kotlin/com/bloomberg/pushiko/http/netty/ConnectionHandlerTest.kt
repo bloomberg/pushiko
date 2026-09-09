@@ -62,10 +62,12 @@ import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 internal class ConnectionHandlerTest {
@@ -352,6 +354,17 @@ internal class ConnectionHandlerTest {
     }
 
     @Test
+    fun cancelledRequestIsRejectedBeforeAllocatingAStream() {
+        val promise = mock<ChannelPromise>()
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, mock()).apply {
+            cancel()
+        }
+        ConnectionHandler().write(context, continuation, promise)
+        verify(local, never()).incrementAndGetNextStreamId()
+        verify(promise, times(1)).tryFailure(any<CancellationException>())
+    }
+
+    @Test
     fun exhaustedStreams() {
         val promise = mock<ChannelPromise>()
         whenever(channel.isActive) doReturn true
@@ -450,6 +463,126 @@ internal class ConnectionHandlerTest {
         verify(encoder, times(1)).writeRstStream(
             eq(context), eq(3), eq(Http2Error.CANCEL.code()), any()
         )
+    }
+
+    @Test
+    fun cancellingBufferedRequestCancelsDeadlineAndResetsBufferedStream() {
+        val timeoutFuture = mock<ScheduledFuture<Void>>()
+        whenever(eventLoop.schedule(any<Runnable>(), eq(11L), eq(TimeUnit.SECONDS))) doReturn timeoutFuture
+        whenever(local.incrementAndGetNextStreamId()) doReturn 3
+        whenever(channel.isActive) doReturn true
+        val encoder = mock<Http2ConnectionEncoder>().apply {
+            whenever(connection()) doReturn connection
+            whenever(flowController()) doReturn flowController
+        }
+        val handler = ConnectionHandler(encoder = encoder)
+        whenever(pipeline.context(eq(handler))) doReturn context
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, mock())
+        handler.write(context, continuation, mock())
+        continuation.cancel()
+        handler.cancel(continuation)
+        verify(timeoutFuture, times(1)).cancel(false)
+        verify(encoder, times(1)).writeRstStream(
+            eq(context), eq(3), eq(Http2Error.CANCEL.code()), any()
+        )
+        assertNull(continuation.streamId)
+    }
+
+    @Test
+    fun cancellingActiveRequestClosesItsStreamAndCancelsDeadline() {
+        val timeoutFuture = mock<ScheduledFuture<Void>>()
+        whenever(eventLoop.schedule(any<Runnable>(), eq(11L), eq(TimeUnit.SECONDS))) doReturn timeoutFuture
+        whenever(local.incrementAndGetNextStreamId()) doReturn 3
+        whenever(channel.isActive) doReturn true
+        val stream = mock<Http2Stream>().apply {
+            whenever(id()) doReturn 3
+        }
+        whenever(connection.stream(eq(3))) doReturn stream
+        val handler = ConnectionHandler()
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, mock())
+        whenever(stream.removeProperty<HttpRequestContinuation>(anyOrNull())) doReturn continuation
+        handler.write(context, continuation, mock())
+        handler.onStreamAdded(stream)
+        continuation.cancel()
+        handler.cancel(continuation)
+        verify(timeoutFuture, times(1)).cancel(false)
+        verify(stream, times(1)).close()
+        assertNull(continuation.streamId)
+    }
+
+    @Test
+    fun cancellingRequestTwiceOnlyResetsItOnce() {
+        val timeoutFuture = mock<ScheduledFuture<Void>>()
+        whenever(eventLoop.schedule(any<Runnable>(), eq(11L), eq(TimeUnit.SECONDS))) doReturn timeoutFuture
+        whenever(local.incrementAndGetNextStreamId()) doReturn 3
+        whenever(channel.isActive) doReturn true
+        val encoder = mock<Http2ConnectionEncoder>().apply {
+            whenever(connection()) doReturn connection
+            whenever(flowController()) doReturn flowController
+        }
+        val handler = ConnectionHandler(encoder = encoder)
+        whenever(pipeline.context(eq(handler))) doReturn context
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, mock())
+        handler.write(context, continuation, mock())
+        continuation.cancel()
+        handler.cancel(continuation)
+        handler.cancel(continuation)
+        verify(timeoutFuture, times(1)).cancel(false)
+        verify(encoder, times(1)).writeRstStream(
+            eq(context), eq(3), eq(Http2Error.CANCEL.code()), any()
+        )
+    }
+
+    @Test
+    fun cancellationAfterStreamClosedDoesNotResetAnotherStream() {
+        val timeoutFuture = mock<ScheduledFuture<Void>>()
+        whenever(eventLoop.schedule(any<Runnable>(), eq(11L), eq(TimeUnit.SECONDS))) doReturn timeoutFuture
+        whenever(local.incrementAndGetNextStreamId()) doReturn 3
+        whenever(channel.isActive) doReturn true
+        val stream = mock<Http2Stream>().apply {
+            whenever(id()) doReturn 3
+        }
+        whenever(connection.stream(eq(3))) doReturn stream
+        val handler = ConnectionHandler()
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, mock())
+        var removalCount = 0
+        whenever(stream.removeProperty<HttpRequestContinuation>(anyOrNull())) doAnswer {
+            if (removalCount++ == 0) {
+                continuation
+            } else {
+                null
+            }
+        }
+        handler.write(context, continuation, mock())
+        handler.onStreamAdded(stream)
+        handler.onStreamClosed(stream)
+        continuation.cancel()
+        handler.cancel(continuation)
+        verify(timeoutFuture, times(1)).cancel(false)
+        verify(stream, never()).close()
+    }
+
+    @Test
+    fun cancellationAfterChannelInactivationDoesNotResetAClosedStream() {
+        val timeoutFuture = mock<ScheduledFuture<Void>>()
+        whenever(eventLoop.schedule(any<Runnable>(), eq(11L), eq(TimeUnit.SECONDS))) doReturn timeoutFuture
+        whenever(local.incrementAndGetNextStreamId()) doReturn 3
+        whenever(channel.isActive) doReturn true
+        val encoder = mock<Http2ConnectionEncoder>().apply {
+            whenever(connection()) doReturn connection
+            whenever(flowController()) doReturn flowController
+        }
+        val handler = ConnectionHandler(encoder = encoder)
+        whenever(pipeline.context(eq(handler))) doReturn context
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, mock())
+        whenever(channel.attr(channelContinuationAttributeKey)) doReturn
+            mock<Attribute<Continuation<Channel>>>()
+        handler.write(context, continuation, mock())
+        handler.channelInactive(context)
+        continuation.cancel()
+        handler.cancel(continuation)
+        verify(timeoutFuture, times(1)).cancel(false)
+        verify(encoder, never()).writeRstStream(any(), any(), any(), any())
     }
 
     @Test

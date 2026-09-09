@@ -68,7 +68,7 @@ internal class PoolableChannel internal constructor(
     override val maximumPermits: Int
         get() {
             refreshWaterMark()
-            return cachedHighWaterMark.toInt()
+            return cachedHighWaterMark.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
         }
 
     override val isAlive: Boolean

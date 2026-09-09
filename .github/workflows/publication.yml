@@ -47,9 +47,15 @@ jobs:
         run: |
           ./gradlew --stop
 
+  fuzz:
+    name: 'JVM Fuzzing'
+    uses: ./.github/workflows/jvm-fuzzing.yml
+    with:
+      profile: release
+
   publish:
     name: 'Publish'
-    needs: build
+    needs: [build, fuzz]
     if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: ubuntu-latest
     timeout-minutes: 120

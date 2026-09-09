@@ -1,0 +1,77 @@
+name: 'JVM Fuzzing'
+
+on:
+  workflow_call:
+    inputs:
+      profile:
+        description: 'Fuzzing duration profile'
+        required: false
+        type: string
+        default: smoke
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Fuzzing duration profile'
+        required: true
+        type: choice
+        options: [scheduled, release]
+        default: scheduled
+  schedule:
+    - cron: '0 4 * * SUN'
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: 'JVM fuzzing / Linux'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FUZZ_PROFILE: ${{ inputs.profile || github.event.inputs.profile || (github.event_name == 'schedule' && 'scheduled') || 'smoke' }}
+
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 2
+          submodules: true
+
+      - name: 'Setup Java 17'
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: 'Cache Gradle'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: jvm-fuzz-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            jvm-fuzz-gradle-
+
+      - name: 'Run JVM fuzzing campaign'
+        run: >-
+          ./gradlew jvmFuzz
+          -Ppushiko.fuzz.profile="$FUZZ_PROFILE"
+          -x integrationTest
+
+      - name: 'Archive JVM fuzzing failures'
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: jvm-fuzz-failures
+          path: |
+            pushiko-http/build/crash-*
+            pushiko-http/build/Crash_*
+            pushiko-http/build/test-results/jvmFuzz*
+            pushiko-http/build/reports/tests/jvmFuzz*
+            pushiko-json/build/crash-*
+            pushiko-json/build/Crash_*
+            pushiko-json/build/test-results/jvmFuzz*
+            pushiko-json/build/reports/tests/jvmFuzz*
+          if-no-files-found: ignore
+          retention-days: 14

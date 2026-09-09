@@ -249,6 +249,12 @@ tasks.register("checkSemver") {
     description = "Binary-compatibility check across all published modules."
 }
 
+tasks.register("jvmFuzz") {
+    group = "verification"
+    description = "Runs JVM fuzzing; configure with -Ppushiko.fuzz.profile=smoke|release|scheduled."
+    dependsOn(":pushiko-http:jvmFuzz", ":pushiko-json:jvmFuzz")
+}
+
 idea.project.settings {
     copyright {
         useDefault = "Bloomberg"

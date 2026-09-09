@@ -31,6 +31,51 @@ dependencies {
     compileOnly(libs.findbugs.jsr305)
     implementation(projects.pushikoCommons)
     implementation(libs.moshi)
+    testImplementation(libs.jazzer.junit)
     testImplementation(kotlin("test-junit5"))
     testImplementation(libs.gson)
+}
+
+val jvmFuzzProfile = providers.gradleProperty("pushiko.fuzz.profile").getOrElse("smoke")
+val jvmFuzzDuration = when (jvmFuzzProfile) {
+    "smoke" -> "5s"
+    "release" -> "1m"
+    "scheduled" -> "5m"
+    else -> error("Unsupported JVM fuzzing profile: $jvmFuzzProfile")
+}
+
+tasks.register<Test>("jvmFuzzJsonObjectWriter") {
+    description = "Runs the JsonObjectWriter Jazzer campaign."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    environment("JAZZER_FUZZ", "1")
+    filter {
+        includeTestsMatching("com.bloomberg.pushiko.json.JsonObjectWriterFuzzTest.fuzzStringValue")
+    }
+    systemProperty("jazzer.instrument", "com.bloomberg.pushiko.json.**")
+    systemProperty("jazzer.max_duration", jvmFuzzDuration)
+    systemProperty("jazzer.reproducer_path", layout.buildDirectory.get().asFile.absolutePath)
+    systemProperty("junit.jupiter.execution.parallel.enabled", false)
+    maxHeapSize = "1g"
+    outputs.upToDateWhen { false }
+    workingDir(layout.buildDirectory.get().asFile)
+}
+
+tasks.named<Test>("test") {
+    filter {
+        excludeTestsMatching("*FuzzTest*")
+    }
+}
+
+tasks.register("jvmFuzz") {
+    description = "Runs JSON JVM fuzzing."
+    group = "verification"
+    dependsOn("jvmFuzzJsonObjectWriter")
+}
+
+kover {
+    excludeTests {
+        tasks("jvmFuzzJsonObjectWriter")
+    }
 }

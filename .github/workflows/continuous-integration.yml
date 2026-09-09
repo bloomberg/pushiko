@@ -45,3 +45,9 @@ jobs:
         if: always()
         run: |
           ./gradlew --stop
+
+  fuzz:
+    name: 'JVM Fuzzing'
+    uses: ./.github/workflows/jvm-fuzzing.yml
+    with:
+      profile: smoke

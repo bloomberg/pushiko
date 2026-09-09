@@ -61,6 +61,7 @@ dependencies {
     implementation(libs.bundles.netty)
     implementation(libs.slf4j.api)
     testImplementation(projects.httpTestLib)
+    testImplementation(libs.jazzer.junit)
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockito.core)
@@ -98,6 +99,61 @@ tasks.register<Test>("integrationTest") {
         events(TestLogEvent.STANDARD_OUT, TestLogEvent.STANDARD_ERROR)
     }
     shouldRunAfter("test")
+}
+
+val jvmFuzzProfile = providers.gradleProperty("pushiko.fuzz.profile").getOrElse("smoke")
+val jvmFuzzDuration = when (jvmFuzzProfile) {
+    "smoke" -> "5s"
+    "release" -> "1m"
+    "scheduled" -> "5m"
+    else -> error("Unsupported JVM fuzzing profile: $jvmFuzzProfile")
+}
+val jvmFuzzTargets = mapOf(
+    "jvmFuzzRetryAfter" to "com.bloomberg.pushiko.http.HttpResponseExtensionsFuzzTest.fuzzRetryAfter",
+    "jvmFuzzResponseAccumulator" to
+        "com.bloomberg.pushiko.http.netty.ConnectionHandlerFuzzTest.fuzzResponseAccumulator"
+)
+val jvmFuzzTasks = jvmFuzzTargets.map { (taskName, testName) ->
+    tasks.register<Test>(taskName) {
+        description = "Runs the $testName Jazzer campaign."
+        group = "verification"
+        testClassesDirs = sourceSets.test.get().output.classesDirs
+        classpath = sourceSets.test.get().runtimeClasspath
+        environment("JAZZER_FUZZ", "1")
+        filter {
+            includeTestsMatching(testName)
+        }
+        systemProperty("jazzer.instrument", "com.bloomberg.pushiko.http.**")
+        systemProperty("jazzer.max_duration", jvmFuzzDuration)
+        systemProperty("jazzer.reproducer_path", layout.buildDirectory.get().asFile.absolutePath)
+        systemProperty("junit.jupiter.execution.parallel.enabled", false)
+        maxHeapSize = "1g"
+        outputs.upToDateWhen { false }
+        workingDir(layout.buildDirectory.get().asFile)
+    }
+}
+jvmFuzzTasks.zipWithNext().forEach { (previous, next) ->
+    next.configure {
+        mustRunAfter(previous)
+    }
+}
+
+tasks.named<Test>("test") {
+    filter {
+        excludeTestsMatching("*FuzzTest*")
+    }
+}
+
+tasks.register("jvmFuzz") {
+    description = "Runs HTTP JVM fuzzing."
+    group = "verification"
+    dependsOn(jvmFuzzTasks)
+}
+
+kover {
+    excludeTests {
+        tasks(jvmFuzzTargets.keys)
+    }
 }
 
 tasks.withType<DokkaTask>().configureEach {

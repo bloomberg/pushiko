@@ -1,3 +1,12 @@
+## Version 2.0.2
+
+## Fixes
+
+* Remove timing race from OAuth backoff test.
+* Fix HTTP client test cleanup.
+* Add targeted Jazzer fuzzing.
+* Make buffered HTTP/2 requests cancellable.
+
 ## Version 2.0.1
 
 ### Fixes

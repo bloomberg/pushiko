@@ -21,6 +21,7 @@ package com.bloomberg.pushiko.http
 import com.bloomberg.pushiko.health.Status
 import com.bloomberg.pushiko.http.HttpClientProperties.Companion.OptionalHttpProperties
 import com.bloomberg.pushiko.http.exceptions.HttpClientClosedException
+import com.bloomberg.pushiko.http.netty.ChannelPool
 import com.bloomberg.pushiko.http.netty.SharedAllocatorMetric
 import com.bloomberg.pushiko.server.FakeHttp2Server
 import io.netty.channel.nio.NioEventLoopGroup
@@ -57,8 +58,10 @@ import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.api.parallel.ResourceAccessMode
 import org.junit.jupiter.api.parallel.ResourceLock
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -471,17 +474,25 @@ internal class HttpClientTest {
 
     @Test
     fun http2Exception(): Unit = runTest {
+        val pool = mock<ChannelPool>()
         val sender = mock<HttpRequestSender> {
             onBlocking { send(any()) } doSuspendableAnswer {
                 throw Http2Exception.streamError(1, Http2Error.REFUSED_STREAM, "")
             }
         }
-        runCatching {
-            withContext(Dispatchers.Default.limitedParallelism(1)) {
-                HttpClient(sender, clientProperties).send(mock())
+        whenever(sender.pool) doReturn pool
+        HttpClient(sender, clientProperties).run {
+            try {
+                runCatching {
+                    withContext(Dispatchers.Default.limitedParallelism(1)) {
+                        send(mock())
+                    }
+                }.exceptionOrNull()!!.let {
+                    assertTrue(it is IOException)
+                }
+            } finally {
+                close()
             }
-        }.exceptionOrNull()!!.let {
-            assertTrue(it is IOException)
         }
     }
 

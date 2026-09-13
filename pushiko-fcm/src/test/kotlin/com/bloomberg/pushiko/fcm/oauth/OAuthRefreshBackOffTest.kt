@@ -23,6 +23,7 @@ import java.util.Date
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 internal class OAuthRefreshBackOffTest {
@@ -30,8 +31,11 @@ internal class OAuthRefreshBackOffTest {
     fun accessTokenReference() {
         val token = AccessToken(FAKE_TOKEN, Date(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(600L)))
         val credentials = createCredentials(FAKE_TOKEN)
-        assertEquals(token.tokenValue, credentials.accessToken.tokenValue)
-        assertTrue(token.expirationTime.time <= credentials.accessToken.expirationTime.time)
+        assertEquals(token.tokenValue, credentials.requiredAccessToken.tokenValue)
+        assertTrue(
+            requireNotNull(token.expirationTime).time <=
+                requireNotNull(credentials.requiredAccessToken.expirationTime).time
+        )
     }
 
     @Test
@@ -44,12 +48,20 @@ internal class OAuthRefreshBackOffTest {
     }
 
     @Test
+    fun missingAccessTokenRejected() {
+        val credentials = GoogleCredentials.newBuilder().build()
+        assertFailsWith<IllegalArgumentException> {
+            OAuthRefreshBackOff(credentials).nextBackOffMillis()
+        }
+    }
+
+    @Test
     fun initialNextBackOffMillis() {
         val credentials = createCredentials(expiresInSeconds = 100L)
         val backOff = OAuthRefreshBackOff(credentials, 1.0, Duration.ofSeconds(1L), 0)
-        val firstExpiresIn = credentials.accessToken.expiresInSeconds
+        val firstExpiresIn = credentials.requiredAccessToken.expiresInSeconds
         val intervalInSeconds = backOff.nextBackOffMillis() / 1_000L
-        val secondExpiresIn = credentials.accessToken.expiresInSeconds
+        val secondExpiresIn = credentials.requiredAccessToken.expiresInSeconds
         assertTrue(intervalInSeconds <= firstExpiresIn)
         assertTrue(secondExpiresIn <= intervalInSeconds)
     }
@@ -95,4 +107,7 @@ internal class OAuthRefreshBackOffTest {
             )
         }.build()
     }
+
+    private val GoogleCredentials.requiredAccessToken: AccessToken
+        get() = requireNotNull(accessToken)
 }

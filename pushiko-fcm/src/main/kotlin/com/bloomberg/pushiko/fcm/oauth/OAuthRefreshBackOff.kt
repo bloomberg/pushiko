@@ -50,7 +50,7 @@ internal class OAuthRefreshBackOff(
     }.toMillis()
 
     private fun intervalDerivedFromCredentials() = Duration.ofSeconds(
-        (credentials.accessToken.expiresInSeconds * multiplier).toLong())
+        (requireAccessToken().expiresInSeconds * multiplier).toLong())
 
     private fun nextInterval() = if (hasAccessTokenExpired()) {
         logger.error("Google OAuth access token has already expired")
@@ -71,7 +71,11 @@ internal class OAuthRefreshBackOff(
         if (minInterval > duration) { minInterval } else { duration }
     }
 
-    private fun hasAccessTokenExpired() = credentials.accessToken.expiresInSeconds < 1L
+    private fun hasAccessTokenExpired() = requireAccessToken().expiresInSeconds < 1L
+
+    private fun requireAccessToken() = requireNotNull(credentials.accessToken) {
+        "Google OAuth credentials have no access token"
+    }
 
     internal companion object {
         val defaultMinInterval: Duration = Duration.ofSeconds(10L)

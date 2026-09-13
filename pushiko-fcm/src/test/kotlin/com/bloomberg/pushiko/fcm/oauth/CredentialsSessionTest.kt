@@ -63,6 +63,23 @@ internal class CredentialsSessionTest {
     }
 
     @Test
+    fun missingProjectIdRejected() {
+        assertFailsWith<IllegalArgumentException> {
+            CredentialsSession.create(mock(), dispatcher, clock)
+        }
+    }
+
+    @Test
+    fun blankProjectIdRejected() {
+        val credentials = mock<ServiceAccountCredentials>().apply {
+            whenever(projectId) doReturn " "
+        }
+        assertFailsWith<IllegalArgumentException> {
+            CredentialsSession.create(credentials, dispatcher, clock)
+        }
+    }
+
+    @Test
     fun currentAuthorization() = runTest(dispatcher) {
         repeat(2) {
             assertEquals("Bearer xyz", session.currentAuthorization())

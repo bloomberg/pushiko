@@ -40,7 +40,11 @@ internal class CredentialsSession private constructor(
     private val dispatcher: CoroutineDispatcher,
     private val clock: Clock
 ) : Session {
-    override val projectId: String = credentials.projectId
+    override val projectId: String = requireNotNull(credentials.projectId) {
+        "FCM service-account credentials have no project ID"
+    }.also {
+        require(it.isNotBlank()) { "FCM service-account credentials have a blank project ID" }
+    }
 
     override val sendPath = projectId.fcmSendPath()
 
@@ -54,7 +58,7 @@ internal class CredentialsSession private constructor(
         ?.bearer()
         ?: withContext(dispatcher) {
             credentials.refreshIfExpired()
-            requireFresh(credentials.accessToken).tokenValue.bearer()
+            requireFreshTokenValue(credentials.accessToken).bearer()
         }
 
     override suspend fun joinStart() {
@@ -74,11 +78,14 @@ internal class CredentialsSession private constructor(
             expiration.time > clock.millis() + AUTHORIZATION_EXPIRY_SKEW_MILLIS
     }
 
-    private fun requireFresh(accessToken: AccessToken?): AccessToken {
+    private fun requireFreshTokenValue(accessToken: AccessToken?): String {
         val token = requireNotNull(accessToken) {
             "FCM session '$projectId' has no access token. Call joinStart() first"
         }
-        require(!token.tokenValue.isNullOrBlank()) {
+        val tokenValue = requireNotNull(token.tokenValue) {
+            "FCM session '$projectId' has a null access token"
+        }
+        require(tokenValue.isNotBlank()) {
             "FCM session '$projectId' has a blank access token"
         }
         val expiration = requireNotNull(token.expirationTime) {
@@ -87,7 +94,7 @@ internal class CredentialsSession private constructor(
         check(expiration.time > clock.millis() + AUTHORIZATION_EXPIRY_SKEW_MILLIS) {
             "FCM session '$projectId' access token is expired or expires imminently"
         }
-        return token
+        return tokenValue
     }
 
     internal companion object {

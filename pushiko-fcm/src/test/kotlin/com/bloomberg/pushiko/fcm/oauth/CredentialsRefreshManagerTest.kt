@@ -73,7 +73,7 @@ internal class CredentialsRefreshManagerTest {
         whenever(backOff.nextBackOffMillis()).thenAnswer { iterator.next() }
         manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff)
         manager.joinStart()
-        assertEquals(ANOTHER_FAKE_TOKEN, credentials.accessToken.tokenValue)
+        assertEquals(ANOTHER_FAKE_TOKEN, requireNotNull(credentials.accessToken).tokenValue)
         verify(backOff, times(1)).reset()
     }
 
@@ -104,6 +104,16 @@ internal class CredentialsRefreshManagerTest {
             manager.joinStart()
         }
         verify(credentials, times(1)).refresh()
+    }
+
+    @Test
+    fun startRejectsSuccessfulRefreshWithoutAccessToken() {
+        manager = CredentialsRefreshManager(mock(), Dispatchers.Unconfined, backOff)
+        assertFailsWith<IllegalArgumentException> {
+            runTest {
+                manager.joinStart()
+            }
+        }
     }
 
     @Test

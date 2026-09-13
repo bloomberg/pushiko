@@ -16,6 +16,7 @@
 
 package com.bloomberg.pushiko.apns;
 
+import com.bloomberg.pushiko.apns.keys.ApnsSigningKey;
 import com.bloomberg.pushiko.http.HttpClient;
 import com.bloomberg.pushiko.http.HttpResponse;
 import kotlinx.coroutines.ExecutorsKt;
@@ -54,6 +55,12 @@ final class ApnsClientJavaTest {
     }
 
     @Test
+    void createTokenAuthenticationClient() {
+        final ApnsClient client = ApnsClient(it -> it.signingKey(mock(ApnsSigningKey.class)));
+        client.closeFuture().join();
+    }
+
+    @Test
     void sendFuturePropagates() throws Exception {
         final HttpResponse httpResponse = mock(HttpResponse.class);
         when(httpResponse.getCode()).thenReturn(200);
@@ -61,10 +68,10 @@ final class ApnsClientJavaTest {
         final HttpClient httpClient = mock(HttpClient.class);
         @SuppressWarnings({"OptionalGetWithoutIsPresent", "unchecked"})
         final Constructor<ApnsClient> constructor = (Constructor<ApnsClient>) Arrays.stream(
-            ApnsClient.class.getDeclaredConstructors()).filter(it -> it.getParameterCount() == 2).findFirst().get();
+            ApnsClient.class.getDeclaredConstructors()).filter(it -> it.getParameterCount() == 3).findFirst().get();
         constructor.setAccessible(true);
         final ApnsRequest request = ApnsRequests.ApnsRequest(it -> it.topic("com.foo").deviceToken("abc123"));
-        final ApnsClient client = constructor.newInstance(httpClient, ExecutorsKt.from(ForkJoinPool.commonPool()));
+        final ApnsClient client = constructor.newInstance(httpClient, ExecutorsKt.from(ForkJoinPool.commonPool()), null);
         try {
             client.joinStartFuture().join();
             client.sendFuture(request).get();

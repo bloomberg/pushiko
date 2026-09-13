@@ -18,11 +18,15 @@
 
 package com.bloomberg.pushiko.apns
 
+import com.bloomberg.pushiko.apns.keys.ApnsSigningKey
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.io.File
+import java.security.KeyPairGenerator
+import java.security.interfaces.ECPrivateKey
+import java.security.spec.ECGenParameterSpec
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -113,10 +117,47 @@ internal class ApnsClientBuilderTest {
         }
     }
 
+    @Test
+    fun tokenAuthentication() {
+        ApnsClient {
+            signingKey(signingKey())
+        }.run {
+            runTest { close() }
+        }
+    }
+
+    @Test
+    fun rejectsCertificateThenTokenCredentials() {
+        assertThrows<IllegalArgumentException> {
+            ApnsClient.Builder().apply {
+                configurePrivateKey()
+                signingKey(signingKey())
+            }
+        }
+    }
+
+    @Test
+    fun rejectsTokenThenCertificateCredentials() {
+        assertThrows<IllegalArgumentException> {
+            ApnsClient.Builder().apply {
+                signingKey(signingKey())
+                configurePrivateKey()
+            }
+        }
+    }
+
     private fun ApnsClient.Builder.configurePrivateKey() {
         clientCredentials(
             File(javaClass.classLoader.getResource("keystore.pkcs12")!!.toURI()),
             "changeit".toCharArray()
         )
+    }
+
+    private fun signingKey(): ApnsSigningKey {
+        val privateKey = KeyPairGenerator.getInstance("EC").run {
+            initialize(ECGenParameterSpec("secp256r1"))
+            generateKeyPair().private as ECPrivateKey
+        }
+        return ApnsSigningKey("KEYID12345", "TEAMID1234", privateKey)
     }
 }

@@ -21,6 +21,8 @@ package com.bloomberg.pushiko.apns
 import com.bloomberg.pushiko.apns.annotations.ApnsMarker
 import com.bloomberg.pushiko.apns.certificates.willExpireWithin
 import com.bloomberg.pushiko.apns.exceptions.ApnsException
+import com.bloomberg.pushiko.apns.keys.ApnsProviderToken
+import com.bloomberg.pushiko.apns.keys.ApnsSigningKey
 import com.bloomberg.pushiko.apns.keys.pkcs12PrivateKeyEntries
 import com.bloomberg.pushiko.api.metrics.Gauges
 import com.bloomberg.pushiko.api.metrics.Metrics
@@ -78,6 +80,8 @@ private const val APNS_PRIORITY_HEADER = "apns-priority"
 private const val APNS_PUSH_TYPE_HEADER = "apns-push-type"
 private const val APNS_TOPIC_HEADER = "apns-topic"
 private const val APNS_UNIQUE_ID_HEADER = "apns-unique-id"
+private const val AUTHORIZATION_HEADER = "authorization"
+private const val EXPIRED_PROVIDER_TOKEN_REASON = "ExpiredProviderToken"
 
 // Empirically the Apple Push Notification service peer allows up to 1000 concurrent requests per connection.
 private const val DEFAULT_REQUESTS_WATER_MARK_LOW = 500L
@@ -129,7 +133,8 @@ private fun ApnsEnvironment.eventLoopGroupType() = when (this) {
 @ThreadSafe
 public class ApnsClient private constructor(
     private val httpClient: HttpClient,
-    javaDispatcher: CoroutineDispatcher? = null
+    javaDispatcher: CoroutineDispatcher? = null,
+    private val providerToken: ApnsProviderToken? = null
 ) {
     private val logger = Logger()
     private val javaScope = CoroutineScope(SupervisorJob() + (javaDispatcher ?: CommonPoolDispatcher))
@@ -153,6 +158,7 @@ public class ApnsClient private constructor(
      */
     @JvmSynthetic
     public suspend fun joinStart() {
+        providerToken?.currentAuthorization()
         httpClient.prepare()
     }
 
@@ -193,9 +199,11 @@ public class ApnsClient private constructor(
     public suspend fun send(
         request: ApnsRequest
     ): ApnsResponse = runCatching {
+        val authorization = providerToken?.currentAuthorization()
         doSend(HttpRequest {
             method(POST)
             path(request.deviceToken.deviceTokenPath())
+            authorization?.let { header(AUTHORIZATION_HEADER, it) }
             request.headers.run {
                 collapseId?.let { header(APNS_COLLAPSE_ID_HEADER, it) }
                 expiration?.let { header(APNS_EXPIRATION_HEADER, it.epochSecond) }
@@ -206,7 +214,7 @@ public class ApnsClient private constructor(
             }
             wantsResponseBody = false
             body(request.payload)
-        })
+        }, authorization)
     }.getOrElse {
         throw if (it is HttpClientClosedException) {
             ClientClosedException
@@ -258,11 +266,18 @@ public class ApnsClient private constructor(
         close()
     }
 
-    private suspend inline fun doSend(httpRequest: HttpRequest) = httpClient.send(httpRequest).run {
+    private suspend inline fun doSend(
+        httpRequest: HttpRequest,
+        authorization: String?
+    ) = httpClient.send(httpRequest).run {
         runCatching {
             use { process() }
         }.getOrElse {
             throw ApnsException("Failed to parse HTTP response, code: $code", it)
+        }
+    }.also {
+        if (it is ApnsClientErrorResponse && it.reason == EXPIRED_PROVIDER_TOKEN_REASON) {
+            authorization?.let { usedAuthorization -> providerToken?.invalidate(usedAuthorization) }
         }
     }
 
@@ -322,6 +337,7 @@ public class ApnsClient private constructor(
 
         private lateinit var p12File: File
         private var keyPassword: CharArray? = null
+        private var signingKey: ApnsSigningKey? = null
         private var executor: Executor? = null
 
         /**
@@ -330,8 +346,20 @@ public class ApnsClient private constructor(
          * credentials must correspond to the chosen APNs environment.
          */
         public fun clientCredentials(p12File: File, password: CharArray): Builder = apply {
+            require(signingKey == null) { "APNs clients may not use both certificate and token credentials" }
             this.p12File = p12File
+            keyPassword?.fill(0.toChar())
             keyPassword = password.copyOf()
+        }
+
+        /**
+         * Configures token-based APNs authentication with an Apple-issued signing key.
+         *
+         * Clients may use either a signing key or TLS client credentials, but not both.
+         */
+        public fun signingKey(value: ApnsSigningKey): Builder = apply {
+            require(keyPassword == null) { "APNs clients may not use both certificate and token credentials" }
+            signingKey = value
         }
 
         public fun environment(value: ApnsEnvironment): Builder = apply {
@@ -367,28 +395,36 @@ public class ApnsClient private constructor(
             keyPassword?.fill(0.toChar())
         }
 
-        private fun internalBuild() = ApnsClient(HttpClient {
-            eventLoopGroupType = environment.eventLoopGroupType()
-            host = environment.host
-            port = environment.port
-            requiresAlpn = false
-            httpProperties = HttpClientProperties.OptionalHttpProperties(
-                connectionAcquisitionTimeout = connectionAcquisitionTimeout,
-                maximumConnectionAge = environment.maxConnectionAge(),
-                maximumConnections = maximumConnections,
-                minimumConnections = minimumConnections,
-                unresolvedProxyAddress = proxyAddress ?: systemHttpsProxyAddress(environment.host)
-            )
-            monitorConnectionHealth = ApnsEnvironment.PRODUCTION === environment &&
-                httpProperties?.unresolvedProxyAddress != null
-            concurrentRequestWatermark(low = DEFAULT_REQUESTS_WATER_MARK_LOW, high = DEFAULT_REQUESTS_WATER_MARK_HIGH)
-            val keyPassword = requireNotNull(keyPassword) { "Private key is not set" }
-            FileInputStream(p12File).use {
-                it.pkcs12PrivateKeyEntries(keyPassword).first()
-            }.apply {
-                clientCredentials(privateKey, keyPassword, (certificate as X509Certificate).checkExpiration())
-            }
-        }, executor?.asCoroutineDispatcher())
+        private fun internalBuild(): ApnsClient {
+            require(keyPassword != null || signingKey != null) { "APNs credentials are not set" }
+            val providerToken = signingKey?.let(::ApnsProviderToken)
+            return ApnsClient(HttpClient {
+                eventLoopGroupType = environment.eventLoopGroupType()
+                host = environment.host
+                port = environment.port
+                requiresAlpn = false
+                httpProperties = HttpClientProperties.OptionalHttpProperties(
+                    connectionAcquisitionTimeout = connectionAcquisitionTimeout,
+                    maximumConnectionAge = environment.maxConnectionAge(),
+                    maximumConnections = maximumConnections,
+                    minimumConnections = minimumConnections,
+                    unresolvedProxyAddress = proxyAddress ?: systemHttpsProxyAddress(environment.host)
+                )
+                monitorConnectionHealth = ApnsEnvironment.PRODUCTION === environment &&
+                    httpProperties?.unresolvedProxyAddress != null
+                concurrentRequestWatermark(
+                    low = DEFAULT_REQUESTS_WATER_MARK_LOW,
+                    high = DEFAULT_REQUESTS_WATER_MARK_HIGH
+                )
+                keyPassword?.let { keyPassword ->
+                    FileInputStream(p12File).use {
+                        it.pkcs12PrivateKeyEntries(keyPassword).first()
+                    }.apply {
+                        clientCredentials(privateKey, keyPassword, (certificate as X509Certificate).checkExpiration())
+                    }
+                }
+            }, executor?.asCoroutineDispatcher(), providerToken)
+        }
 
         private fun X509Certificate.checkExpiration() = apply {
             logger.info("APNs certificate {} for {} expires {}", p12File.name, environment, notAfter.toInstant())

@@ -32,10 +32,12 @@ jobs:
       - name: 'Integration test'
         run: ./gradlew :pushiko-apns:integrationTest :pushiko-fcm:integrationTest
       - name: 'Check semantic versioning'
+        id: semver
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         run: ./gradlew checkSemver --no-configuration-cache
       - name: 'Archive semver reports'
-        if: github.event_name == 'pull_request' && failure()
+        if: github.event_name == 'pull_request' && steps.semver.outcome == 'failure'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: semver-reports

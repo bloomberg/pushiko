@@ -94,7 +94,7 @@ internal class FcmClientTest {
     fun close() = runTest {
         val session = mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "fake"
+            whenever(currentAuthorization()) doReturn "fake"
         }
         val client = fcmClientConstructor().call(
             mapOf(PROJECT_ID to session), httpClient, null, MAXIMUM_RETRY_DELAY_MILLIS).apply {
@@ -118,7 +118,7 @@ internal class FcmClientTest {
     fun closeTwice(): Unit = runTest {
         val session = mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "fake"
+            whenever(currentAuthorization()) doReturn "fake"
         }
         val client = fcmClientConstructor().call(
             mapOf(PROJECT_ID to session), httpClient, null, MAXIMUM_RETRY_DELAY_MILLIS)
@@ -146,7 +146,7 @@ internal class FcmClientTest {
     fun exception(): Unit = runTest {
         val client = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "Bearer xyz"
+            whenever(currentAuthorization()) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doThrow RuntimeException()
         }, null, MAXIMUM_RETRY_DELAY_MILLIS)
@@ -157,7 +157,7 @@ internal class FcmClientTest {
     fun closedThenSendException(): Unit = runTest {
         val session = mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "fake"
+            whenever(currentAuthorization()) doReturn "fake"
         }
         val client = fcmClientConstructor().call(
             mapOf(PROJECT_ID to session), httpClient, null, MAXIMUM_RETRY_DELAY_MILLIS)
@@ -175,7 +175,7 @@ internal class FcmClientTest {
         }
         val response = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "Bearer xyz"
+            whenever(currentAuthorization()) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
         }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, FcmRequest { message { token("abc") } })
@@ -194,7 +194,7 @@ internal class FcmClientTest {
         }
         val response = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "Bearer xyz"
+            whenever(currentAuthorization()) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
         }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, FcmRequest { message { token("abc") } })
@@ -213,7 +213,7 @@ internal class FcmClientTest {
         }
         val response = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "Bearer xyz"
+            whenever(currentAuthorization()) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
         }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, FcmRequest { message { token("abc") } })
@@ -233,7 +233,7 @@ internal class FcmClientTest {
         }
         val response = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "Bearer xyz"
+            whenever(currentAuthorization()) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
         }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, request)
@@ -252,7 +252,7 @@ internal class FcmClientTest {
         }
         val response = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "Bearer xyz"
+            whenever(currentAuthorization()) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
         }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, FcmRequest { message { token("abc") } })
@@ -274,7 +274,7 @@ internal class FcmClientTest {
         }
         val response = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "Bearer xyz"
+            whenever(currentAuthorization()) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doAnswer object : Answer<HttpResponse> {
                 private var count = 0
@@ -290,6 +290,48 @@ internal class FcmClientTest {
     }
 
     @Test
+    fun automaticRetryReadsLatestAuthorization() = runTest {
+        val retryResponse = mock<HttpResponse>().apply {
+            whenever(code) doReturn 502
+            whenever(body) doAnswer { ByteArray(0).inputStream() }
+            whenever(header(eq("retry-after"))) doReturn "0"
+        }
+        val successResponse = mock<HttpResponse>().apply {
+            whenever(code) doReturn 200
+            whenever(body) doReturn Json.encodeToString(
+                FcmSuccessResponse("xyz")
+            ).byteInputStream(Charsets.UTF_8)
+        }
+        val session = mock<Session>().apply {
+            whenever(sendPath) doReturn fakeSendPath
+            whenever(currentAuthorization()).thenReturn("Bearer first", "Bearer second")
+        }
+        val clientHttpClient = mock<HttpClient>().apply {
+            whenever(send(any())) doAnswer object : Answer<HttpResponse> {
+                private var count = 0
+
+                override fun answer(invocation: InvocationOnMock) = if (count++ == 0) {
+                    retryResponse
+                } else {
+                    successResponse
+                }
+            }
+        }
+
+        val response = fcmClientConstructor().call(
+            mapOf(PROJECT_ID to session),
+            clientHttpClient,
+            null,
+            MAXIMUM_RETRY_DELAY_MILLIS
+        ).send(PROJECT_ID, FcmRequest { message { token("abc") } })
+
+        assertTrue(response is FcmSuccessResponse)
+        verifyBlocking(session, times(2)) {
+            currentAuthorization()
+        }
+    }
+
+    @Test
     fun serverError503RetryAfterExceedsMaximumDoesNotRetry(): Unit = runTest {
         val request = FcmRequest { message { token("abc") } }
         val httpResponse = mock<HttpResponse>().apply {
@@ -302,7 +344,7 @@ internal class FcmClientTest {
         }
         val response = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "Bearer xyz"
+            whenever(currentAuthorization()) doReturn "Bearer xyz"
         }), clientHttpClient, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, request)
         assertTrue(response is FcmServerErrorResponse)
         assertSame(request, response.request)
@@ -325,7 +367,7 @@ internal class FcmClientTest {
         }
         val response = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "Bearer xyz"
+            whenever(currentAuthorization()) doReturn "Bearer xyz"
         }), clientHttpClient, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, request)
         assertTrue(response is FcmServerErrorResponse)
         assertSame(request, response.request)
@@ -353,7 +395,7 @@ internal class FcmClientTest {
         }
         val client = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "Bearer xyz"
+            whenever(currentAuthorization()) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
         }, null, MAXIMUM_RETRY_DELAY_MILLIS)
@@ -366,7 +408,7 @@ internal class FcmClientTest {
     fun timeoutRequest(): Unit = runTest {
         val client = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
-            whenever(currentAuthorization) doReturn "Bearer xyz"
+            whenever(currentAuthorization()) doReturn "Bearer xyz"
         }), mock<HttpClient> {
             onBlocking { send(any()) } doSuspendableAnswer {
                 delay(1L.minutes)

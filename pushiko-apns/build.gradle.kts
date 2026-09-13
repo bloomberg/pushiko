@@ -47,6 +47,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.jdk8)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.nimbus.jose.jwt)
     implementation(libs.okio)
     implementation(libs.slf4j.api)
     testImplementation(libs.kotlin.reflect)

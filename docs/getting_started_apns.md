@@ -37,7 +37,9 @@ First add Pushiko as a dependency.
 </dependency>
 ```
 
-## Sending notifications
+## Authentication
+
+Choose either certificate authentication or token authentication for each client. They cannot be configured together.
 
 ### Certificate authentication
 
@@ -48,15 +50,64 @@ First add Pushiko as a dependency.
             File("my_key.p12"),
             "protect_me".toCharArray()
         )
-        environment(ApnsEnvironment.SANDBOX)
-        maxConnections(1)
-        minConnections(0)
+        environment(ApnsEnvironment.DEVELOPMENT)
+        maximumConnections(1)
+        minimumConnections(0)
     }
+    ```
+
+=== "Java"
+    ```java
+    final ApnsClient client = ApnsClient(it -> it.clientCredentials(
+            new File("my_key.p12"), "protect_me".toCharArray())
+        .environment(ApnsEnvironment.DEVELOPMENT)
+        .maximumConnections(1)
+        .minimumConnections(0));
+    ```
+
+### Token authentication
+
+Create an APNs signing key in the Apple Developer portal and download its unencrypted PKCS#8 `.p8` file. Provider
+tokens are signed with ES256, shared across the client's connections, and replaced after 50 minutes. Keep the signing
+key file secret and keep the host clock synchronized.
+
+=== "Kotlin"
+    ```kotlin
+    val client = ApnsClient {
+        signingKey(
+            ApnsSigningKey.loadFromPkcs8File(
+                File("AuthKey_KEYID12345.p8"),
+                keyId = "KEYID12345",
+                teamId = "TEAMID1234"
+            )
+        )
+        environment(ApnsEnvironment.DEVELOPMENT)
+        maximumConnections(1)
+        minimumConnections(0)
+    }
+    ```
+
+=== "Java"
+    ```java
+    final ApnsClient client = ApnsClient(it -> it.signingKey(
+            ApnsSigningKey.loadFromPkcs8File(
+                new File("AuthKey_KEYID12345.p8"),
+                "KEYID12345",
+                "TEAMID1234"))
+        .environment(ApnsEnvironment.DEVELOPMENT)
+        .maximumConnections(1)
+        .minimumConnections(0));
+    ```
+
+## Sending notifications
+
+=== "Kotlin"
+    ```kotlin
     try {
         client.joinStart()
         val request = ApnsRequest {
-            apnsPriority(ApnsPriority.IMMEDIATE)
-            apnsTopic("com.my.app")
+            priority(Priority.IMMEDIATE)
+            topic("com.my.app")
             deviceToken("abc123")
             aps {
                 alert {
@@ -65,16 +116,7 @@ First add Pushiko as a dependency.
                 }
             }
         }
-        val response = runCatching {
-            client.send(request)
-        }.getOrElse {
-            when (it) {
-                is ClientClosedException -> TODO("Don't retry!")
-                is IOException -> TODO("Retry?")
-                else -> TODO("File issue?")
-            }
-        }
-        println(response)
+        println(client.send(request))
     } finally {
         client.close()
     }
@@ -82,21 +124,15 @@ First add Pushiko as a dependency.
 
 === "Java"
     ```java
-    final ApnsClient client = ApnsClient(it -> it.clientCredentials(
-            new File("my_key.p12"), "protect_me".toCharArray())
-        .environment(ApnsEnvironment.SANDBOX)
-        .maxConnections(1)
-        .minConnections(0)
     try {
         client.joinStartFuture().join();
-        final ApnsRequest request = ApnsRequest(it -> it.apnsPriority(
-                ApnsPriority.IMMEDIATE)
-            .apnsTopic("com.my.app")
+        final ApnsRequest request = ApnsRequest(it -> it
+            .priority(Priority.IMMEDIATE)
+            .topic("com.my.app")
             .deviceToken("abc123")
             .aps(aps -> aps.alert(alert -> alert.title("Hello").body("World!"))));
-        // TODO Change to whenComplete!
         final ApnsResponse response = client.sendFuture(request).get();
-        System.out.println(response.toString());
+        System.out.println(response);
     } finally {
         client.closeFuture().join();
     }

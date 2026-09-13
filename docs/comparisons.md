@@ -4,10 +4,9 @@ In the following "FCM" and "APNs" are respectively the common abbreviations for 
 
 * FCM responds with a unique notification identifier in the response body, APNs responds with this identifier in the 
   headers.
-* Trusted FCM connections are always established using a JSON web token; APNs additionally offers certificate-based
-  server authentication, and each app bundle identifier and APNs environment pair has its own certificate. As such,
-  with FCM we can always maintain a single shared connection pool; certificate authentication with APNs requires
-  maintaining one connection pool per certificate and environment pair.
+* FCM always uses token authentication. APNs supports either ES256 JSON web tokens or certificate-based client
+  authentication. An APNs signing key can cover multiple topics for one developer team, while certificate
+  authentication requires a connection pool per certificate and environment pair.
 
 ## FCM and APNs empirical comparisons
 

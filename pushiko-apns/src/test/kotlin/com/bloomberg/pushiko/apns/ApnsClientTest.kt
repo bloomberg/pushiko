@@ -20,6 +20,8 @@ package com.bloomberg.pushiko.apns
 
 import com.bloomberg.pushiko.api.exceptions.ClientClosedException
 import com.bloomberg.pushiko.apns.exceptions.ApnsException
+import com.bloomberg.pushiko.apns.keys.ApnsProviderToken
+import com.bloomberg.pushiko.apns.keys.ApnsSigningKey
 import com.bloomberg.pushiko.apns.model.Priority
 import com.bloomberg.pushiko.apns.model.PushType
 import com.bloomberg.pushiko.http.HttpClient
@@ -41,13 +43,19 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import java.io.File
+import java.security.KeyPairGenerator
+import java.security.interfaces.ECPrivateKey
+import java.security.spec.ECGenParameterSpec
+import java.time.Clock
 import java.time.Instant
+import java.time.ZoneOffset
 import java.util.UUID
 import kotlin.reflect.jvm.isAccessible
 import kotlin.test.AfterTest
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -66,7 +74,7 @@ internal class ApnsClientTest {
 
     @Test
     fun close() = runTest {
-        val client = apnsClientConstructor().call(httpClient, null)
+        val client = apnsClientConstructor().call(httpClient, null, null)
         client.close()
         assertFails {
             client.send(ApnsRequest {
@@ -78,7 +86,7 @@ internal class ApnsClientTest {
 
     @Test
     fun closeTwice(): Unit = runTest {
-        val client = apnsClientConstructor().call(httpClient, null)
+        val client = apnsClientConstructor().call(httpClient, null, null)
         client.close()
         client.close()
     }
@@ -90,7 +98,7 @@ internal class ApnsClientTest {
                 throw RuntimeException()
             }
         }
-        val client = apnsClientConstructor().call(httpClient, null)
+        val client = apnsClientConstructor().call(httpClient, null, null)
         try {
             assertFailsWith<RuntimeException> {
                 withContext(Dispatchers.Default.limitedParallelism(1)) {
@@ -109,7 +117,7 @@ internal class ApnsClientTest {
     fun closedThenSendException(): Unit = runTest {
         val client = apnsClientConstructor().call(mock<HttpClient>().apply {
             whenever(send(any())) doThrow HttpClientClosedException
-        }, null)
+        }, null, null)
         client.close()
         assertFailsWith<ClientClosedException> {
             client.send(ApnsRequest {
@@ -127,7 +135,7 @@ internal class ApnsClientTest {
         }
         val client = apnsClientConstructor().call(mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null)
+        }, null, null)
         val response = try {
             client.send(ApnsRequest {
                 topic("com.foo")
@@ -151,7 +159,7 @@ internal class ApnsClientTest {
         }
         val client = apnsClientConstructor().call(mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null)
+        }, null, null)
         val response = try {
             client.send(ApnsRequest {
                 id(UUID.randomUUID())
@@ -178,6 +186,86 @@ internal class ApnsClientTest {
     }
 
     @Test
+    fun tokenAuthenticationAddsAuthorizationHeader() = runTest {
+        val httpResponse = mock<HttpResponse>().apply {
+            whenever(code) doReturn 200
+            whenever(header(eq("apns-id"))) doReturn "foo-id"
+        }
+        var authorization: String? = null
+        val httpClient = mock<HttpClient> {
+            onBlocking { send(any()) } doSuspendableAnswer { invocation ->
+                authorization = (invocation.arguments[0] as com.bloomberg.pushiko.http.HttpRequest)
+                    .header("authorization")
+                httpResponse
+            }
+        }
+        val keyPair = KeyPairGenerator.getInstance("EC").run {
+            initialize(ECGenParameterSpec("secp256r1"))
+            generateKeyPair()
+        }
+        val providerToken = ApnsProviderToken(
+            ApnsSigningKey("KEYID12345", "TEAMID1234", keyPair.private as ECPrivateKey),
+            Clock.fixed(Instant.parse("2026-09-13T12:34:56Z"), ZoneOffset.UTC)
+        )
+        val client = apnsClientConstructor().call(httpClient, null, providerToken)
+        try {
+            client.send(ApnsRequest {
+                topic("com.foo")
+                deviceToken("abc123")
+            })
+        } finally {
+            client.close()
+        }
+
+        assertTrue(authorization?.startsWith("bearer ey") == true)
+    }
+
+    @Test
+    fun expiredProviderTokenResponseInvalidatesAuthorization() = runTest {
+        val responses = listOf(
+            mock<HttpResponse>().apply {
+                whenever(code) doReturn 403
+                whenever(header(eq("apns-id"))) doReturn "first-id"
+                whenever(body) doReturn """{"reason":"ExpiredProviderToken"}""".byteInputStream()
+            },
+            mock<HttpResponse>().apply {
+                whenever(code) doReturn 200
+                whenever(header(eq("apns-id"))) doReturn "second-id"
+            }
+        )
+        val authorizations = mutableListOf<String?>()
+        var responseIndex = 0
+        val httpClient = mock<HttpClient> {
+            onBlocking { send(any()) } doSuspendableAnswer { invocation ->
+                authorizations += (invocation.arguments[0] as com.bloomberg.pushiko.http.HttpRequest)
+                    .header("authorization")
+                responses[responseIndex++]
+            }
+        }
+        val keyPair = KeyPairGenerator.getInstance("EC").run {
+            initialize(ECGenParameterSpec("secp256r1"))
+            generateKeyPair()
+        }
+        val providerToken = ApnsProviderToken(
+            ApnsSigningKey("KEYID12345", "TEAMID1234", keyPair.private as ECPrivateKey),
+            Clock.fixed(Instant.parse("2026-09-13T12:34:56Z"), ZoneOffset.UTC)
+        )
+        val client = apnsClientConstructor().call(httpClient, null, providerToken)
+        val request = ApnsRequest {
+            topic("com.foo")
+            deviceToken("abc123")
+        }
+        try {
+            assertTrue(client.send(request) is ApnsClientErrorResponse)
+            assertTrue(client.send(request) is ApnsSuccessResponse)
+        } finally {
+            client.close()
+        }
+
+        assertNotEquals(authorizations[0], authorizations[1])
+    }
+
+    @Test
     fun clientError(): Unit = runTest {
         val httpResponse = mock<HttpResponse>().apply {
             whenever(code) doReturn 400
@@ -190,7 +278,7 @@ internal class ApnsClientTest {
         }
         val client = apnsClientConstructor().call(mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null)
+        }, null, null)
         val response = try {
             client.send(ApnsRequest {
                 topic("com.foo")
@@ -214,7 +302,7 @@ internal class ApnsClientTest {
         }
         val client = apnsClientConstructor().call(mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null)
+        }, null, null)
         val response = try {
             client.send(ApnsRequest {
                 topic("com.foo")
@@ -242,7 +330,7 @@ internal class ApnsClientTest {
         }
         val client = apnsClientConstructor().call(mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null)
+        }, null, null)
         val response = try {
             client.send(request)
         } finally {
@@ -261,7 +349,7 @@ internal class ApnsClientTest {
         }
         val response = apnsClientConstructor().call(mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null).send(ApnsRequest {
+        }, null, null).send(ApnsRequest {
             topic("com.foo")
             deviceToken("abc123")
         })
@@ -276,7 +364,7 @@ internal class ApnsClientTest {
         }
         val client = apnsClientConstructor().call(mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null)
+        }, null, null)
         try {
             assertFailsWith<ApnsException> {
                 client.send(ApnsRequest {
@@ -307,7 +395,7 @@ internal class ApnsClientTest {
                 delay(1L.minutes)
                 fail("Timeout was expected")
             }
-        }, null)
+        }, null, null)
         assertFailsWith<TimeoutCancellationException> {
             withTimeout(100L.milliseconds) {
                 client.send(ApnsRequest {
@@ -319,4 +407,9 @@ internal class ApnsClientTest {
     }
 
     private fun apnsClientConstructor() = ApnsClient::class.constructors.first().apply { isAccessible = true }
+
+    private fun com.bloomberg.pushiko.http.HttpRequest.header(name: String): String? {
+        val headers = javaClass.getDeclaredField("headers").apply { isAccessible = true }.get(this)
+        return headers.javaClass.getMethod("get", Any::class.java).invoke(headers, name)?.toString()
+    }
 }

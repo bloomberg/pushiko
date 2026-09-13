@@ -38,6 +38,7 @@ import com.bloomberg.pushiko.http.HttpResponse
 import com.bloomberg.pushiko.http.exceptions.HttpClientClosedException
 import com.bloomberg.pushiko.http.retryAfterMillis
 import com.bloomberg.pushiko.proxies.systemHttpsProxyAddress
+import com.google.auth.oauth2.ServiceAccountCredentials
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -62,6 +63,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 import java.util.function.Consumer
 import javax.annotation.concurrent.ThreadSafe
+import org.jetbrains.annotations.VisibleForTesting
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
@@ -380,6 +382,7 @@ public class FcmClient private constructor(
     public class Builder internal constructor() {
         private var executor: Executor? = null
         private val metadata = mutableListOf<File>()
+        private val injectedCredentials = mutableListOf<ServiceAccountCredentials>()
 
         @JvmSynthetic
         internal var connectionAcquisitionTimeout: Duration? = null
@@ -413,6 +416,12 @@ public class FcmClient private constructor(
 
         public fun metadata(files: Iterable<File>): Builder = apply {
             metadata.addAll(files)
+        }
+
+        @JvmSynthetic
+        @VisibleForTesting
+        internal fun serviceAccountCredentials(credentials: Iterable<ServiceAccountCredentials>): Builder = apply {
+            injectedCredentials.addAll(credentials)
         }
 
         public fun maximumConnections(value: Int): Builder = apply {
@@ -451,8 +460,8 @@ public class FcmClient private constructor(
 
         @JvmSynthetic
         internal fun build() = FcmClient(
-            metadata.associate {
-                CredentialsSession(GoogleCredentials(it, proxyAddress)).run {
+            (metadata.map { GoogleCredentials(it, proxyAddress) } + injectedCredentials).associate {
+                CredentialsSession(it).run {
                     projectId to this
                 }
             },

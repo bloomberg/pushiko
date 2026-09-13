@@ -17,7 +17,10 @@
 package com.bloomberg.pushiko.fcm.shutdown
 
 import com.bloomberg.pushiko.fcm.FcmClient
-import java.io.File
+import com.google.api.client.http.javanet.NetHttpTransport
+import com.google.auth.oauth2.GoogleCredentials
+import com.google.auth.oauth2.ServiceAccountCredentials
+import java.io.ByteArrayInputStream
 import java.io.OutputStreamWriter
 import java.net.ServerSocket
 import java.nio.charset.StandardCharsets
@@ -38,10 +41,10 @@ import kotlinx.coroutines.withContext
 internal suspend fun main() {
     val markerFile = Path.of(System.getProperty("pushiko.sigterm.marker"))
     val tokenServer = FakeBusyTokenServerFixture().apply(FakeBusyTokenServerFixture::start)
-    val metadata = createServiceAccountMetadata(tokenServer.port)
+    val credentials = createServiceAccountCredentials(tokenServer.port)
     val closed = AtomicBoolean(false)
     val client = FcmClient {
-        metadata(listOf(metadata))
+        serviceAccountCredentials(listOf(credentials))
         minimumConnections(0)
     }
     Runtime.getRuntime().addShutdownHook(Thread {
@@ -63,7 +66,6 @@ internal suspend fun main() {
             System.err.println("CLOSE_FAILED: ${it::class.java.name}: ${it.message}")
         }
         tokenServer.stop()
-        metadata.delete()
     })
     println("READY")
     client.joinStart()
@@ -124,7 +126,7 @@ private class FakeBusyTokenServerFixture {
     }
 }
 
-private fun createServiceAccountMetadata(port: Int): File {
+private fun createServiceAccountCredentials(port: Int): ServiceAccountCredentials {
     val keyPairGenerator = KeyPairGenerator.getInstance("RSA").apply {
         initialize(2048)
     }
@@ -148,7 +150,9 @@ private fun createServiceAccountMetadata(port: Int): File {
           "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/fake-service-account%40sigterm-test-project.iam.gserviceaccount.com"
         }
     """.trimIndent()
-    val path = Files.createTempFile("fcm-sigterm-", ".json")
-    Files.writeString(path, metadata, StandardCharsets.UTF_8)
-    return path.toFile()
+    return ByteArrayInputStream(metadata.toByteArray(StandardCharsets.UTF_8)).use { stream ->
+        GoogleCredentials.fromStream(stream) {
+            NetHttpTransport()
+        }.createScoped(listOf("https://www.googleapis.com/auth/firebase.messaging")) as ServiceAccountCredentials
+    }
 }

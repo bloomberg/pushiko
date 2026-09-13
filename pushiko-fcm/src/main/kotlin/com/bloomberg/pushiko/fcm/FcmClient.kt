@@ -203,15 +203,8 @@ public class FcmClient private constructor(
         projectId: String,
         request: FcmRequest
     ): FcmResponse = runCatching {
-        doSend(HttpRequest {
-            val session = requireNotNull(sessions[projectId]) { "Unrecognised project: '$projectId'" }
-            method(POST)
-            authority(FCM_HOST)
-            path(session.sendPath)
-            header(AUTHORIZATION_HEADER, session.currentAuthorization)
-            header(CONTENT_TYPE_HEADER, JSON_UTF8_CONTENT_TYPE)
-            body(request.payload)
-        }, request, MAX_RETRIES_DEFAULT, INITIAL_BACKOFF_MILLIS)
+        val session = requireNotNull(sessions[projectId]) { "Unrecognised project: '$projectId'" }
+        doSend(session, request, MAX_RETRIES_DEFAULT, INITIAL_BACKOFF_MILLIS)
     }.getOrElse {
         throw if (it is HttpClientClosedException) {
             ClientClosedException
@@ -275,12 +268,20 @@ public class FcmClient private constructor(
     }
 
     private suspend fun doSend(
-        httpRequest: HttpRequest,
+        session: Session,
         fcmRequest: FcmRequest,
         retries: Int,
         backOffMillis: Long
     ): FcmResponse {
-        val response = httpClient.send(httpRequest).run {
+        val authorization = session.currentAuthorization()
+        val response = httpClient.send(HttpRequest {
+            method(POST)
+            authority(FCM_HOST)
+            path(session.sendPath)
+            header(AUTHORIZATION_HEADER, authorization)
+            header(CONTENT_TYPE_HEADER, JSON_UTF8_CONTENT_TYPE)
+            body(fcmRequest.payload)
+        }).run {
             runCatching {
                 use {
                     process(fcmRequest)
@@ -290,7 +291,7 @@ public class FcmClient private constructor(
             }
         }
         return if (retries > 0 && response is FcmServerErrorResponse) {
-            retryServerError(response, httpRequest, fcmRequest, retries, backOffMillis)
+            retryServerError(response, session, fcmRequest, retries, backOffMillis)
         } else {
             response
         }
@@ -298,20 +299,20 @@ public class FcmClient private constructor(
 
     private suspend fun retryServerError(
         response: FcmServerErrorResponse,
-        httpRequest: HttpRequest,
+        session: Session,
         fcmRequest: FcmRequest,
         retries: Int,
         backOffMillis: Long
     ): FcmResponse = when (response.code) {
-        HttpURLConnection.HTTP_BAD_GATEWAY -> retryBadGateway(response, httpRequest, fcmRequest)
+        HttpURLConnection.HTTP_BAD_GATEWAY -> retryBadGateway(response, session, fcmRequest)
         HttpURLConnection.HTTP_UNAVAILABLE -> retryUnavailable(
-            response, httpRequest, fcmRequest, retries, backOffMillis)
+            response, session, fcmRequest, retries, backOffMillis)
         else -> response
     }
 
     private suspend fun retryBadGateway(
         response: FcmServerErrorResponse,
-        httpRequest: HttpRequest,
+        session: Session,
         fcmRequest: FcmRequest
     ): FcmResponse {
         // Firebase has been seen to respond with HTML saying it had encountered a temporary error and could not
@@ -322,12 +323,12 @@ public class FcmClient private constructor(
         }
         logger.info("Encountered {}, retrying request once in {} milliseconds", response.code, intervalMillis)
         delay(intervalMillis)
-        return doSend(httpRequest, fcmRequest, 0, 0L)
+        return doSend(session, fcmRequest, 0, 0L)
     }
 
     private suspend fun retryUnavailable(
         response: FcmServerErrorResponse,
-        httpRequest: HttpRequest,
+        session: Session,
         fcmRequest: FcmRequest,
         retries: Int,
         backOffMillis: Long
@@ -343,7 +344,7 @@ public class FcmClient private constructor(
         logger.info("Encountered {}, retrying request with {} attempt{} remaining", response.code,
             retries, retries.commonPluralSuffix())
         delay(intervalMillis)
-        return doSend(httpRequest, fcmRequest, retries - 1, backOffMillis shl 1)
+        return doSend(session, fcmRequest, retries - 1, backOffMillis shl 1)
     }
 
     private fun isRetryDelayAllowed(code: Int, intervalMillis: Long): Boolean {

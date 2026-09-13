@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 description = "Library for sending HTTP requests."
 
 plugins {
+    id("com.bloomberg.pushiko.sbom")
     kotlin("jvm")
     kotlin("kapt")
     alias(libs.plugins.dokka)

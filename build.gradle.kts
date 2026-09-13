@@ -18,6 +18,8 @@ import info.solidsoft.gradle.pitest.PitestPlugin
 import info.solidsoft.gradle.pitest.PitestPluginExtension
 import io.gitlab.arturbosch.detekt.DetektPlugin
 import io.gitlab.arturbosch.detekt.extensions.DetektExtension
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import java.net.URI
 import kotlinx.kover.gradle.plugin.dsl.AggregationType
 import org.gradle.api.JavaVersion
@@ -41,6 +43,7 @@ buildscript {
 
 plugins {
     base
+    alias(libs.plugins.cyclonedx) apply false
     alias(libs.plugins.dokka)
     alias(libs.plugins.kover)
     alias(libs.plugins.pitest) apply false
@@ -52,6 +55,19 @@ plugins {
 }
 
 logger.quiet("Group: {}; Version: {}", group, version)
+
+val publishedSbomProjects = listOf(
+    ":pushiko-api",
+    ":pushiko-apns",
+    ":pushiko-commons",
+    ":pushiko-fcm",
+    ":pushiko-health",
+    ":pushiko-http",
+    ":pushiko-json",
+    ":pushiko-metrics",
+    ":pushiko-netty-ktx",
+    ":pushiko-pools"
+)
 
 nmcpAggregation {
     centralPortal {
@@ -253,6 +269,76 @@ tasks.register("jvmFuzz") {
     group = "verification"
     description = "Runs JVM fuzzing; configure with -Ppushiko.fuzz.profile=smoke|release|scheduled."
     dependsOn(":pushiko-http:jvmFuzz", ":pushiko-json:jvmFuzz")
+}
+
+val cyclonedxBom = tasks.register("cyclonedxBom") {
+    group = "reporting"
+    description = "Generates the final CycloneDX SBOM for every published JVM artifact."
+    dependsOn(publishedSbomProjects.map { "$it:cyclonedxFinalBom" })
+}
+
+tasks.register("repositoryCyclonedxBom") {
+    group = "reporting"
+    description = "Merges the published module SBOMs into one repository CycloneDX SBOM."
+    dependsOn(cyclonedxBom)
+    val sbomFiles = publishedSbomProjects.map { projectPath ->
+        project(projectPath).layout.buildDirectory.file(
+            "reports/cyclonedx-direct/${project(projectPath).name}-${project(projectPath).version}-cyclonedx.json"
+        )
+    }
+    inputs.files(sbomFiles)
+    val output = layout.buildDirectory.file("reports/cyclonedx/pushiko-$version.cdx.json")
+    outputs.file(output)
+    doLast {
+        val parser = JsonSlurper()
+        val documents = sbomFiles.map { parser.parse(it.get().asFile) as Map<*, *> }
+        val first = documents.first().toMutableMap()
+        val rootReference = "com.bloomberg.pushiko:pushiko"
+        val moduleComponents = documents.map { document ->
+            ((document["metadata"] as Map<*, *>)["component"] as Map<*, *>)
+        }
+        first["serialNumber"] = "urn:uuid:${java.util.UUID.randomUUID()}"
+        first["metadata"] = (first["metadata"] as Map<*, *>).toMutableMap().apply {
+            put("component", mapOf(
+                "type" to "library",
+                "bom-ref" to rootReference,
+                "group" to "com.bloomberg.pushiko",
+                "name" to "pushiko",
+                "version" to project.version.toString()
+            ))
+        }
+        val components = linkedMapOf<String, Map<*, *>>()
+        val dependencies = linkedMapOf<String, LinkedHashSet<String>>()
+        moduleComponents.forEach { component ->
+            components[component["bom-ref"].toString()] = component
+        }
+        documents.forEach { document ->
+            (document["components"] as? List<*>)?.filterIsInstance<Map<*, *>>()?.forEach { component ->
+                components[component["bom-ref"].toString()] = component
+            }
+            (document["dependencies"] as? List<*>)?.filterIsInstance<Map<*, *>>()?.forEach { dependency ->
+                val ref = dependency["ref"].toString()
+                val children = dependencies.getOrPut(ref) { linkedSetOf() }
+                (dependency["dependsOn"] as? List<*>)?.forEach { children += it.toString() }
+            }
+        }
+        dependencies[rootReference] = moduleComponents.mapTo(linkedSetOf()) { it["bom-ref"].toString() }
+        first["components"] = components.values.sortedBy { it["bom-ref"].toString() }
+        first["dependencies"] = dependencies.entries.sortedBy { it.key }.map { (ref, children) ->
+            mapOf("ref" to ref, "dependsOn" to children.sorted())
+        }
+        val target = output.get().asFile
+        target.parentFile.mkdirs()
+        val generated = JsonOutput.prettyPrint(JsonOutput.toJson(first)) + System.lineSeparator()
+        val validationErrors = org.cyclonedx.parsers.JsonParser().validate(
+            generated,
+            org.cyclonedx.Version.VERSION_16
+        )
+        require(validationErrors.isEmpty()) {
+            "Generated repository CycloneDX SBOM is invalid: ${validationErrors.joinToString()}"
+        }
+        target.writeText(generated)
+    }
 }
 
 idea.project.settings {

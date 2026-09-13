@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 description = "Pushiko library for sending Android push notifications with Firebase Cloud Messaging."
 
 plugins {
+    id("com.bloomberg.pushiko.sbom")
     kotlin("jvm")
     kotlin("kapt")
     alias(libs.plugins.serialization)

@@ -1,5 +1,6 @@
 rootProject.name = "build-logic"
 
+include(":sbom")
 include(":semver")
 
 dependencyResolutionManagement {

@@ -17,6 +17,7 @@
 description = "Library for Pushiko metrics."
 
 plugins {
+    id("com.bloomberg.pushiko.sbom")
     kotlin("jvm")
     alias(libs.plugins.dokka)
     `library-conventions`

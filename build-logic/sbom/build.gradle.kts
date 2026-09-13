@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Bloomberg Finance L.P.
+ * Copyright 2026 Bloomberg Finance L.P.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,25 +14,20 @@
  * limitations under the License.
  */
 
-description = "API commonly exposed by multiple subprojects of Pushiko"
-
 plugins {
-    id("com.bloomberg.pushiko.sbom")
-    kotlin("jvm")
-    id("semver")
-    alias(libs.plugins.dokka)
-    `library-conventions`
-    alias(libs.plugins.kover)
-    alias(libs.plugins.pitest)
-    alias(libs.plugins.detekt)
-    alias(libs.plugins.android.lint)
+    `kotlin-dsl`
+    `java-gradle-plugin`
 }
 
-disableKotlinCompilerAssertions()
+gradlePlugin {
+    plugins {
+        create("pushikoSbomConvention") {
+            id = "com.bloomberg.pushiko.sbom"
+            implementationClass = "PushikoSbomConventionPlugin"
+        }
+    }
+}
 
 dependencies {
-    api(projects.pushikoHealth)
-    api(projects.pushikoMetrics)
-    compileOnly(projects.pushikoCommons)
-    testImplementation(kotlin("test-junit5"))
+    implementation(libs.cyclonedx.core)
 }

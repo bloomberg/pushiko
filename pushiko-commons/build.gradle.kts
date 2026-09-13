@@ -17,6 +17,7 @@
 description = "Library of methods commonly used throughout Pushiko."
 
 plugins {
+    id("com.bloomberg.pushiko.sbom")
     kotlin("jvm")
     alias(libs.plugins.dokka)
     `library-conventions`

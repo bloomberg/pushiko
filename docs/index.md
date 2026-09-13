@@ -1,5 +1,15 @@
 Pushiko is a JVM library for sending push notifications via Apple Push Notification service (APNs) and Firebase Cloud Messaging (FCM).
 
+## Software bill of materials
+
+Every published Pushiko module has a CycloneDX SBOM. Maven Central publishes it beside the runtime JAR with the
+`cyclonedx` classifier, for example `pushiko-apns-{version}-cyclonedx.json`. The same document is embedded at
+`META-INF/sbom/pushiko-apns.cdx.json` in the runtime JAR.
+
+GitHub releases also include a repository-wide `pushiko-{version}.cdx.json` SBOM covering every published module.
+Run `./gradlew cyclonedxBom` to generate all module SBOMs or `./gradlew repositoryCyclonedxBom` to generate the
+repository-wide document.
+
 ## License
 
 ```

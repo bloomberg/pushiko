@@ -17,6 +17,7 @@
 description = "Library for examining the health of components belonging to Pushiko."
 
 plugins {
+    id("com.bloomberg.pushiko.sbom")
     kotlin("jvm")
     alias(libs.plugins.dokka)
     `library-conventions`

@@ -17,6 +17,7 @@
 description = "Library for working with JSON with Pushiko."
 
 plugins {
+    id("com.bloomberg.pushiko.sbom")
     kotlin("jvm")
     alias(libs.plugins.dokka)
     `library-conventions`

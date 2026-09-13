@@ -17,6 +17,7 @@
 description = "Netty Kotlin extensions for Pushiko."
 
 plugins {
+    id("com.bloomberg.pushiko.sbom")
     kotlin("jvm")
     alias(libs.plugins.dokka)
     `library-conventions`

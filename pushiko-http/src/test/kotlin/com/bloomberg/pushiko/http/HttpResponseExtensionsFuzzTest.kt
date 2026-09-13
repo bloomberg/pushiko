@@ -32,7 +32,8 @@ internal class HttpResponseExtensionsFuzzTest {
         }
 
         val header = input.toString(Charsets.UTF_8)
-        val actual = HttpResponse(503, DefaultHttp2Headers().add("retry-after", header)).retryAfterMillis()
+        val headers = DefaultHttp2Headers(true, false, 1).add("retry-after", header)
+        val actual = HttpResponse(503, headers).retryAfterMillis()
         assertTrue(actual == null || actual >= 0L)
 
         if (header.isNotEmpty() && header.all { it in '0'..'9' }) {
@@ -52,6 +53,7 @@ internal class HttpResponseExtensionsFuzzTest {
         @JvmStatic
         fun inputs(): Stream<ByteArray> = Stream.of(
             byteArrayOf(),
+            byteArrayOf(0),
             "0".toByteArray(),
             "30".toByteArray(),
             "9223372036854775".toByteArray(),

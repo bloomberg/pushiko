@@ -1,6 +1,21 @@
+## Version 2.1.0
+
+### Features
+
+* Support APNs JWT provider authentication.
+
+### Fixes
+
+* Validate FCM OAuth token endpoint in credentials.
+* Address stale FCM OAuth token usage.
+
+### Dependencies
+
+* Netty 4.1.138.Final
+
 ## Version 2.0.2
 
-## Fixes
+### Fixes
 
 * Remove timing race from OAuth backoff test.
 * Fix HTTP client test cleanup.

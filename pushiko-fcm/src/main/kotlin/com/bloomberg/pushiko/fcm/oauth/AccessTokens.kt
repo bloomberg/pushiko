@@ -20,4 +20,7 @@ import com.google.auth.oauth2.AccessToken
 import java.util.concurrent.TimeUnit
 
 internal val AccessToken.expiresInSeconds: Long
-    get() = TimeUnit.MILLISECONDS.toSeconds(expirationTime.time - System.currentTimeMillis())
+    get() = TimeUnit.MILLISECONDS.toSeconds(
+        requireNotNull(expirationTime) { "Google OAuth access token has no expiration" }.time -
+            System.currentTimeMillis()
+    )

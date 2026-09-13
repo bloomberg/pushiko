@@ -88,12 +88,15 @@ internal class CredentialsRefreshManager(
 
     private fun refreshOnce(): RefreshResult = try {
         credentials.refresh()
+        val accessToken = requireNotNull(credentials.accessToken) {
+            "Google OAuth refresh completed without an access token"
+        }
         logger.info(
             "Google OAuth token was refreshed for {}, expires in at most {}s",
             credentials.projectId,
-            credentials.accessToken.expiresInSeconds
+            accessToken.expiresInSeconds
         )
-        RefreshResult.Success(credentials.accessToken)
+        RefreshResult.Success(accessToken)
     } catch (e: IOException) {
         if (e.isPermanentFailure()) {
             logger.error("OAuth refresh failed permanently for {}: {}", credentials.projectId, e.message)

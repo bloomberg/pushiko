@@ -19,6 +19,7 @@ package com.bloomberg.pushiko.fcm.oauth
 import com.google.auth.oauth2.AccessToken
 import org.junit.jupiter.api.Test
 import java.util.Date
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 internal class AccessTokensTest {
@@ -32,5 +33,12 @@ internal class AccessTokensTest {
     fun expired() {
         val seconds = AccessToken("", Date(0L)).expiresInSeconds
         assertTrue(seconds < 0)
+    }
+
+    @Test
+    fun missingExpirationRejected() {
+        assertFailsWith<IllegalArgumentException> {
+            AccessToken("", null).expiresInSeconds
+        }
     }
 }

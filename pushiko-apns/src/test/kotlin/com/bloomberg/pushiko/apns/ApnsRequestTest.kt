@@ -117,6 +117,30 @@ internal class ApnsRequestTest {
     }
 
     @Test
+    fun opaqueDeviceTokenAcceptedAndPreserved() {
+        listOf(
+            "abc/def",
+            "abc?query=value",
+            "abc#fragment",
+            "abc%2Fdef",
+            "abc\\def",
+            ".",
+            "..",
+            "abc:scheme",
+            "abc;parameter",
+            "abc@example",
+            "tøken"
+        ).forEach { value ->
+            val request = ApnsRequest {
+                deviceToken(value)
+                topic("com.foo")
+            }
+
+            assertEquals(value, request.deviceToken)
+        }
+    }
+
+    @Test
     fun topicWithControlCharacterRejected() {
         assertThrows<IllegalArgumentException> {
             ApnsRequest {

@@ -71,7 +71,31 @@ import javax.annotation.concurrent.ThreadSafe
 import kotlin.time.toKotlinDuration
 
 private const val TOKEN_PATH_CAPACITY = 128
-private fun String.deviceTokenPath() = StringBuilder(TOKEN_PATH_CAPACITY).append("/3/device/").append(this)
+private const val UPPERCASE_HEX_DIGITS = "0123456789ABCDEF"
+
+private fun Int.isUriUnreservedByte() =
+    this in 'a'.code..'z'.code ||
+        this in 'A'.code..'Z'.code ||
+        this in '0'.code..'9'.code ||
+        this == '-'.code ||
+        this == '.'.code ||
+        this == '_'.code ||
+        this == '~'.code
+
+private fun String.deviceTokenPath() = buildString(TOKEN_PATH_CAPACITY) {
+    append("/3/device/")
+    val encodeDots = this@deviceTokenPath == "." || this@deviceTokenPath == ".."
+    this@deviceTokenPath.toByteArray(Charsets.UTF_8).forEach { byte ->
+        val value = byte.toInt() and 0xFF
+        if (!encodeDots && value.isUriUnreservedByte()) {
+            append(value.toChar())
+        } else {
+            append('%')
+            append(UPPERCASE_HEX_DIGITS[value ushr 4])
+            append(UPPERCASE_HEX_DIGITS[value and 0x0F])
+        }
+    }
+}
 private const val POST = "POST"
 private const val APNS_COLLAPSE_ID_HEADER = "apns-collapse-id"
 private const val APNS_EXPIRATION_HEADER = "apns-expiration"

@@ -203,6 +203,9 @@ public class ApnsRequest private constructor(
             collapseId = value
         }
 
+        /**
+         * Sets the opaque APNs device token. The token is encoded as an opaque UTF-8 path segment when sent.
+         */
         public fun deviceToken(value: String): Builder = apply {
             deviceToken = value
         }

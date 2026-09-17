@@ -151,6 +151,43 @@ internal class ApnsClientTest {
     }
 
     @Test
+    fun deviceTokenIsEncodedAsOpaquePathSegment() = runTest {
+        val httpResponse = mock<HttpResponse>().apply {
+            whenever(code) doReturn 200
+            whenever(header(eq("apns-id"))) doReturn "foo-id"
+        }
+        val paths = mutableListOf<String>()
+        val httpClient = mock<HttpClient> {
+            onBlocking { send(any()) } doSuspendableAnswer { invocation ->
+                paths += requireNotNull(
+                    (invocation.arguments[0] as com.bloomberg.pushiko.http.HttpRequest).header(":path")
+                )
+                httpResponse
+            }
+        }
+        val client = apnsClientConstructor().call(httpClient, null, null)
+        try {
+            listOf("abc/def?x#y%z\\ø", ".", "..").forEach { deviceToken ->
+                client.send(ApnsRequest {
+                    topic("com.foo")
+                    deviceToken(deviceToken)
+                })
+            }
+        } finally {
+            client.close()
+        }
+
+        assertEquals(
+            listOf(
+                "/3/device/abc%2Fdef%3Fx%23y%25z%5C%C3%B8",
+                "/3/device/%2E",
+                "/3/device/%2E%2E"
+            ),
+            paths
+        )
+    }
+
+    @Test
     fun successfulPayload() = runTest {
         val httpResponse = mock<HttpResponse>().apply {
             whenever(code) doReturn 200

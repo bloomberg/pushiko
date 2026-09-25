@@ -1,3 +1,13 @@
+## Version 2.1.1
+
+### Fixes
+
+* Encode opaque APNs device tokens in request paths.
+
+### Dependencies
+
+* Google Auth 1.52.0
+
 ## Version 2.1.0
 
 ### Features

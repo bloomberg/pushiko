@@ -181,6 +181,58 @@ internal class FifoBufferTest {
     }
 
     @Test
+    fun removeAtMostFromLastMatching(): Unit = FifoBuffer<Int>(5).run {
+        (1..5).forEach(::addLast)
+        val removed = mutableListOf<Int>()
+        assertEquals(2, removeAtMostFromLast(2, size, { it % 2 == 1 }, removed::add))
+        assertEquals(listOf(5, 3), removed)
+        assertEquals(listOf(1, 2, 4), toList())
+    }
+
+    @Test
+    fun removeAtMostFromLastMatchingNone(): Unit = FifoBuffer<Int>(3).run {
+        (1..3).forEach(::addLast)
+        val removed = mutableListOf<Int>()
+        assertEquals(0, removeAtMostFromLast(2, size, { it > 3 }, removed::add))
+        assertEquals(emptyList(), removed)
+        assertEquals(listOf(1, 2, 3), toList())
+    }
+
+    @Test
+    fun removeAtMostFromLastZero(): Unit = FifoBuffer<Int>(3).run {
+        (1..3).forEach(::addLast)
+        val removed = mutableListOf<Int>()
+        assertEquals(0, removeAtMostFromLast(0, size, { true }, removed::add))
+        assertEquals(emptyList(), removed)
+        assertEquals(listOf(1, 2, 3), toList())
+    }
+
+    @Test
+    fun removeAtMostFromLastInBatches(): Unit = FifoBuffer<Int>(5).run {
+        (1..5).forEach(::addLast)
+        val removed = mutableListOf<Int>()
+        assertEquals(1, removeAtMostFromLast(2, 2, { it % 2 == 1 }, removed::add))
+        assertEquals(listOf(4, 1, 2, 3), toList())
+        assertEquals(1, removeAtMostFromLast(1, 3, { it % 2 == 1 }, removed::add))
+        assertEquals(listOf(5, 3), removed)
+        assertEquals(listOf(1, 2, 4), toList())
+    }
+
+    @Test
+    fun removeAtMostFromLastRejectsNegativeMaximum(): Unit = FifoBuffer<Int>(1).run {
+        assertThrows<IllegalArgumentException> {
+            removeAtMostFromLast(-1, 1, { true }) { }
+        }
+    }
+
+    @Test
+    fun removeAtMostFromLastRejectsNegativeMaximumInspections(): Unit = FifoBuffer<Int>(1).run {
+        assertThrows<IllegalArgumentException> {
+            removeAtMostFromLast(1, -1, { true }) { }
+        }
+    }
+
+    @Test
     fun emptyIteration(): Unit = FifoBuffer<Int>(1).run {
         assertTrue(toList().isEmpty())
     }

@@ -46,10 +46,14 @@ import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.yield
 import org.jetbrains.annotations.VisibleForTesting
 import java.io.StringWriter
 import java.util.LinkedHashSet
@@ -85,6 +89,11 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private val factory: Factory<P>,
     private val recycler: Recycler<R>
 ) : SuspendPool<R, P>(configuration.name) {
+    private companion object {
+        private const val MINIMUM_REAPER_BATCH_SIZE = 16
+        private const val MAXIMUM_REAPER_BATCH_SIZE = 256
+    }
+
     private val logger = Logger()
 
     private val pool = FifoBuffer<P>(capacity = configuration.maximumSize)
@@ -197,6 +206,14 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     @JvmSynthetic
     @VisibleForTesting
     internal suspend fun selectPoolableForTest(): P? = withWorkContext { selectPoolable() }
+
+    @JvmSynthetic
+    @VisibleForTesting
+    internal suspend fun rescheduleReaperForTest(): Job? = withWorkContext {
+        val previous = reaperJob
+        scheduleReaperJob()
+        previous
+    }
 
     private fun probeLimit(): Int = if (anticipatedSize >= configuration.maximumSize) {
         pool.size
@@ -363,14 +380,33 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         }
     }
 
-    private suspend fun prunePool() = withWorkContext {
+    private suspend fun pruneIdlePoolables(): Boolean {
+        assertThisDispatcher()
         cleanPool()
-        val initialSize = pool.size
-        while (pool.size > configuration.minimumSize) {
-            recycle(pool.removeLast())
+        currentCoroutineContext().ensureActive()
+        var remainingInspections = pool.size
+        val batchSize = sqrt(remainingInspections.toDouble()).toInt()
+            .coerceIn(MINIMUM_REAPER_BATCH_SIZE, MAXIMUM_REAPER_BATCH_SIZE)
+        var removed = 0
+        while (remainingInspections > 0) {
+            val maximum = (pool.size - configuration.minimumSize).coerceAtLeast(0)
+            if (maximum == 0) {
+                break
+            }
+            val inspections = minOf(batchSize, remainingInspections)
+            removed += pool.removeAtMostFromLast(
+                maximum,
+                inspections,
+                predicate = { it.allocatedPermits == 0 },
+                onRemove = { recycler.recycle(it.value) }
+            )
+            remainingInspections -= inspections
+            if (remainingInspections > 0) {
+                yield()
+            }
         }
-        val difference = initialSize - pool.size
-        logger.info("Removed {} poolable{}", difference, difference.commonPluralSuffix())
+        logger.info("Removed {} poolable{}", removed, removed.commonPluralSuffix())
+        return pool.size > configuration.minimumSize
     }
 
     private fun launchCreateExtra() {
@@ -388,10 +424,17 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private fun scheduleReaperJob() {
         val reaperDelay = configuration.reaperDelay.takeIf { it.isPositive() && it.isFinite() } ?: return
         reaperJob?.cancel()
-        reaperJob = launchInMainScope {
-            delay(reaperDelay)
-            prunePool()
-            reaperJob = null
+        reaperJob = launchInWorkScope {
+            val job = currentCoroutineContext().job
+            try {
+                do {
+                    delay(reaperDelay)
+                } while (pruneIdlePoolables())
+            } finally {
+                if (reaperJob === job) {
+                    reaperJob = null
+                }
+            }
         }
     }
 

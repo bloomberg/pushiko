@@ -67,10 +67,13 @@ public abstract class Poolable<out R : Any>(
         private set
 
     public fun acquirePermit(): Poolable<R> = apply {
+        check(isCanAcquire) { "No permit is available" }
+        check(allocatedPermits < Int.MAX_VALUE) { "Allocated permit count overflow" }
         ++allocatedPermits
     }
 
     public fun releasePermit() {
+        check(allocatedPermits > 0) { "Cannot release an unallocated permit" }
         --allocatedPermits
     }
 

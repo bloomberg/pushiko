@@ -74,7 +74,7 @@ internal class CommonMuxPoolPendingTest {
     )
 
     @Test
-    fun evictsOldestPendingAcquisitionWhenLimitExceeded() = runTest {
+    fun rejectsNewestAcquisitionWhenPendingLimitReached() = runTest {
         val factory = SinglePermitFactory()
         val pool = newPool(factory, maximumPendingAcquisitions = 1)
         try {
@@ -96,12 +96,14 @@ internal class CommonMuxPoolPendingTest {
                 }
 
                 val second = async { runCatching { pool.withPermit(Duration.INFINITE) { } } }
-                val firstResult = first.await()
-                assertTrue(firstResult.isFailure)
-                assertSame(PendingAcquisitionLimitException, firstResult.exceptionOrNull())
+                val secondResult = second.await()
+                assertTrue(secondResult.isFailure)
+                assertSame(PendingAcquisitionLimitException, secondResult.exceptionOrNull())
+                assertFalse(first.isCompleted)
+                assertEquals(1, pool.pendingAcquisitionCount())
 
                 releaseHolder.complete(Unit)
-                assertTrue(second.await().isSuccess)
+                assertTrue(first.await().isSuccess)
                 holder.join()
                 assertEquals(1, factory.allocations)
             }

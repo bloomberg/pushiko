@@ -65,6 +65,7 @@ import org.jetbrains.annotations.VisibleForTesting
 import java.io.StringWriter
 import java.util.LinkedHashSet
 import javax.annotation.concurrent.ThreadSafe
+import kotlin.coroutines.resumeWithException
 import kotlin.math.ceil
 import kotlin.math.sqrt
 
@@ -360,6 +361,24 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         resumeNextPendingAcquisitions(unnotifiedPermits.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
     }
 
+    private fun failNextPendingAcquisition(cause: Throwable) {
+        removeFirstActivePendingAcquisition()?.let { continuation ->
+            runCatching {
+                continuation.resumeWithException(cause)
+            }.onFailure {
+                logger.debug("Exception failing a pending acquisition", it)
+            }
+        }
+        if (pendingAcquisitions.any(CancellableContinuation<Unit>::isActive)) {
+            // Dispatch the retry so that a synchronously failing factory cannot recurse through the entire queue.
+            launchInWorkScope {
+                if (pendingAcquisitions.any(CancellableContinuation<Unit>::isActive)) {
+                    perhapsGrow(chosen = null)
+                }
+            }
+        }
+    }
+
     private suspend fun ensureMinimumAllocation() {
         assertThisDispatcher()
         if (anticipatedSize < configuration.minimumSize) {
@@ -435,13 +454,20 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private suspend fun createPoolable(): P {
         assertThisDispatcher()
         ++pendingCreationCount
-        return try {
-            withContext(callbackDispatcher) {
-                factory.make()
+        val result = try {
+            runCatching {
+                withContext(callbackDispatcher) {
+                    factory.make()
+                }
             }
         } finally {
             --pendingCreationCount
-        }.also {
+        }
+        return result.onFailure {
+            if (isWorkActive) {
+                failNextPendingAcquisition(it)
+            }
+        }.getOrThrow().also {
             val maximumPermits = it.maximumPermits
             if (maximumPermits <= 0) {
                 scheduleRecycle(it).join()

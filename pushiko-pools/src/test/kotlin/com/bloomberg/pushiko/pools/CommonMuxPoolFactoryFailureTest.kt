@@ -20,18 +20,19 @@ import com.bloomberg.pushiko.pools.exceptions.PoolClosedException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -73,9 +74,13 @@ internal class CommonMuxPoolFactoryFailureTest {
 
     private class ThrowingFactory(
         @Volatile private var failuresRemaining: Int,
-        private val maximumPermits: Int = 10
+        private val maximumPermits: Int = 10,
+        private val gateFirstMake: Boolean = false
     ) : Factory<AnyPoolable>, Recycler<Any> {
         private var _allocations = 0
+        private val makeCallCount = AtomicInteger()
+        private val firstMakeStarted = CompletableDeferred<Unit>()
+        private val firstMakeGate = CompletableDeferred<Unit>()
 
         var recyclingCount = 0
             private set
@@ -83,13 +88,31 @@ internal class CommonMuxPoolFactoryFailureTest {
         override val allocations: Int
             get() = _allocations
 
+        val makeCalls: Int
+            get() = makeCallCount.get()
+
         fun recover() {
             failuresRemaining = 0
+        }
+
+        suspend fun awaitFirstMake() {
+            firstMakeStarted.await()
+        }
+
+        fun releaseFirstMake() {
+            firstMakeGate.complete(Unit)
         }
 
         override suspend fun close() = Unit
 
         override suspend fun make(): AnyPoolable {
+            val call = makeCallCount.incrementAndGet()
+            if (call == 1) {
+                firstMakeStarted.complete(Unit)
+                if (gateFirstMake) {
+                    firstMakeGate.await()
+                }
+            }
             if (failuresRemaining > 0) {
                 --failuresRemaining
                 throw IOException("Simulated connection failure")
@@ -215,14 +238,14 @@ internal class CommonMuxPoolFactoryFailureTest {
     }
 
     @Test
-    fun acquisitionRecoversAfterTransientFactoryFailure() = runTest {
+    fun acquisitionFailsPromptlyAndPoolRecoversAfterTransientFactoryFailure() = runTest {
         val factory = ThrowingFactory(failuresRemaining = 1)
         val pool = newPool(factory, minimumSize = 0, maximumSize = 1)
         try {
             withContext(Dispatchers.Default.limitedParallelism(1)) {
                 assertEquals(0, pool.prepare())
-                assertFailsWith<TimeoutCancellationException> {
-                    pool.withPermit(500L.milliseconds) { }
+                assertFailsWith<IOException> {
+                    pool.withPermit(5L.seconds) { }
                 }
                 pool.withPermit(5L.seconds) { }
                 assertEquals(1, factory.allocations)
@@ -247,6 +270,54 @@ internal class CommonMuxPoolFactoryFailureTest {
             } finally {
                 pool.close()
             }
+        }
+    }
+
+    @Test
+    fun creationFailuresMakeBoundedProgressThroughPendingAcquisitions() = runTest {
+        val factory = ThrowingFactory(failuresRemaining = Int.MAX_VALUE, gateFirstMake = true)
+        val pool = newPool(factory, minimumSize = 0, maximumSize = 1)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                val acquisitions = List(3) {
+                    async {
+                        runCatching {
+                            pool.withPermit(5L.seconds) { }
+                        }
+                    }
+                }
+                factory.awaitFirstMake()
+                while (pool.pendingAcquisitionCount() < acquisitions.size) {
+                    yield()
+                }
+
+                factory.releaseFirstMake()
+                acquisitions.awaitAll().forEach {
+                    assertFailsWith<IOException> { it.getOrThrow() }
+                }
+                assertEquals(acquisitions.size, factory.makeCalls)
+                assertEquals(0, pool.pendingAcquisitionCount())
+            }
+        } finally {
+            factory.releaseFirstMake()
+            pool.close()
+        }
+    }
+
+    @Test
+    fun minimumFillFailureFailsPendingAcquisition() = runTest {
+        val factory = ThrowingFactory(failuresRemaining = 2)
+        val pool = newPool(factory, minimumSize = 1, maximumSize = 1)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                assertFailsWith<IOException> {
+                    pool.withPermit(5L.seconds) { }
+                }
+                assertEquals(1, factory.makeCalls)
+                assertEquals(0, pool.pendingAcquisitionCount())
+            }
+        } finally {
+            pool.close()
         }
     }
 }

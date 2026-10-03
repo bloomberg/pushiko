@@ -29,6 +29,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -173,6 +174,54 @@ internal class CommonMuxPoolPendingTest {
                 releaseHolder.complete(Unit)
                 holder.join()
                 pool.withPermit(Duration.INFINITE) { }
+                assertEquals(1, factory.allocations)
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun cancelledNonHeadAcquisitionDoesNotConsumeQueueCapacity() = runTest {
+        val factory = SinglePermitFactory()
+        val pool = newPool(factory, maximumPendingAcquisitions = 2)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                val holderStarted = CompletableDeferred<Unit>()
+                val releaseHolder = CompletableDeferred<Unit>()
+                val holder = launch {
+                    pool.withPermit(Duration.INFINITE) {
+                        holderStarted.complete(Unit)
+                        releaseHolder.await()
+                    }
+                }
+                holderStarted.await()
+
+                val first = async { runCatching { pool.withPermit(Duration.INFINITE) { } } }
+                while (pool.pendingAcquisitionCount() != 1) {
+                    yield()
+                }
+
+                val cancelled = async { runCatching { pool.withPermit(200L.milliseconds) { } } }
+                assertTrue(cancelled.await().exceptionOrNull() is TimeoutCancellationException)
+                withTimeout(5L.seconds) {
+                    while (pool.pendingAcquisitionCount() != 1) {
+                        yield()
+                    }
+                }
+
+                val last = async { runCatching { pool.withPermit(Duration.INFINITE) { } } }
+                while (pool.pendingAcquisitionCount() != 2) {
+                    yield()
+                }
+                assertFalse(first.isCompleted)
+
+                releaseHolder.complete(Unit)
+                assertTrue(first.await().isSuccess)
+                assertTrue(last.await().isSuccess)
+                holder.join()
+                assertEquals(0, pool.pendingAcquisitionCount())
                 assertEquals(1, factory.allocations)
             }
         } finally {

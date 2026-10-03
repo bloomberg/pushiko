@@ -39,8 +39,6 @@
 package com.bloomberg.pushiko.pools
 
 import com.bloomberg.pushiko.commons.FifoBuffer
-import com.bloomberg.pushiko.commons.removeUntil
-import com.bloomberg.pushiko.commons.removeUntilInclusiveOrNull
 import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.bloomberg.pushiko.commons.strings.commonPluralSuffix
 import com.bloomberg.pushiko.pools.exceptions.PendingAcquisitionLimitException
@@ -54,7 +52,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.jetbrains.annotations.VisibleForTesting
 import java.io.StringWriter
-import java.util.LinkedList
+import java.util.LinkedHashSet
 import javax.annotation.concurrent.ThreadSafe
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -91,7 +89,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
 
     private val pool = FifoBuffer<P>(capacity = configuration.maximumSize)
 
-    private val pendingAcquisitions = LinkedList<CancellableContinuation<Unit>>()
+    private val pendingAcquisitions = LinkedHashSet<CancellableContinuation<Unit>>()
     private var pendingCreationCount = 0
     private val anticipatedSize: Int
         get() = pool.size + pendingCreationCount
@@ -240,11 +238,13 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
 
     private suspend fun awaitAvailability() {
         assertThisDispatcher()
-        pendingAcquisitions.removeUntil { it.isActive }
+        if (pendingAcquisitions.size >= configuration.maximumPendingAcquisitions) {
+            pendingAcquisitions.removeAll { !it.isActive }
+        }
         if (pendingAcquisitions.size >= configuration.maximumPendingAcquisitions) {
             // The pending acquisitions queue is full, clear a slot.
             runCatching {
-                pendingAcquisitions.poll()?.resumeWithException(PendingAcquisitionLimitException)
+                removeFirstActivePendingAcquisition()?.resumeWithException(PendingAcquisitionLimitException)
             }.onFailure {
                 logger.debug("Exception resuming a pending acquisition", it)
             }
@@ -253,7 +253,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             pendingAcquisitions.add(continuation)
             continuation.invokeOnCancellation {
                 launchInWorkScope {
-                    pendingAcquisitions.removeUntil { it.isActive }
+                    pendingAcquisitions.remove(continuation)
                 }
             }
             if (anticipatedSize < configuration.minimumSize) {
@@ -268,11 +268,20 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
 
     private fun resumeNextPendingAcquisitions(limit: Int = 1) {
         repeat(limit) {
-            if (pendingAcquisitions.isEmpty()) {
-                return
-            }
-            pendingAcquisitions.removeUntilInclusiveOrNull { it.isActive }?.resume(Unit)
+            removeFirstActivePendingAcquisition()?.resume(Unit) ?: return
         }
+    }
+
+    private fun removeFirstActivePendingAcquisition(): CancellableContinuation<Unit>? {
+        val iterator = pendingAcquisitions.iterator()
+        while (iterator.hasNext()) {
+            val continuation = iterator.next()
+            iterator.remove()
+            if (continuation.isActive) {
+                return continuation
+            }
+        }
+        return null
     }
 
     private suspend fun attemptFill(): Int = withWorkContext {

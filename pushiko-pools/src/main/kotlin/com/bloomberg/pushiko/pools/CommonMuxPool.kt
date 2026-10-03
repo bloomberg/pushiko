@@ -198,10 +198,6 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     @VisibleForTesting
     internal suspend fun selectPoolableForTest(): P? = withWorkContext { selectPoolable() }
 
-    @JvmSynthetic
-    @VisibleForTesting
-    internal suspend fun pendingAcquisitionCountForTest(): Int = withWorkContext { pendingAcquisitions.size }
-
     private fun probeLimit(): Int = if (anticipatedSize >= configuration.maximumSize) {
         pool.size
     } else {

@@ -16,14 +16,19 @@
 
 package com.bloomberg.pushiko.pools
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class CommonMuxPoolHealthTest {
@@ -44,10 +49,15 @@ internal class CommonMuxPoolHealthTest {
     }
 
     private class QueueFactory(
-        poolables: List<Poolable<Any>>
+        poolables: List<Poolable<Any>>,
+        private val beforeMake: suspend (Int) -> Unit = {}
     ) : Factory<Poolable<Any>>, Recycler<Any> {
         private val queue = ArrayDeque(poolables)
         private var _allocations = 0
+
+        @Volatile
+        var makeAttempts = 0
+            private set
 
         override val allocations: Int
             get() = _allocations
@@ -55,6 +65,7 @@ internal class CommonMuxPoolHealthTest {
         override suspend fun close() = Unit
 
         override suspend fun make(): Poolable<Any> {
+            beforeMake(++makeAttempts)
             ++_allocations
             return queue.removeFirst()
         }
@@ -67,11 +78,12 @@ internal class CommonMuxPoolHealthTest {
     private fun newPool(
         factory: QueueFactory,
         size: Int,
+        maximumSize: Int = size,
         errorRateThreshold: Double = 0.5
     ) = CommonMuxPool(
         configuration = poolConfiguration(
             maximumPendingAcquisitions = 1_000,
-            maximumSize = size,
+            maximumSize = maximumSize,
             minimumSize = size,
             reaperDelay = 10L.minutes,
             summaryInterval = 5L.minutes,
@@ -131,6 +143,77 @@ internal class CommonMuxPoolHealthTest {
                 }
             }
         } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun unhealthyLastResortTriggersReplacementGrowth() = runTest {
+        val unhealthy = HealthBandedPoolable(shouldAcquireLimit = 10, maximumPermits = 10).degrade(2)
+        val replacement = HealthBandedPoolable(shouldAcquireLimit = 10, maximumPermits = 10)
+        val factory = QueueFactory(listOf(unhealthy, replacement))
+        val pool = newPool(factory, size = 1, maximumSize = 2)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+
+                pool.withPermit(5L.seconds) {
+                    assertSame(unhealthy.value, it)
+                }
+
+                withTimeout(5L.seconds) {
+                    while (factory.allocations != 2) {
+                        yield()
+                    }
+                }
+                assertEquals(2, factory.allocations)
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun unhealthyLastResortStartsAtMostOneReplacementAtATime() = runTest {
+        val unhealthy = List(3) {
+            HealthBandedPoolable(shouldAcquireLimit = 10, maximumPermits = 10).degrade(2)
+        }
+        val replacementStarted = CompletableDeferred<Unit>()
+        val allowReplacement = CompletableDeferred<Unit>()
+        val factory = QueueFactory(
+            unhealthy + List(3) {
+                HealthBandedPoolable(shouldAcquireLimit = 10, maximumPermits = 10)
+            }
+        ) { attempt ->
+            if (attempt == 4) {
+                replacementStarted.complete(Unit)
+                allowReplacement.await()
+            }
+        }
+        val pool = newPool(factory, size = 3, maximumSize = 6)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+
+                pool.testAcquisition(5L.seconds)
+                withTimeout(5L.seconds) {
+                    replacementStarted.await()
+                }
+
+                repeat(5) {
+                    pool.testAcquisition(5L.seconds)
+                }
+                assertEquals(4, factory.makeAttempts)
+
+                allowReplacement.complete(Unit)
+                withTimeout(5L.seconds) {
+                    while (factory.allocations != 4) {
+                        yield()
+                    }
+                }
+            }
+        } finally {
+            allowReplacement.complete(Unit)
             pool.close()
         }
     }

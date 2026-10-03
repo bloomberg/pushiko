@@ -359,6 +359,10 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         }
         when {
             anticipatedSize == 0 -> launchCreateExtra()
+            chosen != null && !chosen.isHealthy() -> if (pendingCreationCount == 0) {
+                logger.info("Creating poolable to replace unhealthy poolable")
+                launchCreateExtra()
+            }
             pendingCreationCount >= maxOf(configuration.minimumSize, pool.size) -> Unit
             chosen == null || !chosen.isShouldAcquire -> {
                 logger.info("Creating poolable to relieve pressure")

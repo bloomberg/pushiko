@@ -18,6 +18,7 @@ package com.bloomberg.pushiko.pools
 
 import javax.annotation.concurrent.ThreadSafe
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 @ThreadSafe
 public data class WaterMarkScaleFactor(
@@ -25,6 +26,11 @@ public data class WaterMarkScaleFactor(
     val high: Double = 1.0
 )
 
+/**
+ * @property shutdownTimeout maximum time each [SuspendPool.close] invocation waits for orderly shutdown. Expiry only
+ * stops that invocation from waiting: it does not cancel cleanup. A later `close` call can await the same stored
+ * shutdown result, including any cleanup failure.
+ */
 @ThreadSafe
 public data class PoolConfiguration(
     val errorRateThreshold: Double,
@@ -35,7 +41,8 @@ public data class PoolConfiguration(
     val minimumSize: Int,
     val name: String = "Pushiko.Pool",
     val reaperDelay: Duration,
-    val summaryInterval: Duration
+    val summaryInterval: Duration,
+    val shutdownTimeout: Duration = 30L.seconds
 ) {
     init {
         require(maximumSize in 1..MAXIMUM_SIZE) {
@@ -52,6 +59,9 @@ public data class PoolConfiguration(
         }
         require(fullScanPoolSize in 1..maximumSampledScan) {
             "Invalid scan bounds fullScanPoolSize: $fullScanPoolSize maximumSampledScan: $maximumSampledScan"
+        }
+        require(shutdownTimeout.isPositive() && shutdownTimeout.isFinite()) {
+            "Shutdown timeout must be positive and finite: $shutdownTimeout"
         }
     }
 

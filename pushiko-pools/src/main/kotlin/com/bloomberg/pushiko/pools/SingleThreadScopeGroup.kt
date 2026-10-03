@@ -100,6 +100,12 @@ public class SingleThreadScopeGroup(
     ): Deferred<T> = workScope.async(EmptyCoroutineContext, start, block)
 
     @JvmSynthetic
+    internal fun <T> asyncInMainScope(
+        start: CoroutineStart = CoroutineStart.DEFAULT,
+        block: suspend CoroutineScope.() -> T
+    ): Deferred<T> = mainScope.async(EmptyCoroutineContext, start, block)
+
+    @JvmSynthetic
     internal fun launchInMainScope(
         start: CoroutineStart = CoroutineStart.DEFAULT,
         block: suspend CoroutineScope.() -> Unit

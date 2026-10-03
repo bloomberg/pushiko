@@ -19,9 +19,24 @@ package com.bloomberg.pushiko.pools
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 internal class PoolConfigurationTest {
+    @Test
+    fun rejectsNonPositiveOrInfiniteShutdownTimeout() {
+        assertThrows<IllegalArgumentException> {
+            poolConfiguration(shutdownTimeout = Duration.ZERO)
+        }
+        assertThrows<IllegalArgumentException> {
+            poolConfiguration(shutdownTimeout = (-1L).seconds)
+        }
+        assertThrows<IllegalArgumentException> {
+            poolConfiguration(shutdownTimeout = Duration.INFINITE)
+        }
+    }
+
     @Test
     fun acceptsEqualNonZeroMinMax() {
         assertDoesNotThrow {

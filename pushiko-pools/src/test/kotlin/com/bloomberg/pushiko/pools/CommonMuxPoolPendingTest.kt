@@ -59,7 +59,7 @@ internal class CommonMuxPoolPendingTest {
     }
 
     private class DynamicPoolable : Poolable<Any>(Any()) {
-        private var permits = 0
+        private var permits = 1
 
         override val maximumPermits: Int
             get() = permits
@@ -284,9 +284,17 @@ internal class CommonMuxPoolPendingTest {
         try {
             withContext(Dispatchers.Default.limitedParallelism(1)) {
                 pool.prepare()
+                val holderEntered = CompletableDeferred<Unit>()
                 val firstEntered = CompletableDeferred<Unit>()
                 val secondEntered = CompletableDeferred<Unit>()
                 val release = CompletableDeferred<Unit>()
+                val holder = launch {
+                    pool.withPermit(Duration.INFINITE) {
+                        holderEntered.complete(Unit)
+                        release.await()
+                    }
+                }
+                holderEntered.await()
                 val first = launch {
                     pool.withPermit(Duration.INFINITE) {
                         firstEntered.complete(Unit)
@@ -303,15 +311,19 @@ internal class CommonMuxPoolPendingTest {
                     yield()
                 }
 
-                factory.poolable.setMaximumPermits(2)
+                factory.poolable.setMaximumPermits(3)
 
-                withTimeout(5L.seconds) {
-                    firstEntered.await()
-                    secondEntered.await()
+                try {
+                    withTimeout(5L.seconds) {
+                        firstEntered.await()
+                        secondEntered.await()
+                    }
+                } finally {
+                    release.complete(Unit)
+                    holder.join()
+                    first.join()
+                    second.join()
                 }
-                release.complete(Unit)
-                first.join()
-                second.join()
             }
         } finally {
             pool.close()
@@ -325,6 +337,15 @@ internal class CommonMuxPoolPendingTest {
         try {
             withContext(Dispatchers.Default.limitedParallelism(1)) {
                 pool.prepare()
+                val holderEntered = CompletableDeferred<Unit>()
+                val releaseHolder = CompletableDeferred<Unit>()
+                val holder = launch {
+                    pool.withPermit(Duration.INFINITE) {
+                        holderEntered.complete(Unit)
+                        releaseHolder.await()
+                    }
+                }
+                holderEntered.await()
                 val first = async {
                     runCatching {
                         pool.withPermit(200L.milliseconds) { }
@@ -337,11 +358,16 @@ internal class CommonMuxPoolPendingTest {
                     yield()
                 }
 
-                factory.poolable.setMaximumPermits(1, notify = false)
-                assertTrue(first.await().exceptionOrNull() is TimeoutCancellationException)
+                try {
+                    factory.poolable.setMaximumPermits(2, notify = false)
+                    assertTrue(first.await().exceptionOrNull() is TimeoutCancellationException)
 
-                withTimeout(5L.seconds) {
-                    second.await()
+                    withTimeout(5L.seconds) {
+                        second.await()
+                    }
+                } finally {
+                    releaseHolder.complete(Unit)
+                    holder.join()
                 }
             }
         } finally {

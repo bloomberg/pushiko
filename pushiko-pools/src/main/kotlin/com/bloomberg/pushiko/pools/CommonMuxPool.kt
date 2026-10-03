@@ -409,13 +409,18 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         } finally {
             --pendingCreationCount
         }.also {
+            val maximumPermits = it.maximumPermits
+            if (maximumPermits <= 0) {
+                recycle(it)
+                throw IllegalArgumentException("Poolable maximum permits must be positive, got $maximumPermits")
+            }
             it.setAvailabilityChangedListener {
                 launchInWorkScope {
                     resumeForAvailableCapacity()
                 }
             }
             pool.addFirst(it)
-            resumeNextPendingAcquisitions(it.maximumPermits)
+            resumeNextPendingAcquisitions(maximumPermits)
         }
     }
 

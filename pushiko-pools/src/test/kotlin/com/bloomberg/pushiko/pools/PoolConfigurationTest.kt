@@ -75,6 +75,29 @@ internal class PoolConfigurationTest {
     }
 
     @Test
+    fun rejectsNonPositiveMaximumPendingAcquisitions() {
+        listOf(-1, 0).forEach {
+            assertThrows<IllegalArgumentException> {
+                poolConfiguration(maximumPendingAcquisitions = it)
+            }
+        }
+    }
+
+    @Test
+    fun acceptsMaximumSupportedPoolSize() {
+        assertDoesNotThrow {
+            poolConfiguration(maximumSize = PoolConfiguration.MAXIMUM_SIZE)
+        }
+    }
+
+    @Test
+    fun rejectsPoolSizeAboveOperationalLimit() {
+        assertThrows<IllegalArgumentException> {
+            poolConfiguration(maximumSize = PoolConfiguration.MAXIMUM_SIZE + 1)
+        }
+    }
+
+    @Test
     fun acceptsErrorRateThresholdWithinRange() {
         assertDoesNotThrow {
             poolConfiguration(

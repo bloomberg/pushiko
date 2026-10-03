@@ -18,6 +18,7 @@ package com.bloomberg.pushiko.http
 
 import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.bloomberg.pushiko.http.netty.DefaultHttpRetryPolicy
+import com.bloomberg.pushiko.pools.PoolConfiguration
 import java.net.InetSocketAddress
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
@@ -59,10 +60,16 @@ public data class HttpClientProperties internal constructor(
             "Maximum connection age must be a positive number of seconds"
         }
         require(maximumConnectRetries >= 0) { "Maximum number of connect retries must be non-negative" }
-        require(maximumConnections > 0) { "Maximum number of connections must be positive" }
+        require(maximumConnections in 1..PoolConfiguration.MAXIMUM_SIZE) {
+            "Maximum number of connections must be within [1, ${PoolConfiguration.MAXIMUM_SIZE}]"
+        }
         require(maximumPendingAcquisitions > 0) { "Maximum pending acquisitions must be positive" }
-        require(minimumConnections <= maximumConnections) {
-            "Minimum number of connections must not exceed the maximum number of connections"
+        require(maximumRequestRetries >= 0) { "Maximum number of request retries must be non-negative" }
+        require(minimumConnections in 0..maximumConnections) {
+            "Minimum number of connections must be within [0, maximumConnections]"
+        }
+        require(defaultMaximumConcurrentStreams > 0L) {
+            "Default maximum concurrent streams must be positive"
         }
         require(errorRateThreshold in 0.0..1.0) {
             "Error rate threshold must be within [0.0, 1.0]"

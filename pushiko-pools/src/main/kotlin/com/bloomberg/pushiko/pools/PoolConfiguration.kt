@@ -38,8 +38,14 @@ public data class PoolConfiguration(
     val summaryInterval: Duration
 ) {
     init {
-        require(minimumSize in 1..maximumSize || minimumSize == 0 && maximumSize > 0) {
+        require(maximumSize in 1..MAXIMUM_SIZE) {
+            "Maximum pool size must be within [1, $MAXIMUM_SIZE], got $maximumSize"
+        }
+        require(minimumSize in 0..maximumSize) {
             "Invalid pool size configuration min: $minimumSize max: $maximumSize"
+        }
+        require(maximumPendingAcquisitions > 0) {
+            "Maximum pending acquisitions must be positive, got $maximumPendingAcquisitions"
         }
         require(errorRateThreshold in 0.0..1.0) {
             "Invalid error rate threshold: $errorRateThreshold"
@@ -47,5 +53,10 @@ public data class PoolConfiguration(
         require(fullScanPoolSize in 1..maximumSampledScan) {
             "Invalid scan bounds fullScanPoolSize: $fullScanPoolSize maximumSampledScan: $maximumSampledScan"
         }
+    }
+
+    public companion object {
+        /** Largest supported pool size, bounding the eagerly allocated pool index. */
+        public const val MAXIMUM_SIZE: Int = 1_000_000
     }
 }

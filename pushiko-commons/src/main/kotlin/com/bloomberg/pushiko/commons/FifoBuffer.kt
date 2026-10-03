@@ -28,6 +28,7 @@ import javax.annotation.concurrent.NotThreadSafe
 public class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
     init {
         require(capacity > -1)
+        require(capacity < Int.MAX_VALUE) { "Capacity must be less than Int.MAX_VALUE" }
     }
 
     private val lastIndex = capacity

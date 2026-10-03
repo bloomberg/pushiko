@@ -39,6 +39,13 @@ internal class FifoBufferTest {
     }
 
     @Test
+    fun throwsIfCapacityWouldOverflowBackingArraySize() {
+        assertThrows<IllegalArgumentException> {
+            FifoBuffer<Any>(Int.MAX_VALUE)
+        }
+    }
+
+    @Test
     fun isEmpty(): Unit = FifoBuffer<Any>(1).run {
         assertEquals(0, size)
         assertNull(removeFirstOrNull())

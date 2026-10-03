@@ -213,6 +213,25 @@ internal class ConnectionHandlerTest {
     }
 
     @Test
+    fun increasedSettingsFrameSignalsAdditionalStreamCapacity() {
+        val continuationAttribute = mock<Attribute<Continuation<Channel>>>()
+        val maxConcurrentStreamsAttribute = mock<Attribute<Long>>().apply {
+            whenever(get()) doReturn 0L
+        }
+        val streamCapacityChanged = mock<() -> Unit>()
+        val streamCapacityChangedAttribute = mock<Attribute<() -> Unit>>().apply {
+            whenever(get()) doReturn streamCapacityChanged
+        }
+        whenever(channel.attr(channelContinuationAttributeKey)) doReturn continuationAttribute
+        whenever(channel.attr(maxConcurrentStreamsAttributeKey)) doReturn maxConcurrentStreamsAttribute
+        whenever(channel.attr(streamCapacityChangedAttributeKey)) doReturn streamCapacityChangedAttribute
+
+        ConnectionHandler().onSettingsRead(context, Http2Settings().maxConcurrentStreams(10L))
+
+        verify(streamCapacityChanged, times(1)).invoke()
+    }
+
+    @Test
     fun initialSettingsTimeoutFailsCreationAndClosesChannel() {
         var failure: Throwable? = null
         val readyContinuation = object : Continuation<Channel> {

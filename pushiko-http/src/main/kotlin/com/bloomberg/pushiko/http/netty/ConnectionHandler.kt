@@ -374,6 +374,9 @@ internal class ConnectionHandler(
             settings.maxConcurrentStreams()?.let {
                 val previous = maxConcurrentStreams
                 recordMaxConcurrentStreams(it)
+                if (previous != null && it > previous) {
+                    attr(streamCapacityChangedAttributeKey).get()?.invoke()
+                }
                 if (previous != null && previous != it) {
                     logger.info("Peer changed SETTINGS_MAX_CONCURRENT_STREAMS from: {} to: {} channel: {}",
                         previous, it, this)

@@ -42,6 +42,9 @@ public abstract class Poolable<out R : Any>(
     private val errorRateHalfLifeNanos = errorRateHalfLife.inWholeNanoseconds.toDouble()
     private var lastOutcomeNanos = 0L
 
+    @Volatile
+    private var availabilityChangedListener: (() -> Unit)? = null
+
     public var allocatedPermits: Int = 0
         private set
 
@@ -69,6 +72,17 @@ public abstract class Poolable<out R : Any>(
 
     public fun releasePermit() {
         --allocatedPermits
+    }
+
+    /**
+     * Notifies the pool that capacity may have become available without a permit being released.
+     */
+    protected fun notifyAvailabilityChanged() {
+        availabilityChangedListener?.invoke()
+    }
+
+    internal fun setAvailabilityChangedListener(listener: () -> Unit) {
+        availabilityChangedListener = listener
     }
 
     public fun recordOutcome(holdNanos: Long, wasSuccess: Boolean) {

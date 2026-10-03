@@ -58,12 +58,58 @@ internal class CommonMuxPoolPendingTest {
         }
     }
 
+    private class DynamicPoolable : Poolable<Any>(Any()) {
+        private var permits = 0
+
+        override val maximumPermits: Int
+            get() = permits
+
+        override val isAlive = true
+
+        override val isCanAcquire: Boolean
+            get() = allocatedPermits < permits
+
+        override val isShouldAcquire: Boolean
+            get() = isCanAcquire
+
+        fun setMaximumPermits(value: Int, notify: Boolean = true) {
+            permits = value
+            if (notify) {
+                notifyAvailabilityChanged()
+            }
+        }
+    }
+
+    private class DynamicPoolableFactory : Factory<DynamicPoolable>, Recycler<Any> {
+        val poolable = DynamicPoolable()
+
+        override val allocations = 1
+
+        override suspend fun close() = Unit
+
+        override suspend fun make() = poolable
+
+        override fun recycle(obj: Any) = Unit
+    }
+
     private fun newPool(
         factory: SinglePermitFactory,
         maximumPendingAcquisitions: Int
     ) = CommonMuxPool(
         configuration = poolConfiguration(
             maximumPendingAcquisitions = maximumPendingAcquisitions,
+            maximumSize = 1,
+            minimumSize = 1,
+            reaperDelay = 10L.minutes,
+            summaryInterval = 5L.minutes
+        ),
+        factory,
+        factory
+    )
+
+    private fun newDynamicPool(factory: DynamicPoolableFactory) = CommonMuxPool(
+        configuration = poolConfiguration(
+            maximumPendingAcquisitions = 4,
             maximumSize = 1,
             minimumSize = 1,
             reaperDelay = 10L.minutes,
@@ -223,6 +269,78 @@ internal class CommonMuxPoolPendingTest {
                 holder.join()
                 assertEquals(0, pool.pendingAcquisitionCount())
                 assertEquals(1, factory.allocations)
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun availabilityChangeResumesAllWaitersForNewCapacity() = runTest {
+        val factory = DynamicPoolableFactory()
+        val pool = newDynamicPool(factory)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                val firstEntered = CompletableDeferred<Unit>()
+                val secondEntered = CompletableDeferred<Unit>()
+                val release = CompletableDeferred<Unit>()
+                val first = launch {
+                    pool.withPermit(Duration.INFINITE) {
+                        firstEntered.complete(Unit)
+                        release.await()
+                    }
+                }
+                val second = launch {
+                    pool.withPermit(Duration.INFINITE) {
+                        secondEntered.complete(Unit)
+                        release.await()
+                    }
+                }
+                while (pool.pendingAcquisitionCount() != 2) {
+                    yield()
+                }
+
+                factory.poolable.setMaximumPermits(2)
+
+                withTimeout(5L.seconds) {
+                    firstEntered.await()
+                    secondEntered.await()
+                }
+                release.complete(Unit)
+                first.join()
+                second.join()
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun cancelledWaiterHandsAvailableCapacityToNextWaiter() = runTest {
+        val factory = DynamicPoolableFactory()
+        val pool = newDynamicPool(factory)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                val first = async {
+                    runCatching {
+                        pool.withPermit(200L.milliseconds) { }
+                    }
+                }
+                val second = async {
+                    pool.withPermit(Duration.INFINITE) { }
+                }
+                while (pool.pendingAcquisitionCount() != 2) {
+                    yield()
+                }
+
+                factory.poolable.setMaximumPermits(1, notify = false)
+                assertTrue(first.await().exceptionOrNull() is TimeoutCancellationException)
+
+                withTimeout(5L.seconds) {
+                    second.await()
+                }
             }
         } finally {
             pool.close()

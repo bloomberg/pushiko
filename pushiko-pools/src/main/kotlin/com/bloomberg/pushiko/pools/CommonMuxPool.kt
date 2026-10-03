@@ -232,8 +232,13 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             pool.addLast(poolable)
             poolable
         } else {
+            recycle(poolable)
             null
         }
+    }
+
+    private fun recycle(poolable: P) {
+        recycler.recycle(poolable.value)
     }
 
     private fun P.isHealthy(): Boolean = currentErrorRate() <= configuration.errorRateThreshold
@@ -289,7 +294,14 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     }
 
     private suspend fun cleanPool() = withMainContext {
-        pool.removeAll { !it.isAlive }
+        pool.removeAll { poolable ->
+            if (poolable.isAlive) {
+                false
+            } else {
+                recycle(poolable)
+                true
+            }
+        }
     }
 
     private suspend fun doAttemptFill(): Int {
@@ -350,7 +362,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         cleanPool()
         val initialSize = pool.size
         while (pool.size > configuration.minimumSize) {
-            recycler.recycle(pool.removeLast().value)
+            recycle(pool.removeLast())
         }
         val difference = initialSize - pool.size
         logger.info("Removed {} poolable{}", difference, difference.commonPluralSuffix())

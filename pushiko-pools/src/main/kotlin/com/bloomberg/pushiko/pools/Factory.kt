@@ -16,10 +16,22 @@
 
 package com.bloomberg.pushiko.pools
 
+import javax.annotation.concurrent.ThreadSafe
+
+/**
+ * Creates and owns the resources used by a pool.
+ *
+ * Implementations must be thread-safe. Property access must return promptly and must not throw. Suspending functions
+ * must use suspension or an appropriate dispatcher for blocking work rather than blocking their calling thread.
+ */
+@ThreadSafe
 public interface Factory<P : Any> {
+    /** Current number of resources owned by this factory. Must return promptly and must not throw. */
     public val allocations: Int
 
+    /** Releases all resources owned by this factory. */
     public suspend fun close()
 
+    /** Creates one resource. */
     public suspend fun make(): P
 }

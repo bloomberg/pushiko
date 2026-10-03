@@ -45,10 +45,12 @@ import com.bloomberg.pushiko.pools.exceptions.PendingAcquisitionLimitException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -58,11 +60,11 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.yield
+import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.VisibleForTesting
 import java.io.StringWriter
 import java.util.LinkedHashSet
 import javax.annotation.concurrent.ThreadSafe
-import kotlin.coroutines.resume
 import kotlin.math.ceil
 import kotlin.math.sqrt
 
@@ -119,6 +121,10 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     }
 
     private var reaperJob: Job? = null
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val callbackDispatcher = Dispatchers.IO.limitedParallelism(1)
+    private val recyclingJobs = LinkedHashSet<Job>()
 
     init {
         configuration.summaryInterval.takeIf { it.isPositive() && it.isFinite() }?.let {
@@ -236,6 +242,10 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         previous
     }
 
+    @JvmSynthetic
+    @VisibleForTesting
+    internal suspend fun isReaperScheduledForTest(): Boolean = withWorkContext { reaperJob != null }
+
     private fun probeLimit(): Int = if (anticipatedSize >= configuration.maximumSize) {
         pool.size
     } else {
@@ -264,13 +274,24 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             pool.addLast(poolable)
             poolable
         } else {
-            recycle(poolable)
+            scheduleRecycle(poolable)
             null
         }
     }
 
-    private fun recycle(poolable: P) {
-        recycler.recycle(poolable.value)
+    private fun scheduleRecycle(poolable: P): Job {
+        recyclingJobs.removeAll(Job::isCompleted)
+        return launchInMainScope {
+            runCatching {
+                withContext(callbackDispatcher) {
+                    recycler.recycle(poolable.value)
+                }
+            }.onFailure {
+                logger.warn("Failed to recycle poolable", it)
+            }
+        }.also {
+            recyclingJobs += it
+        }
     }
 
     private fun P.isHealthy(): Boolean = currentErrorRate() <= configuration.errorRateThreshold
@@ -353,7 +374,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             if (poolable.isAlive) {
                 false
             } else {
-                recycle(poolable)
+                scheduleRecycle(poolable)
                 true
             }
         }
@@ -415,13 +436,15 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         assertThisDispatcher()
         ++pendingCreationCount
         return try {
-            factory.make()
+            withContext(callbackDispatcher) {
+                factory.make()
+            }
         } finally {
             --pendingCreationCount
         }.also {
             val maximumPermits = it.maximumPermits
             if (maximumPermits <= 0) {
-                recycle(it)
+                scheduleRecycle(it).join()
                 throw IllegalArgumentException("Poolable maximum permits must be positive, got $maximumPermits")
             }
             it.setAvailabilityChangedListener {
@@ -431,6 +454,9 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             }
             pool.addFirst(it)
             resumeNextPendingAcquisitions(maximumPermits)
+            if (pendingAcquisitions.any(CancellableContinuation<Unit>::isActive)) {
+                perhapsGrow(chosen = null)
+            }
         }
     }
 
@@ -448,12 +474,14 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
                 break
             }
             val inspections = minOf(batchSize, remainingInspections)
+            val scheduledRecycling = ArrayList<Job>(inspections)
             removed += pool.removeAtMostFromLast(
                 maximum,
                 inspections,
                 predicate = { it.allocatedPermits == 0 },
-                onRemove = { recycler.recycle(it.value) }
+                onRemove = { scheduledRecycling += scheduleRecycle(it) }
             )
+            scheduledRecycling.joinAll()
             remainingInspections -= inspections
             if (remainingInspections > 0) {
                 yield()
@@ -502,6 +530,9 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         pendingAcquisitions.clear()
         joinWork()
         joinActiveLeases()
+        reaperJob?.cancelAndJoin()
+        recyclingJobs.toList().joinAll()
+        recyclingJobs.clear()
         factory.close()
         logger.info("Pool {} has shutdown", this)
     }

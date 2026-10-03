@@ -69,6 +69,9 @@ internal class HttpRequestSenderTest {
         val closing = mock<Attribute<Boolean>>().apply {
             whenever(get()) doReturn false
         }
+        val draining = mock<Attribute<Boolean>>().apply {
+            whenever(get()) doReturn false
+        }
         val written = CompletableDeferred<HttpRequestContinuation>()
         val cancelled = CompletableDeferred<HttpRequestContinuation>()
         val handler = mock<ConnectionHandler> {
@@ -84,6 +87,7 @@ internal class HttpRequestSenderTest {
             whenever(attr<Long>(eq(maxConcurrentStreamsAttributeKey))) doReturn maximumStreams
             whenever(attr<() -> Unit>(eq(streamCapacityChangedAttributeKey))) doReturn streamCapacityChanged
             whenever(attr<Boolean>(argThat { name() == "channelIsClosing" })) doReturn closing
+            whenever(attr<Boolean>(argThat { name() == "channelIsDraining" })) doReturn draining
             whenever(writeAndFlush(any<HttpRequestContinuation>())) doAnswer {
                 written.complete(it.arguments[0] as HttpRequestContinuation)
                 mock<ChannelFuture>()

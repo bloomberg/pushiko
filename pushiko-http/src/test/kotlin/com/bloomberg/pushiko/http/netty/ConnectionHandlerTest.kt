@@ -73,6 +73,7 @@ import kotlin.test.assertTrue
 internal class ConnectionHandlerTest {
     private val pipeline = mock<ChannelPipeline>()
     private val isClosingAttribute = mock<Attribute<Boolean>>()
+    private val isDrainingAttribute = mock<Attribute<Boolean>>()
     private val eventLoop = mock<EventLoop>().apply {
         whenever(inEventLoop()) doReturn true
     }
@@ -80,6 +81,7 @@ internal class ConnectionHandlerTest {
         whenever(eventLoop()) doReturn eventLoop
         whenever(pipeline()) doReturn pipeline
         whenever(attr<Boolean>(argThat { name() == "channelIsClosing" })) doReturn isClosingAttribute
+        whenever(attr<Boolean>(argThat { name() == "channelIsDraining" })) doReturn isDrainingAttribute
     }
     private val context = mock<ChannelHandlerContext>().apply {
         whenever(channel()) doReturn channel
@@ -111,6 +113,22 @@ internal class ConnectionHandlerTest {
     @Test
     fun onGoAwayReadClosesChannel() {
         ConnectionHandler().onGoAwayRead(context, 1, 1, mock())
+        verify(isDrainingAttribute, times(1)).getAndSet(eq(true))
+        verify(channel, times(1)).close()
+    }
+
+    @Test
+    fun onGoAwayReadDrainsActiveStreamsBeforeClosingChannel() {
+        whenever(connection.numActiveStreams()).thenReturn(1, 0)
+        val stream = mock<Http2Stream>().apply {
+            whenever(id()) doReturn 3
+        }
+        val handler = ConnectionHandler()
+
+        handler.onGoAwayRead(context, 3, 0, mock())
+        verify(channel, never()).close()
+
+        handler.onStreamClosed(stream)
         verify(channel, times(1)).close()
     }
 

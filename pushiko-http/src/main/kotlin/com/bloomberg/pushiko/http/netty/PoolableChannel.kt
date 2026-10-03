@@ -83,18 +83,20 @@ internal class PoolableChannel internal constructor(
         }
 
     override val isAlive: Boolean
-        get() = channel.let { it.isActive && !it.isClosing() }
+        get() = channel.let {
+            it.isActive && !it.isClosing() && (!it.isDraining() || allocatedPermits > 0)
+        }
 
     override val isCanAcquire: Boolean
         get() {
             refreshWaterMark()
-            return allocatedPermits < cachedHighWaterMark
+            return !channel.isDraining() && allocatedPermits < cachedHighWaterMark
         }
 
     override val isShouldAcquire: Boolean
         get() {
             refreshWaterMark()
-            return allocatedPermits < cachedLowWaterMark
+            return !channel.isDraining() && allocatedPermits < cachedLowWaterMark
         }
 
     private fun refreshWaterMark() {

@@ -47,7 +47,9 @@ import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -127,7 +129,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
 
     @JvmSynthetic
     override suspend fun prepare(): Int = withWorkContext {
-        attemptFill()
+        doAttemptFill()
     }
 
     @JvmSynthetic
@@ -286,7 +288,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             }
             if (anticipatedSize < configuration.minimumSize) {
                 launchInWorkScope(start = CoroutineStart.UNDISPATCHED) {
-                    attemptFill()
+                    doAttemptFill()
                 }
             } else {
                 perhapsGrow(chosen = null)
@@ -332,15 +334,11 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         resumeNextPendingAcquisitions(unnotifiedPermits.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
     }
 
-    private suspend fun attemptFill(): Int = withWorkContext {
-        doAttemptFill()
-    }
-
     private suspend fun ensureMinimumAllocation() {
         assertThisDispatcher()
         if (anticipatedSize < configuration.minimumSize) {
             launchInWorkScope(start = CoroutineStart.UNDISPATCHED) {
-                attemptFill()
+                doAttemptFill()
             }
         }
     }
@@ -365,22 +363,28 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             }
         }
         logger.info("Attempting to create {} poolable{}", defect, defect.commonPluralSuffix())
-        var count = 0
-        runCatching {
+        val results = coroutineScope {
             List(defect) {
                 // Start without dispatching so that the pending counts remain coherent.
-                asyncInWorkScope(start = CoroutineStart.UNDISPATCHED) {
-                    createPoolable()
-                    ++count
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    tryCreatePoolable()
                 }
             }.awaitAll()
-        }.onFailure {
-            logger.warn("Failure while creating a poolable, " +
-                "created $count poolable${defect.commonPluralSuffix()}", it)
-        }.onSuccess {
-            logger.info("Successfully added {} poolable{} to the pool", count, count.commonPluralSuffix())
         }
+        results.mapNotNull(Result<P>::exceptionOrNull).forEach {
+            logger.warn("Failure while creating a poolable", it)
+        }
+        val count = results.count(Result<P>::isSuccess)
+        logger.info("Finished creating poolables: {} succeeded, {} failed", count, defect - count)
         return count
+    }
+
+    private suspend fun tryCreatePoolable(): Result<P> = try {
+        Result.success(createPoolable())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        Result.failure(e)
     }
 
     private fun perhapsGrow(chosen: P?) {
@@ -402,9 +406,10 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         }
     }
 
-    private suspend fun createPoolable(): P = withWorkContext {
+    private suspend fun createPoolable(): P {
+        assertThisDispatcher()
         ++pendingCreationCount
-        try {
+        return try {
             factory.make()
         } finally {
             --pendingCreationCount

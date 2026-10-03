@@ -123,6 +123,9 @@ internal class CommonMuxPoolScalingTest {
         private var _allocations = 0
         private var created = 0
 
+        var recyclingCount = 0
+            private set
+
         override val allocations: Int
             get() = _allocations
 
@@ -139,6 +142,7 @@ internal class CommonMuxPoolScalingTest {
 
         override fun recycle(obj: Any) {
             --_allocations
+            ++recyclingCount
         }
     }
 
@@ -415,8 +419,10 @@ internal class CommonMuxPoolScalingTest {
             withContext(Dispatchers.Default.limitedParallelism(1)) {
                 pool.prepare()
                 assertEquals(6, factory.allocations)
+                pool.withPermit(Duration.INFINITE) { }
                 pool.withPermit(Duration.INFINITE) {
-                    assertEquals(6, factory.allocations)
+                    assertEquals(1, factory.allocations)
+                    assertEquals(5, factory.recyclingCount)
                 }
             }
         } finally {
@@ -445,8 +451,39 @@ internal class CommonMuxPoolScalingTest {
                 pool.prepare()
                 assertEquals(5, factory.allocations)
                 pool.withPermit(5L.seconds) {
-                    assert(factory.allocations > 5) { "Pool should have grown beyond dead poolables" }
+                    assertEquals(5, factory.allocations)
+                    assertEquals(5, factory.recyclingCount)
                 }
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun prepareRecyclesDeadPoolablesBeforeRefilling() = runTest {
+        val factory = MixedFactory(deadCount = 3)
+        val pool = CommonMuxPool(
+            configuration = poolConfiguration(
+                maximumPendingAcquisitions = 1_000,
+                maximumSize = 3,
+                minimumSize = 3,
+                reaperDelay = 10L.minutes,
+                summaryInterval = 5L.minutes
+            ),
+            factory,
+            factory
+        )
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                assertEquals(3, factory.allocations)
+
+                pool.prepare()
+
+                assertEquals(3, factory.allocations)
+                assertEquals(3, factory.recyclingCount)
+                assertNotNull(pool.selectPoolableForTest())
             }
         } finally {
             pool.close()

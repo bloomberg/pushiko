@@ -58,12 +58,19 @@ public class SingleThreadScopeGroup(
      * Closes resources in an orderly manner.
      */
     override fun close() {
+        beginClose()
+        finishClose()
+    }
+
+    internal fun beginClose() {
         workJob.cancel(PoolClosedException)
-        mainJob.run {
-            complete()
+    }
+
+    internal fun finishClose() {
+        if (mainJob.complete()) {
             // Add this handler at the last minute to allow every opportunity for other components
             // to register their handlers first.
-            invokeOnCompletion {
+            mainJob.invokeOnCompletion {
                 dispatcher.close()
             }
         }

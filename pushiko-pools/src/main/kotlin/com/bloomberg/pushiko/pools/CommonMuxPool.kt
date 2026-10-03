@@ -109,7 +109,11 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private var cachedScanLimit = 0
 
     private val closeJob = launchInMainScope(start = CoroutineStart.LAZY) {
-        shutdown()
+        try {
+            shutdown()
+        } finally {
+            finishClose()
+        }
     }
 
     private var reaperJob: Job? = null
@@ -167,6 +171,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
 
     @JvmSynthetic
     override suspend fun performClose() {
+        closeJob.start()
         closeJob.join()
     }
 
@@ -486,6 +491,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         assert(!isWorkActive) { "Pool must already be closed by cancelling the worker job" }
         pendingAcquisitions.clear()
         joinWork()
+        joinActiveLeases()
         factory.close()
         logger.info("Pool {} has shutdown", this)
     }

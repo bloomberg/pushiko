@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -343,6 +344,46 @@ internal class CommonMuxPoolPendingTest {
                 withTimeout(5L.seconds) {
                     second.await()
                 }
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun callerCancellationRemovesPendingAcquisitionPromptly() = runTest {
+        val factory = SinglePermitFactory()
+        val pool = newPool(factory, maximumPendingAcquisitions = 10)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                val holderStarted = CompletableDeferred<Unit>()
+                val releaseHolder = CompletableDeferred<Unit>()
+                val holder = launch {
+                    pool.withPermit(Duration.INFINITE) {
+                        holderStarted.complete(Unit)
+                        releaseHolder.await()
+                    }
+                }
+                holderStarted.await()
+
+                val waiter = launch {
+                    pool.withPermit(Duration.INFINITE) { }
+                }
+                while (pool.pendingAcquisitionCount() == 0) {
+                    yield()
+                }
+
+                withTimeout(5L.seconds) {
+                    waiter.cancelAndJoin()
+                    while (pool.pendingAcquisitionCount() != 0) {
+                        yield()
+                    }
+                }
+
+                releaseHolder.complete(Unit)
+                holder.join()
+                assertEquals(1, factory.allocations)
             }
         } finally {
             pool.close()

@@ -17,10 +17,17 @@
 package com.bloomberg.pushiko.pools
 
 import com.bloomberg.pushiko.pools.exceptions.PoolClosedException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
 import kotlin.test.assertFailsWith
+import kotlin.time.Duration.Companion.seconds
 
 internal class SingleThreadScopeGroupTest {
     @Test
@@ -34,6 +41,32 @@ internal class SingleThreadScopeGroupTest {
                     }
                 }
             }
+        }
+    }
+
+    @Test
+    fun callerCancellationCancelsWork() = runBlocking {
+        val group = SingleThreadScopeGroup("")
+        val started = CompletableDeferred<Unit>()
+        val cancelled = CompletableDeferred<Unit>()
+        try {
+            val job = launch {
+                group.withWorkContext {
+                    try {
+                        started.complete(Unit)
+                        awaitCancellation()
+                    } finally {
+                        cancelled.complete(Unit)
+                    }
+                }
+            }
+            started.await()
+            withTimeout(5L.seconds) {
+                job.cancelAndJoin()
+                cancelled.await()
+            }
+        } finally {
+            group.close()
         }
     }
 }

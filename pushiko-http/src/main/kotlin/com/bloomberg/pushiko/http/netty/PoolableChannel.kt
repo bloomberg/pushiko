@@ -35,6 +35,11 @@ internal val maxConcurrentStreamsAttributeKey = AttributeKey.valueOf<Long>(
     "channelMaxConcurrentStreams"
 )
 
+internal val streamCapacityChangedAttributeKey = AttributeKey.valueOf<() -> Unit>(
+    Channel::class.java,
+    "channelStreamCapacityChanged"
+)
+
 internal val Channel.maxConcurrentStreams: Long?
     get() = attr(maxConcurrentStreamsAttributeKey).get()
 
@@ -47,6 +52,12 @@ internal class PoolableChannel internal constructor(
     private val properties: IHttpClientProperties,
     private val waterMarkScaleFactor: WaterMarkScaleFactor = WaterMarkScaleFactor()
 ) : Poolable<Channel>(channel) {
+    init {
+        channel.attr(streamCapacityChangedAttributeKey).set {
+            notifyAvailabilityChanged()
+        }
+    }
+
     private val createdAt: Instant = Instant.now()
 
     private var observedMaxConcurrentStreams: Long = UNOBSERVED

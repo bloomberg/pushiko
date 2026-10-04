@@ -42,8 +42,10 @@ import com.bloomberg.pushiko.commons.FifoBuffer
 import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.bloomberg.pushiko.commons.strings.commonPluralSuffix
 import com.bloomberg.pushiko.pools.exceptions.PendingAcquisitionLimitException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.currentCoroutineContext
@@ -98,6 +100,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private val pool = FifoBuffer<P>(capacity = configuration.maximumSize)
 
     private val pendingAcquisitions = LinkedHashSet<CancellableContinuation<Unit>>()
+    private var pendingResumptionCount = 0
     private var pendingCreationCount = 0
     private val anticipatedSize: Int
         get() = pool.size + pendingCreationCount
@@ -167,17 +170,29 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         closeJob.join()
     }
 
-    private tailrec suspend fun acquirePoolable(): P {
+    private suspend fun acquirePoolable(): P {
         assertThisDispatcher()
-        ensureActive()
-        ensureMinimumAllocation()
-        val chosen = selectPoolable()
-        return if (chosen != null) {
-            perhapsGrow(chosen)
-            chosen
-        } else {
+        var wasResumed = false
+        while (true) {
+            try {
+                ensureActive()
+            } catch (exception: CancellationException) {
+                if (wasResumed) {
+                    --pendingResumptionCount
+                    resumeForAvailableCapacity()
+                }
+                throw exception
+            }
+            if (wasResumed) {
+                --pendingResumptionCount
+            }
+            ensureMinimumAllocation()
+            selectPoolable()?.let {
+                perhapsGrow(it)
+                return it
+            }
             awaitAvailability()
-            acquirePoolable()
+            wasResumed = true
         }
     }
 
@@ -266,6 +281,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             continuation.invokeOnCancellation {
                 launchInWorkScope {
                     pendingAcquisitions.remove(continuation)
+                    resumeForAvailableCapacity()
                 }
             }
             if (anticipatedSize < configuration.minimumSize) {
@@ -278,9 +294,17 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun resumeNextPendingAcquisitions(limit: Int = 1) {
         repeat(limit) {
-            removeFirstActivePendingAcquisition()?.resume(Unit) ?: return
+            val continuation = removeFirstActivePendingAcquisition() ?: return
+            ++pendingResumptionCount
+            continuation.resume(Unit) {
+                launchInWorkScope {
+                    --pendingResumptionCount
+                    resumeForAvailableCapacity()
+                }
+            }
         }
     }
 
@@ -294,6 +318,18 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             }
         }
         return null
+    }
+
+    private fun resumeForAvailableCapacity() {
+        val availablePermits = pool.fold(0L) { capacity, poolable ->
+            capacity + if (poolable.isAlive && poolable.isCanAcquire) {
+                (poolable.maximumPermits.toLong() - poolable.allocatedPermits).coerceAtLeast(1L)
+            } else {
+                0L
+            }
+        }
+        val unnotifiedPermits = (availablePermits - pendingResumptionCount).coerceAtLeast(0L)
+        resumeNextPendingAcquisitions(unnotifiedPermits.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
     }
 
     private suspend fun attemptFill(): Int = withWorkContext {
@@ -373,6 +409,11 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         } finally {
             --pendingCreationCount
         }.also {
+            it.setAvailabilityChangedListener {
+                launchInWorkScope {
+                    resumeForAvailableCapacity()
+                }
+            }
             pool.addFirst(it)
             resumeNextPendingAcquisitions(it.maximumPermits)
         }

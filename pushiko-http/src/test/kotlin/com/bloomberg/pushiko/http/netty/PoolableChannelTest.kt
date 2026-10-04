@@ -29,7 +29,10 @@ import io.netty.handler.codec.http2.Http2Exception
 import io.netty.util.Attribute
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -46,11 +49,28 @@ internal class PoolableChannelTest {
         value?.let { whenever(get()) doReturn it }
     }
 
-    private fun channelReporting(attribute: Attribute<Long>) = mock<Channel>().apply {
+    private fun channelReporting(
+        attribute: Attribute<Long>,
+        capacityChangedAttribute: Attribute<() -> Unit> = mock()
+    ) = mock<Channel>().apply {
         whenever(attr(maxConcurrentStreamsAttributeKey)) doReturn attribute
+        whenever(attr(streamCapacityChangedAttributeKey)) doReturn capacityChangedAttribute
     }
 
-    private fun poolableChannel() = PoolableChannel(mock(), mock())
+    private fun poolableChannel() = PoolableChannel(
+        channelReporting(maxConcurrentStreamsAttribute(null)),
+        mock()
+    )
+
+    @Test
+    fun installsStreamCapacityChangeNotifier() {
+        val capacityChangedAttribute = mock<Attribute<() -> Unit>>()
+        PoolableChannel(
+            channelReporting(maxConcurrentStreamsAttribute(0L), capacityChangedAttribute),
+            properties(default = 100L)
+        )
+        verify(capacityChangedAttribute, times(1)).set(any())
+    }
 
     @Test
     fun ioErrorIsAttributedToTheChannel() {

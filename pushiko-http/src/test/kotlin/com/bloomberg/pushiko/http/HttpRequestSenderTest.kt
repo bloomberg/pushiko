@@ -20,6 +20,8 @@ import com.bloomberg.pushiko.http.netty.ChannelPool
 import com.bloomberg.pushiko.http.netty.ConnectionHandler
 import com.bloomberg.pushiko.http.netty.PoolableChannel
 import com.bloomberg.pushiko.http.netty.PoolableChannelFactory
+import com.bloomberg.pushiko.http.netty.maxConcurrentStreamsAttributeKey
+import com.bloomberg.pushiko.http.netty.streamCapacityChangedAttributeKey
 import com.bloomberg.pushiko.pools.PoolConfiguration
 import io.netty.channel.Channel
 import io.netty.channel.ChannelFuture
@@ -63,6 +65,7 @@ internal class HttpRequestSenderTest {
         val eventLoop = DefaultEventLoop()
         val pipeline = mock<ChannelPipeline>()
         val maximumStreams = mock<Attribute<Long>>()
+        val streamCapacityChanged = mock<Attribute<() -> Unit>>()
         val closing = mock<Attribute<Boolean>>().apply {
             whenever(get()) doReturn false
         }
@@ -78,8 +81,8 @@ internal class HttpRequestSenderTest {
             whenever(eventLoop()) doReturn eventLoop
             whenever(isActive) doReturn true
             whenever(pipeline()) doReturn pipeline
-            whenever(attr<Long>(eq(com.bloomberg.pushiko.http.netty.maxConcurrentStreamsAttributeKey))) doReturn
-                maximumStreams
+            whenever(attr<Long>(eq(maxConcurrentStreamsAttributeKey))) doReturn maximumStreams
+            whenever(attr<() -> Unit>(eq(streamCapacityChangedAttributeKey))) doReturn streamCapacityChanged
             whenever(attr<Boolean>(argThat { name() == "channelIsClosing" })) doReturn closing
             whenever(writeAndFlush(any<HttpRequestContinuation>())) doAnswer {
                 written.complete(it.arguments[0] as HttpRequestContinuation)

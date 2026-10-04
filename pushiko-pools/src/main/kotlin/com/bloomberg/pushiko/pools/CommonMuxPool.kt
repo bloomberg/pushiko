@@ -393,6 +393,12 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         }
     }
 
+    private fun propagateCreationFailure(cause: Throwable) {
+        if (isWorkActive) {
+            failNextPendingAcquisition(cause)
+        }
+    }
+
     private suspend fun ensureMinimumAllocation() {
         assertThisDispatcher()
         if (anticipatedSize < configuration.minimumSize) {
@@ -477,23 +483,26 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         } finally {
             --pendingCreationCount
         }
-        return result.onFailure {
-            if (isWorkActive) {
-                failNextPendingAcquisition(it)
-            }
-        }.getOrThrow().also {
-            val maximumPermits = it.maximumPermits
-            if (maximumPermits <= 0) {
-                scheduleRecycle(it).join()
-                throw IllegalArgumentException("Poolable maximum permits must be positive, got $maximumPermits")
-            }
+        val poolable = result.onFailure(::propagateCreationFailure).getOrThrow()
+        val maximumPermits = poolable.maximumPermits
+        if (maximumPermits < 0) {
+            val exception = IllegalArgumentException(
+                "Poolable maximum permits must be non-negative, got $maximumPermits"
+            )
+            val recyclingJob = scheduleRecycle(poolable)
+            propagateCreationFailure(exception)
+            recyclingJob.join()
+            throw exception
+        }
+        return poolable.also {
             it.setAvailabilityChangedListener {
                 launchInWorkScope {
                     resumeForAvailableCapacity()
                 }
             }
             pool.addFirst(it)
-            resumeNextPendingAcquisitions(maximumPermits)
+            // Re-read dynamic capacity after installing the listener so that a concurrent increase cannot be lost.
+            resumeForAvailableCapacity()
             if (pendingAcquisitions.any(CancellableContinuation<Unit>::isActive)) {
                 perhapsGrow(chosen = null)
             }

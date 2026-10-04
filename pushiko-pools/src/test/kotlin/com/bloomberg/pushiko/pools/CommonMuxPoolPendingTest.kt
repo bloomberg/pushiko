@@ -93,8 +93,8 @@ internal class CommonMuxPoolPendingTest {
         }
     }
 
-    private class DynamicPoolable : Poolable<Any>(Any()) {
-        private var permits = 1
+    private class DynamicPoolable(initialPermits: Int = 1) : Poolable<Any>(Any()) {
+        private var permits = initialPermits
 
         override val maximumPermits: Int
             get() = permits
@@ -115,8 +115,8 @@ internal class CommonMuxPoolPendingTest {
         }
     }
 
-    private class DynamicPoolableFactory : Factory<DynamicPoolable>, Recycler<Any> {
-        val poolable = DynamicPoolable()
+    private class DynamicPoolableFactory(initialPermits: Int = 1) : Factory<DynamicPoolable>, Recycler<Any> {
+        val poolable = DynamicPoolable(initialPermits)
 
         override val allocations = 1
 
@@ -405,6 +405,32 @@ internal class CommonMuxPoolPendingTest {
                     first.join()
                     second.join()
                 }
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun initiallyZeroCapacityPoolableRecoversWhenCapacityIncreases() = runTest {
+        val factory = DynamicPoolableFactory(initialPermits = 0)
+        val pool = newDynamicPool(factory)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                val acquisition = async {
+                    pool.withPermit(5L.seconds) { }
+                }
+                while (pool.pendingAcquisitionCount() != 1) {
+                    yield()
+                }
+                assertEquals(1, pool.metricsComponent.gauges(5L.seconds).allocatedSize)
+
+                factory.poolable.setMaximumPermits(1)
+
+                withTimeout(5L.seconds) {
+                    acquisition.await()
+                }
+                assertEquals(0, pool.pendingAcquisitionCount())
             }
         } finally {
             pool.close()

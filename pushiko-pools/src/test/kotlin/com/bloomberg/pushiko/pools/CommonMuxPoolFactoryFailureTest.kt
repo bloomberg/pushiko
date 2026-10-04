@@ -20,9 +20,12 @@ import com.bloomberg.pushiko.pools.exceptions.PoolClosedException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -44,6 +47,7 @@ internal class CommonMuxPoolFactoryFailureTest {
         private val allocationCount = AtomicInteger()
         private val recyclingCount = AtomicInteger()
         private val makeStarted = CompletableDeferred<Unit>()
+        private val makeJob = CompletableDeferred<Job>()
         private val allowMakeToReturn = CompletableDeferred<Unit>()
 
         override val allocations: Int
@@ -56,6 +60,13 @@ internal class CommonMuxPoolFactoryFailureTest {
             makeStarted.await()
         }
 
+        suspend fun awaitMakeCancelled() {
+            val job = makeJob.await()
+            while (!job.isCancelled) {
+                yield()
+            }
+        }
+
         fun releaseMake() {
             allowMakeToReturn.complete(Unit)
         }
@@ -63,6 +74,7 @@ internal class CommonMuxPoolFactoryFailureTest {
         override suspend fun close() = Unit
 
         override suspend fun make(): AnyPoolable {
+            makeJob.complete(currentCoroutineContext().job)
             makeStarted.complete(Unit)
             withContext(NonCancellable) {
                 allowMakeToReturn.await()
@@ -220,6 +232,7 @@ internal class CommonMuxPoolFactoryFailureTest {
                 factory.awaitMakeStarted()
 
                 preparation.cancel()
+                factory.awaitMakeCancelled()
                 assertFalse(preparation.isCompleted)
                 factory.releaseMake()
                 preparation.join()

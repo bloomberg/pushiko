@@ -158,7 +158,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     @JvmSynthetic
     override fun onAvailable(poolable: P) {
         if (poolable.allocatedPermits == 0 && retiredPoolables.remove(poolable)) {
-            scheduleRecycle(poolable)
+            scheduleDetachedRecycle(poolable)
         }
         if (poolable.isCanAcquire || !poolable.isAlive) {
             resumeNextPendingAcquisitions()
@@ -304,14 +304,20 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     }
 
     private fun retirePoolable(poolable: P) {
+        poolable.clearAvailabilityChangedListener()
         if (poolable.allocatedPermits == 0) {
-            scheduleRecycle(poolable)
+            scheduleDetachedRecycle(poolable)
         } else {
             retiredPoolables += poolable
         }
     }
 
     private fun scheduleRecycle(poolable: P): Job {
+        poolable.clearAvailabilityChangedListener()
+        return scheduleDetachedRecycle(poolable)
+    }
+
+    private fun scheduleDetachedRecycle(poolable: P): Job {
         check(poolable.allocatedPermits == 0) { "Cannot recycle a poolable with allocated permits" }
         recyclingJobs.removeAll(Job::isCompleted)
         return launchInMainScope {
@@ -610,6 +616,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         reaperJob?.cancelAndJoin()
         recyclingJobs.toList().joinAll()
         recyclingJobs.clear()
+        pool.forEach { it.clearAvailabilityChangedListener() }
         try {
             factory.close()
         } catch (exception: Throwable) {

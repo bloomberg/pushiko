@@ -24,8 +24,9 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * A resource and its pool-specific capacity and health state.
  *
- * Property getters and [isError] are invoked on the pool's control dispatcher. Implementations must return promptly,
- * must not block and must not throw. [summarize] may suspend, but must not block its calling thread.
+ * Property getters, [isError], and [onAvailabilityChangedListenerChanged] are invoked on the pool's control
+ * dispatcher. Implementations must return promptly, must not block and must not throw. [summarize] may suspend, but
+ * must not block its calling thread.
  */
 @NotThreadSafe
 public abstract class Poolable<out R : Any>(
@@ -90,8 +91,22 @@ public abstract class Poolable<out R : Any>(
         availabilityChangedListener?.invoke()
     }
 
+    /**
+     * Invoked when this object is attached to or detached from a pool's availability notifications.
+     * Implementations that bridge an external notification source should install their callback when [isAttached] is
+     * true and remove it when false. The callback should invoke [notifyAvailabilityChanged] so that a notification
+     * already in flight becomes a no-op after detachment.
+     */
+    protected open fun onAvailabilityChangedListenerChanged(isAttached: Boolean): Unit = Unit
+
     internal fun setAvailabilityChangedListener(listener: () -> Unit) {
         availabilityChangedListener = listener
+        onAvailabilityChangedListenerChanged(true)
+    }
+
+    internal fun clearAvailabilityChangedListener() {
+        availabilityChangedListener = null
+        onAvailabilityChangedListenerChanged(false)
     }
 
     public fun recordOutcome(holdNanos: Long, wasSuccess: Boolean) {

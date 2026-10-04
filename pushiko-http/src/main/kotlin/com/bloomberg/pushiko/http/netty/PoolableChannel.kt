@@ -52,10 +52,10 @@ internal class PoolableChannel internal constructor(
     private val properties: IHttpClientProperties,
     private val waterMarkScaleFactor: WaterMarkScaleFactor = WaterMarkScaleFactor()
 ) : Poolable<Channel>(channel) {
+    private val capacityChangedCallback = { notifyAvailabilityChanged() }
+
     init {
-        channel.attr(streamCapacityChangedAttributeKey).set {
-            notifyAvailabilityChanged()
-        }
+        channel.attr(streamCapacityChangedAttributeKey).set(capacityChangedCallback)
     }
 
     private val createdAt: Instant = Instant.now()
@@ -98,6 +98,10 @@ internal class PoolableChannel internal constructor(
             refreshWaterMark()
             return !channel.isDraining() && allocatedPermits < cachedLowWaterMark
         }
+
+    override fun onAvailabilityChangedListenerChanged(isAttached: Boolean) {
+        channel.attr(streamCapacityChangedAttributeKey).set(capacityChangedCallback.takeIf { isAttached })
+    }
 
     private fun refreshWaterMark() {
         val observed = channel.maxConcurrentStreams ?: NO_NEGOTIATED_LIMIT

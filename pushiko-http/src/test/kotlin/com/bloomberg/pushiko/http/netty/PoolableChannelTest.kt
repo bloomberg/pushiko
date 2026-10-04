@@ -21,12 +21,18 @@ import com.bloomberg.pushiko.http.exceptions.ChannelInactiveException
 import com.bloomberg.pushiko.http.exceptions.ChannelStreamQuotaException
 import com.bloomberg.pushiko.http.exceptions.ChannelWriteFailedException
 import com.bloomberg.pushiko.http.exceptions.HttpClientClosedException
+import com.bloomberg.pushiko.pools.CommonMuxPool
+import com.bloomberg.pushiko.pools.Factory
+import com.bloomberg.pushiko.pools.PoolConfiguration
+import com.bloomberg.pushiko.pools.Recycler
 import com.bloomberg.pushiko.pools.WaterMarkScaleFactor
 import io.netty.channel.Channel
 import io.netty.channel.ChannelException
 import io.netty.handler.codec.http2.Http2Error
 import io.netty.handler.codec.http2.Http2Exception
 import io.netty.util.Attribute
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.doReturn
@@ -39,7 +45,10 @@ import java.io.IOException
 import java.net.SocketTimeoutException
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 
 internal class PoolableChannelTest {
     private fun properties(default: Long) = mock<IHttpClientProperties>().apply {
@@ -75,6 +84,56 @@ internal class PoolableChannelTest {
             properties(default = 100L)
         )
         verify(capacityChangedAttribute, times(1)).set(any())
+    }
+
+    @Test
+    fun removalClearsStreamCapacityChangeNotifier() = runTest {
+        val capacityChangedAttribute = mock<Attribute<() -> Unit>>()
+        val channel = channelReporting(maxConcurrentStreamsAttribute(1L), capacityChangedAttribute).apply {
+            whenever(isActive) doReturn true
+        }
+        val poolable = PoolableChannel(channel, properties(default = 1L))
+        val factory = object : Factory<PoolableChannel>, Recycler<Channel> {
+            private var makeCount = 0
+
+            override val allocations: Int = 1
+
+            override suspend fun make(): PoolableChannel = if (++makeCount == 1) {
+                poolable
+            } else {
+                awaitCancellation()
+            }
+
+            override fun recycle(obj: Channel) = Unit
+
+            override suspend fun close() = Unit
+        }
+        val pool = CommonMuxPool(
+            PoolConfiguration(
+                errorRateThreshold = 0.5,
+                fullScanPoolSize = 1,
+                maximumPendingAcquisitions = 1,
+                maximumSampledScan = 1,
+                maximumSize = 1,
+                minimumSize = 1,
+                reaperDelay = 10L.minutes,
+                summaryInterval = 10L.minutes
+            ),
+            factory,
+            factory
+        )
+        try {
+            pool.prepare()
+            whenever(channel.isActive) doReturn false
+
+            assertFailsWith<kotlinx.coroutines.TimeoutCancellationException> {
+                pool.testAcquisition(100L.milliseconds)
+            }
+
+            verify(capacityChangedAttribute, times(1)).set(null)
+        } finally {
+            pool.close()
+        }
     }
 
     @Test

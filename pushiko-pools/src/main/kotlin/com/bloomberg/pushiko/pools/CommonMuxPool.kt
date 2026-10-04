@@ -270,9 +270,9 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     @JvmSynthetic
     @VisibleForTesting
     internal suspend fun rescheduleReaperForTest(): Job? = withWorkContext {
-        val previous = reaperJob
-        scheduleReaperJob()
-        previous
+        reaperJob.also { _ ->
+            scheduleReaperJob()
+        }
     }
 
     @JvmSynthetic
@@ -541,9 +541,10 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             val exception = IllegalArgumentException(
                 "Poolable maximum permits must be non-negative, got $maximumPermits"
             )
-            val recyclingJob = scheduleRecycle(poolable)
-            propagateCreationFailure(exception)
-            recyclingJob.join()
+            scheduleRecycle(poolable).run {
+                propagateCreationFailure(exception)
+                join()
+            }
             throw exception
         }
         return poolable.also {
@@ -668,7 +669,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         reaperJob?.cancelAndJoin()
         recyclingJobs.toList().joinAll()
         recyclingJobs.clear()
-        pool.forEach { it.clearAvailabilityChangedListener() }
+        pool.forEach(Poolable<R>::clearAvailabilityChangedListener)
         try {
             factory.close()
         } catch (exception: Throwable) {

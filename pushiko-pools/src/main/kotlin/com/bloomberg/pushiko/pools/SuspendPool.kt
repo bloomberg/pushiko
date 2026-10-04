@@ -20,6 +20,7 @@ package com.bloomberg.pushiko.pools
 
 import javax.annotation.concurrent.ThreadSafe
 import kotlin.time.Duration
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
@@ -34,6 +35,8 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
     name: String = "Pushiko"
 ) {
     private val scopeGroup = SingleThreadScopeGroup(name)
+    private var activeLeaseCount = 0
+    private var activeLeasesDrained = CompletableDeferred(Unit)
 
     protected val isWorkActive: Boolean
         get() = scopeGroup.isWorkActive
@@ -41,9 +44,14 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
     @JvmField
     public val metricsComponent: MetricsComponent = MetricsComponent()
 
+    /**
+     * Stops new pool work and waits for every active [withPermit] block to release its permit before shutdown.
+     * Cancelling this call only stops the caller waiting; the pool-owned shutdown continues.
+     * This must not be awaited from inside a [withPermit] block on the same pool because that lease cannot then finish.
+     */
     @JvmSynthetic
     public suspend fun close() {
-        scopeGroup.close()
+        scopeGroup.beginClose()
         performClose()
     }
 
@@ -65,6 +73,7 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
             withWorkContext(acquisitionTimeout) {
                 @Suppress("UNCHECKED_CAST")
                 poolable = performSelection().acquirePermit() as P
+                registerLease()
             }
             // The acquisition of the reference, and then a permit, was definitely successful.
             // Execution continues off the pool's thread, in the caller's context.
@@ -82,15 +91,7 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
             poolable?.let { acquired ->
                 val cause = failure
                 val holdNanos = startNanos?.let { System.nanoTime() - it }
-                launchInWorkScope {
-                    if (holdNanos != null) {
-                        acquired.recordOutcome(holdNanos, cause == null || !acquired.isError(cause))
-                    }
-                    acquired.releasePermit()
-                    if (acquired.isCanAcquire) {
-                        onAvailable(acquired)
-                    }
-                }
+                schedulePermitRelease(acquired, holdNanos, cause)
             }
         }
     }
@@ -126,6 +127,47 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
 
     @JvmSynthetic
     internal open suspend fun performClose() = Unit
+
+    @JvmSynthetic
+    @PublishedApi
+    internal fun registerLease() {
+        if (activeLeaseCount++ == 0) {
+            activeLeasesDrained = CompletableDeferred()
+        }
+    }
+
+    private fun releaseLease() {
+        if (--activeLeaseCount == 0) {
+            activeLeasesDrained.complete(Unit)
+        }
+    }
+
+    @JvmSynthetic
+    @PublishedApi
+    internal fun schedulePermitRelease(acquired: P, holdNanos: Long?, cause: Throwable?) {
+        launchInMainScope {
+            try {
+                if (holdNanos != null) {
+                    acquired.recordOutcome(holdNanos, cause == null || !acquired.isError(cause))
+                }
+            } finally {
+                try {
+                    acquired.releasePermit()
+                } finally {
+                    releaseLease()
+                }
+            }
+            if (isWorkActive && acquired.isCanAcquire) {
+                onAvailable(acquired)
+            }
+        }
+    }
+
+    @JvmSynthetic
+    protected suspend fun joinActiveLeases(): Unit = activeLeasesDrained.await()
+
+    @JvmSynthetic
+    protected fun finishClose(): Unit = scopeGroup.finishClose()
 
     protected fun ensureActive(): Unit = scopeGroup.ensureActive()
 

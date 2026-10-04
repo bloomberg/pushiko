@@ -16,9 +16,14 @@
 
 package com.bloomberg.pushiko.pools
 
+import com.bloomberg.pushiko.pools.exceptions.PoolClosedException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -28,6 +33,8 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -54,6 +61,26 @@ internal class CommonMuxPoolPermitReleaseTest {
         }
     }
 
+    private class CloseTrackingFactory(
+        private val maximumPermits: Int = 1
+    ) : Factory<AnyPoolable>, Recycler<Any> {
+        private lateinit var poolable: AnyPoolable
+        val closedPermitCount = CompletableDeferred<Int>()
+
+        override val allocations: Int
+            get() = if (::poolable.isInitialized) { 1 } else { 0 }
+
+        override suspend fun close() {
+            closedPermitCount.complete(poolable.allocatedPermits)
+        }
+
+        override suspend fun make(): AnyPoolable = AnyPoolable(maximumPermits = maximumPermits).also {
+            poolable = it
+        }
+
+        override fun recycle(obj: Any) = Unit
+    }
+
     private fun newPool(
         factory: HealthyFactory,
         minimumSize: Int,
@@ -69,6 +96,101 @@ internal class CommonMuxPoolPermitReleaseTest {
         factory,
         factory
     )
+
+    private fun newPool(factory: CloseTrackingFactory) = CommonMuxPool(
+        configuration = poolConfiguration(
+            maximumPendingAcquisitions = 1_000,
+            maximumSize = 1,
+            minimumSize = 1,
+            reaperDelay = 10L.minutes,
+            summaryInterval = 5L.minutes
+        ),
+        factory,
+        factory
+    )
+
+    @Test
+    fun closeDrainsAllActivePermitsBeforeClosingFactory() = runTest {
+        val factory = CloseTrackingFactory(maximumPermits = 2)
+        val pool = newPool(factory)
+        val releaseFirstHolder = CompletableDeferred<Unit>()
+        val releaseSecondHolder = CompletableDeferred<Unit>()
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                val firstHolderStarted = CompletableDeferred<Unit>()
+                val firstHolder = launch {
+                    pool.withPermit(Duration.INFINITE) {
+                        firstHolderStarted.complete(Unit)
+                        releaseFirstHolder.await()
+                    }
+                }
+                firstHolderStarted.await()
+                val secondHolderStarted = CompletableDeferred<Unit>()
+                val secondHolder = launch {
+                    pool.withPermit(Duration.INFINITE) {
+                        secondHolderStarted.complete(Unit)
+                        releaseSecondHolder.await()
+                    }
+                }
+                secondHolderStarted.await()
+
+                val closing = async(start = CoroutineStart.UNDISPATCHED) { pool.close() }
+                assertFalse(closing.isCompleted)
+                assertFalse(factory.closedPermitCount.isCompleted)
+                val failure = assertFailsWith<PoolClosedException> {
+                    pool.withPermit(Duration.INFINITE) { }
+                }
+                assertSame(PoolClosedException, failure)
+
+                releaseFirstHolder.complete(Unit)
+                firstHolder.join()
+                assertFalse(closing.isCompleted)
+                assertFalse(factory.closedPermitCount.isCompleted)
+
+                releaseSecondHolder.complete(Unit)
+                secondHolder.join()
+                closing.await()
+                assertEquals(0, factory.closedPermitCount.await())
+            }
+        } finally {
+            releaseFirstHolder.complete(Unit)
+            releaseSecondHolder.complete(Unit)
+            pool.close()
+        }
+    }
+
+    @Test
+    fun shutdownContinuesWhenCloseCallerIsCancelled() = runTest {
+        val factory = CloseTrackingFactory()
+        val pool = newPool(factory)
+        val releaseHolder = CompletableDeferred<Unit>()
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                val holderStarted = CompletableDeferred<Unit>()
+                val holder = launch {
+                    pool.withPermit(Duration.INFINITE) {
+                        holderStarted.complete(Unit)
+                        releaseHolder.await()
+                    }
+                }
+                holderStarted.await()
+
+                val closing = async(start = CoroutineStart.UNDISPATCHED) { pool.close() }
+                closing.cancelAndJoin()
+                assertFalse(factory.closedPermitCount.isCompleted)
+
+                releaseHolder.complete(Unit)
+                holder.join()
+                pool.close()
+                assertEquals(0, factory.closedPermitCount.await())
+            }
+        } finally {
+            releaseHolder.complete(Unit)
+            pool.close()
+        }
+    }
 
     @Test
     fun permitIsReleasedWhenBlockThrows() = runTest {

@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -35,6 +36,35 @@ internal class PoolableOutcomeTest {
         override val maximumPermits: Int = 1
         override val isCanAcquire: Boolean = true
         override val isShouldAcquire: Boolean = true
+    }
+
+    private class SourceBackedPoolable : Poolable<Any>(Any()) {
+        override val maximumPermits: Int = 1
+        override val isAlive: Boolean = true
+        override val isCanAcquire: Boolean = true
+        override val isShouldAcquire: Boolean = true
+
+        var sourceCallback: (() -> Unit)? = null
+            private set
+
+        override fun onAvailabilityChangedListenerChanged(isAttached: Boolean) {
+            sourceCallback = if (isAttached) { { notifyAvailabilityChanged() } } else { null }
+        }
+    }
+
+    @Test
+    fun detachedAvailabilityListenerIgnoresNotificationAlreadyInFlight() {
+        val poolable = SourceBackedPoolable()
+        var notifications = 0
+        poolable.setAvailabilityChangedListener { ++notifications }
+        val inFlightNotification = checkNotNull(poolable.sourceCallback)
+        inFlightNotification()
+        assertEquals(1, notifications)
+
+        poolable.clearAvailabilityChangedListener()
+        assertNull(poolable.sourceCallback)
+        inFlightNotification()
+        assertEquals(1, notifications)
     }
 
     @Test

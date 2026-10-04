@@ -28,12 +28,17 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -41,6 +46,46 @@ import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class CommonMuxPoolPermitReleaseTest {
+    private class RetirablePoolable(resource: Any) : Poolable<Any>(resource) {
+        @Volatile
+        var alive = true
+
+        override val maximumPermits = 1
+        override val isAlive: Boolean
+            get() = alive
+        override val isCanAcquire: Boolean
+            get() = alive && allocatedPermits < maximumPermits
+        override val isShouldAcquire: Boolean
+            get() = isCanAcquire
+    }
+
+    private class RetirementTrackingFactory : Factory<RetirablePoolable>, Recycler<Any> {
+        private val allocationCount = AtomicInteger()
+        private val poolablesByResource = ConcurrentHashMap<Any, RetirablePoolable>()
+
+        val poolables = CopyOnWriteArrayList<RetirablePoolable>()
+        val permitsAtRecycle = CopyOnWriteArrayList<Int>()
+
+        override val allocations: Int
+            get() = allocationCount.get()
+
+        override suspend fun close() = Unit
+
+        override suspend fun make(): RetirablePoolable {
+            val resource = Any()
+            return RetirablePoolable(resource).also {
+                poolablesByResource[resource] = it
+                poolables += it
+                allocationCount.incrementAndGet()
+            }
+        }
+
+        override fun recycle(obj: Any) {
+            permitsAtRecycle += poolablesByResource.getValue(obj).allocatedPermits
+            allocationCount.decrementAndGet()
+        }
+    }
+
     private class HealthyFactory(
         private val maximumPermits: Int
     ) : Factory<AnyPoolable>, Recycler<Any> {
@@ -146,6 +191,95 @@ internal class CommonMuxPoolPermitReleaseTest {
         factory,
         factory
     )
+
+    private fun newPool(factory: RetirementTrackingFactory) = CommonMuxPool(
+        configuration = poolConfiguration(
+            maximumPendingAcquisitions = 1_000,
+            maximumSize = 1,
+            minimumSize = 1,
+            reaperDelay = 10L.minutes,
+            summaryInterval = 5L.minutes
+        ),
+        factory,
+        factory
+    )
+
+    @Test
+    fun selectionDefersDeadPoolableRecyclingUntilItsFinalPermitIsReleased() = runTest {
+        val factory = RetirementTrackingFactory()
+        val pool = newPool(factory)
+        val releaseHolder = CompletableDeferred<Unit>()
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                val poolable = factory.poolables.single()
+                val holderStarted = CompletableDeferred<Unit>()
+                val holder = launch {
+                    pool.withPermit(Duration.INFINITE) {
+                        holderStarted.complete(Unit)
+                        releaseHolder.await()
+                    }
+                }
+                holderStarted.await()
+
+                poolable.alive = false
+                assertNull(pool.selectPoolableForTest())
+                assertEquals(emptyList(), factory.permitsAtRecycle)
+
+                releaseHolder.complete(Unit)
+                holder.join()
+                withTimeout(5L.seconds) {
+                    while (factory.permitsAtRecycle.isEmpty()) {
+                        yield()
+                    }
+                }
+                assertEquals(listOf(0), factory.permitsAtRecycle)
+            }
+        } finally {
+            releaseHolder.complete(Unit)
+            pool.close()
+        }
+    }
+
+    @Test
+    fun prepareReplacesDeadPoolableBeforeItsFinalPermitIsReleased() = runTest {
+        val factory = RetirementTrackingFactory()
+        val pool = newPool(factory)
+        val releaseHolder = CompletableDeferred<Unit>()
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                val poolable = factory.poolables.single()
+                val holderStarted = CompletableDeferred<Unit>()
+                val holder = launch {
+                    pool.withPermit(Duration.INFINITE) {
+                        holderStarted.complete(Unit)
+                        releaseHolder.await()
+                    }
+                }
+                holderStarted.await()
+
+                poolable.alive = false
+                assertEquals(1, pool.prepare())
+                assertEquals(2, factory.allocations)
+                assertEquals(emptyList(), factory.permitsAtRecycle)
+                assertSame(factory.poolables.last(), pool.selectPoolableForTest())
+
+                releaseHolder.complete(Unit)
+                holder.join()
+                withTimeout(5L.seconds) {
+                    while (factory.permitsAtRecycle.isEmpty()) {
+                        yield()
+                    }
+                }
+                assertEquals(listOf(0), factory.permitsAtRecycle)
+                assertEquals(1, factory.allocations)
+            }
+        } finally {
+            releaseHolder.complete(Unit)
+            pool.close()
+        }
+    }
 
     @Test
     fun closeDrainsAllActivePermitsBeforeClosingFactory() = runTest {

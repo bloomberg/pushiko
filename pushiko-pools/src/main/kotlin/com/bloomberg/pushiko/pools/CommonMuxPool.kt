@@ -66,6 +66,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.jetbrains.annotations.VisibleForTesting
 import java.io.StringWriter
+import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.LinkedHashSet
 import javax.annotation.concurrent.ThreadSafe
 import kotlin.coroutines.resumeWithException
@@ -106,6 +108,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private val logger = Logger()
 
     private val pool = FifoBuffer<P>(capacity = configuration.maximumSize)
+    private val retiredPoolables: MutableSet<P> = Collections.newSetFromMap(IdentityHashMap())
 
     private val pendingAcquisitions = LinkedHashSet<CancellableContinuation<Unit>>()
     private var pendingResumptionCount = 0
@@ -153,7 +156,12 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
 
     @JvmSynthetic
     override fun onAvailable(poolable: P) {
-        resumeNextPendingAcquisitions()
+        if (poolable.allocatedPermits == 0 && retiredPoolables.remove(poolable)) {
+            scheduleRecycle(poolable)
+        }
+        if (poolable.isCanAcquire || !poolable.isAlive) {
+            resumeNextPendingAcquisitions()
+        }
     }
 
     @JvmSynthetic
@@ -289,12 +297,21 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             pool.addLast(poolable)
             poolable
         } else {
-            scheduleRecycle(poolable)
+            retirePoolable(poolable)
             null
         }
     }
 
+    private fun retirePoolable(poolable: P) {
+        if (poolable.allocatedPermits == 0) {
+            scheduleRecycle(poolable)
+        } else {
+            retiredPoolables += poolable
+        }
+    }
+
     private fun scheduleRecycle(poolable: P): Job {
+        check(poolable.allocatedPermits == 0) { "Cannot recycle a poolable with allocated permits" }
         recyclingJobs.removeAll(Job::isCompleted)
         return launchInMainScope {
             runCatching {
@@ -407,7 +424,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             if (poolable.isAlive) {
                 false
             } else {
-                scheduleRecycle(poolable)
+                retirePoolable(poolable)
                 true
             }
         }

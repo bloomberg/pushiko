@@ -29,6 +29,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
@@ -43,7 +44,11 @@ import kotlin.time.Duration.Companion.seconds
 internal class CommonMuxPoolPendingTest {
     private class DrainingPoolable : Poolable<Any>(Any()) {
         @Volatile
-        var isDraining = false
+        override var isDraining = false
+            set(value) {
+                field = value
+                notifyAvailabilityChanged()
+            }
 
         override val maximumPermits: Int = 1
         override val isAlive: Boolean
@@ -55,23 +60,23 @@ internal class CommonMuxPoolPendingTest {
     }
 
     private class DrainingPoolableFactory : Factory<DrainingPoolable>, Recycler<Any> {
-        private var _allocations = 0
+        private val allocationCount = AtomicInteger()
 
         lateinit var latest: DrainingPoolable
             private set
 
         override val allocations: Int
-            get() = _allocations
+            get() = allocationCount.get()
 
         override suspend fun close() = Unit
 
         override suspend fun make(): DrainingPoolable {
-            ++_allocations
+            allocationCount.incrementAndGet()
             return DrainingPoolable().also { latest = it }
         }
 
         override fun recycle(obj: Any) {
-            --_allocations
+            allocationCount.decrementAndGet()
         }
     }
 
@@ -251,20 +256,28 @@ internal class CommonMuxPoolPendingTest {
                     }
                 }
                 holderStarted.await()
+                val draining = factory.latest
 
                 val waiter = async { pool.withPermit(Duration.INFINITE) { } }
                 while (pool.pendingAcquisitionCount() == 0) {
                     yield()
                 }
 
-                factory.latest.isDraining = true
-                releaseHolder.complete(Unit)
+                draining.isDraining = true
 
                 withTimeout(5L.seconds) {
                     waiter.await()
                 }
+                assertEquals(1, draining.allocatedPermits)
+                assertEquals(2, factory.allocations)
+
+                releaseHolder.complete(Unit)
                 holder.join()
-                assertEquals(1, factory.allocations)
+                withTimeout(5L.seconds) {
+                    while (factory.allocations != 1) {
+                        yield()
+                    }
+                }
             }
         } finally {
             pool.close()
@@ -423,7 +436,11 @@ internal class CommonMuxPoolPendingTest {
                 while (pool.pendingAcquisitionCount() != 1) {
                     yield()
                 }
-                assertEquals(1, pool.metricsComponent.gauges(5L.seconds).allocatedSize)
+                withTimeout(5L.seconds) {
+                    while (pool.metricsComponent.gauges(5L.seconds).allocatedSize != 1) {
+                        yield()
+                    }
+                }
 
                 factory.poolable.setMaximumPermits(1)
 

@@ -87,6 +87,9 @@ internal class PoolableChannel internal constructor(
             it.isActive && !it.isClosing() && (!it.isDraining() || allocatedPermits > 0)
         }
 
+    override val isDraining: Boolean
+        get() = channel.isDraining()
+
     override val isCanAcquire: Boolean
         get() {
             refreshWaterMark()

@@ -83,6 +83,10 @@ internal class ConnectionHandlerTest {
     private val pipeline = mock<ChannelPipeline>()
     private val isClosingAttribute = mock<Attribute<Boolean>>()
     private val isDrainingAttribute = mock<Attribute<Boolean>>()
+    private val streamCapacityChanged = mock<() -> Unit>()
+    private val streamCapacityChangedAttribute = mock<Attribute<() -> Unit>>().apply {
+        whenever(get()) doReturn streamCapacityChanged
+    }
     private val eventLoop = mock<EventLoop>().apply {
         whenever(inEventLoop()) doReturn true
     }
@@ -91,6 +95,7 @@ internal class ConnectionHandlerTest {
         whenever(pipeline()) doReturn pipeline
         whenever(attr<Boolean>(argThat { name() == "channelIsClosing" })) doReturn isClosingAttribute
         whenever(attr<Boolean>(argThat { name() == "channelIsDraining" })) doReturn isDrainingAttribute
+        whenever(attr(streamCapacityChangedAttributeKey)) doReturn streamCapacityChangedAttribute
     }
     private val context = mock<ChannelHandlerContext>().apply {
         whenever(channel()) doReturn channel
@@ -123,6 +128,7 @@ internal class ConnectionHandlerTest {
     fun onGoAwayReadClosesChannel() {
         ConnectionHandler().onGoAwayRead(context, 1, 1, mock())
         verify(isDrainingAttribute, times(1)).getAndSet(eq(true))
+        verify(streamCapacityChanged, times(1)).invoke()
         verify(channel, times(1)).close()
     }
 

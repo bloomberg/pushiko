@@ -34,10 +34,12 @@ import io.netty.handler.codec.http2.Http2Connection.Endpoint
 import io.netty.handler.codec.http2.Http2ConnectionDecoder
 import io.netty.handler.codec.http2.Http2ConnectionEncoder
 import io.netty.handler.codec.http2.Http2Error
+import io.netty.handler.codec.http2.Http2Exception
 import io.netty.handler.codec.http2.Http2LocalFlowController
 import io.netty.handler.codec.http2.Http2RemoteFlowController
 import io.netty.handler.codec.http2.Http2Settings
 import io.netty.handler.codec.http2.Http2Stream
+import io.netty.handler.codec.http2.Http2StreamVisitor
 import io.netty.handler.ssl.SslHandshakeCompletionEvent
 import io.netty.handler.timeout.IdleStateEvent
 import io.netty.util.Attribute
@@ -64,6 +66,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoMoreInteractions
 import org.mockito.kotlin.whenever
 import org.slf4j.Logger
+import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.Continuation
@@ -136,6 +139,91 @@ internal class ConnectionHandlerTest {
 
         handler.onStreamClosed(stream)
         verify(channel, times(1)).close()
+    }
+
+    @Test
+    fun errorGoAwayClosesImmediatelyAndFailsActiveStreamWithConnectionError() {
+        val stream = mock<Http2Stream>().apply {
+            whenever(id()) doReturn 3
+        }
+        var failure: Throwable? = null
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, object : Continuation<HttpResponse> {
+            override val context = EmptyCoroutineContext
+
+            override fun resumeWith(result: Result<HttpResponse>) {
+                failure = result.exceptionOrNull()
+            }
+        })
+        whenever(stream.removeProperty<HttpRequestContinuation>(anyOrNull())) doReturn continuation
+        val handler = ConnectionHandler()
+
+        handler.onGoAwayRead(context, 3, Http2Error.INTERNAL_ERROR.code(), mock())
+        verify(channel, times(1)).close()
+        assertNull(failure)
+
+        handler.onStreamClosed(stream)
+        assertIs<IOException>(failure)
+        assertTrue(failure?.message.orEmpty().contains("INTERNAL_ERROR"))
+        verify(channel, times(1)).close()
+    }
+
+    @Test
+    fun subsequentGoAwayRefusesStreamsAboveReducedLastStreamId() {
+        whenever(isDrainingAttribute.getAndSet(eq(true))).thenReturn(false, true)
+        whenever(connection.numActiveStreams()) doReturn 1
+        val stream = mock<Http2Stream>().apply {
+            whenever(id()) doReturn 3
+        }
+        var failure: Throwable? = null
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, object : Continuation<HttpResponse> {
+            override val context = EmptyCoroutineContext
+
+            override fun resumeWith(result: Result<HttpResponse>) {
+                failure = result.exceptionOrNull()
+            }
+        }).apply {
+            streamId = 3
+        }
+        whenever(stream.removeProperty<HttpRequestContinuation>(anyOrNull())) doReturn continuation
+        whenever(connection.forEachActiveStream(any())) doAnswer {
+            (it.arguments.first() as Http2StreamVisitor).visit(stream)
+            null
+        }
+        val handler = ConnectionHandler()
+
+        handler.onGoAwayRead(context, 3, Http2Error.NO_ERROR.code(), mock())
+        assertNull(failure)
+
+        handler.onGoAwayRead(context, 1, Http2Error.NO_ERROR.code(), mock())
+        val exception = assertIs<Http2Exception.StreamException>(failure)
+        assertEquals(Http2Error.REFUSED_STREAM, exception.error())
+        assertTrue(DefaultHttpRetryPolicy.canRetryRequestAfter(exception))
+        assertNull(continuation.streamId)
+        verify(isDrainingAttribute, times(2)).getAndSet(eq(true))
+    }
+
+    @Test
+    fun channelInactivePropagatesErrorGoAwayToPendingRequest() {
+        whenever(local.incrementAndGetNextStreamId()) doReturn 3
+        whenever(channel.isActive) doReturn true
+        whenever(channel.attr(channelContinuationAttributeKey)) doReturn mock()
+        var failure: Throwable? = null
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, object : Continuation<HttpResponse> {
+            override val context = EmptyCoroutineContext
+
+            override fun resumeWith(result: Result<HttpResponse>) {
+                failure = result.exceptionOrNull()
+            }
+        })
+        val handler = ConnectionHandler()
+        handler.write(context, continuation, mock())
+
+        handler.onGoAwayRead(context, 3, Http2Error.PROTOCOL_ERROR.code(), mock())
+        handler.channelInactive(context)
+
+        assertIs<IOException>(failure)
+        assertTrue(failure?.message.orEmpty().contains("PROTOCOL_ERROR"))
+        assertNull(continuation.streamId)
     }
 
     @Test

@@ -160,6 +160,34 @@ internal val channelIsDrainingAttributeKey = AttributeKey.valueOf<Boolean>("chan
 internal fun Channel.isDraining() = attr(channelIsDrainingAttributeKey).get() ?: false
 private fun Channel.signalIsDraining() = attr(channelIsDrainingAttributeKey).getAndSet(true) != true
 
+private fun removeRequestsNotProcessedByPeer(
+    connection: Http2Connection,
+    requestContinuations: IntObjectHashMap<HttpRequestContinuation>,
+    requestContinuationPropertyKey: Http2Connection.PropertyKey,
+    lastStreamId: Int,
+    onRemove: (Int, HttpRequestContinuation?) -> Unit
+) {
+    val pendingStreamIds = ArrayList<Int>()
+    requestContinuations.entries.forEach {
+        if (it.key > lastStreamId) {
+            pendingStreamIds += it.key
+        }
+    }
+    pendingStreamIds.forEach {
+        onRemove(it, requestContinuations.remove(it))
+    }
+    connection.forEachActiveStream {
+        if (it.id() > lastStreamId) {
+            onRemove(it.id(), it.removeProperty(requestContinuationPropertyKey))
+        }
+        true
+    }
+}
+
+private fun goAwayException(lastStreamId: Int, errorCode: Long) = IOException(
+    "Peer sent GOAWAY with error ${Http2Error.valueOf(errorCode) ?: "UNKNOWN"} ($errorCode), " +
+        "last stream ID: $lastStreamId")
+
 internal class ConnectionHandler(
     decoder: Http2ConnectionDecoder,
     encoder: Http2ConnectionEncoder,
@@ -422,9 +450,33 @@ internal class ConnectionHandler(
         errorCode: Long,
         data: ByteBuf
     ) {
-        context.channel().takeIf(Channel::signalIsDraining)?.let {
-            drainingChannel = it
+        val channel = context.channel()
+        if (channel.signalIsDraining()) {
+            drainingChannel = channel
+        }
+        removeRequestsNotProcessedByPeer(
+            connection(), requestContinuations, requestContinuationPropertyKey, lastStreamId,
+            ::failRequestNotProcessedByPeer
+        )
+        if (errorCode == Http2Error.NO_ERROR.code()) {
             closeIfDrained()
+        } else {
+            connectionError = connectionError ?: goAwayException(lastStreamId, errorCode)
+            drainingChannel = null
+            channel.close()
+        }
+    }
+
+    private fun failRequestNotProcessedByPeer(streamId: Int, continuation: HttpRequestContinuation?) {
+        responseTimeouts.remove(streamId)?.cancel(false)
+        continuation?.let {
+            it.streamId = null
+            it.tryResumeWithException(Http2Exception.streamError(
+                streamId,
+                Http2Error.REFUSED_STREAM,
+                "Peer GOAWAY did not process stream %d",
+                streamId
+            ))
         }
     }
 
@@ -500,15 +552,18 @@ internal class ConnectionHandler(
         cancelSettingsReadTimeout()
         requestContinuations.apply {
             entries.forEach {
-                it.value.tryResumeWithException(streamClosedBeforeReplyException(it.key, context.channel()))
+                responseTimeouts.remove(it.key)?.cancel(false)
+                it.value.streamId = null
+                it.value.tryResumeWithException(
+                    connectionError ?: streamClosedBeforeReplyException(it.key, context.channel()))
             }
             clear()
         }
-        ChannelInactiveException("Channel became inactive before SETTINGS frame was received").let {
-            context.channel().removeChannelContinuation()?.run {
-                logger.debug(it.message)
-                resumeWithExceptionSafely(it)
-            }
+        val inactiveCause = connectionError
+            ?: ChannelInactiveException("Channel became inactive before SETTINGS frame was received")
+        context.channel().removeChannelContinuation()?.run {
+            logger.debug(inactiveCause.message)
+            resumeWithExceptionSafely(inactiveCause)
         }
         super.channelInactive(context)
     }

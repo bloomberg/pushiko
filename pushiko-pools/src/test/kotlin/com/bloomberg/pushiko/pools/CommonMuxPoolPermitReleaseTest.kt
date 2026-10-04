@@ -81,6 +81,32 @@ internal class CommonMuxPoolPermitReleaseTest {
         override fun recycle(obj: Any) = Unit
     }
 
+    private class FaultyPoolable(
+        nanoTime: () -> Long = System::nanoTime,
+        private val error: Throwable? = null
+    ) : Poolable<Any>(Any(), nanoTime = nanoTime) {
+        override val maximumPermits = 1
+        override val isAlive = true
+        override val isCanAcquire: Boolean
+            get() = allocatedPermits < maximumPermits
+        override val isShouldAcquire: Boolean
+            get() = isCanAcquire
+
+        override fun isError(throwable: Throwable): Boolean = error?.let { throw it } ?: false
+    }
+
+    private class FaultyPoolableFactory(
+        private val poolable: FaultyPoolable
+    ) : Factory<FaultyPoolable>, Recycler<Any> {
+        override val allocations = 1
+
+        override suspend fun close() = Unit
+
+        override suspend fun make() = poolable
+
+        override fun recycle(obj: Any) = Unit
+    }
+
     private fun newPool(
         factory: HealthyFactory,
         minimumSize: Int,
@@ -98,6 +124,18 @@ internal class CommonMuxPoolPermitReleaseTest {
     )
 
     private fun newPool(factory: CloseTrackingFactory) = CommonMuxPool(
+        configuration = poolConfiguration(
+            maximumPendingAcquisitions = 1_000,
+            maximumSize = 1,
+            minimumSize = 1,
+            reaperDelay = 10L.minutes,
+            summaryInterval = 5L.minutes
+        ),
+        factory,
+        factory
+    )
+
+    private fun newPool(factory: FaultyPoolableFactory) = CommonMuxPool(
         configuration = poolConfiguration(
             maximumPendingAcquisitions = 1_000,
             maximumSize = 1,
@@ -255,6 +293,44 @@ internal class CommonMuxPoolPermitReleaseTest {
             assertEquals(0, timeouts.get())
             withContext(Dispatchers.Default) {
                 pool.withPermit(5L.seconds) { }
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun errorClassificationFailureDoesNotLeakPermit() = runTest {
+        val poolable = FaultyPoolable(error = IllegalStateException("classification failed"))
+        val pool = newPool(FaultyPoolableFactory(poolable))
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                assertFailsWith<IOException> {
+                    pool.withPermit(Duration.INFINITE) { throw IOException("request failed") }
+                }
+
+                pool.withPermit(5L.seconds) {
+                    assertEquals(1, poolable.allocatedPermits)
+                }
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun outcomeClockFailureDoesNotLeakPermit() = runTest {
+        val poolable = FaultyPoolable(nanoTime = { throw IllegalStateException("clock failed") })
+        val pool = newPool(FaultyPoolableFactory(poolable))
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                pool.withPermit(Duration.INFINITE) { }
+
+                pool.withPermit(5L.seconds) {
+                    assertEquals(1, poolable.allocatedPermits)
+                }
             }
         } finally {
             pool.close()

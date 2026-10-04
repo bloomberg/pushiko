@@ -55,6 +55,23 @@ internal class PoolableOutcomeTest {
     }
 
     @Test
+    fun cannotAcquireBeyondAvailablePermits() {
+        val poolable = AnyPoolable(maximumPermits = 1)
+        poolable.acquirePermit()
+
+        assertFailsWith<IllegalStateException> { poolable.acquirePermit() }
+        assertEquals(1, poolable.allocatedPermits)
+    }
+
+    @Test
+    fun cannotReleaseUnallocatedPermit() {
+        val poolable = AnyPoolable(maximumPermits = 1)
+
+        assertFailsWith<IllegalStateException> { poolable.releasePermit() }
+        assertEquals(0, poolable.allocatedPermits)
+    }
+
+    @Test
     fun firstFailureRampsErrorRateByAlphaAndSeedsHoldTime() {
         val poolable = AnyPoolable().apply { recordOutcome(holdNanos = 1_000L, wasSuccess = false) }
         assertEquals(0.2, poolable.errorRate, TOLERANCE)

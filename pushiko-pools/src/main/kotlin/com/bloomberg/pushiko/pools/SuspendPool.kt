@@ -18,6 +18,7 @@
 
 package com.bloomberg.pushiko.pools
 
+import com.bloomberg.pushiko.commons.slf4j.Logger
 import javax.annotation.concurrent.ThreadSafe
 import kotlin.time.Duration
 import kotlinx.coroutines.CompletableDeferred
@@ -34,6 +35,8 @@ import kotlin.contracts.contract
 public sealed class SuspendPool<R : Any, P : Poolable<R>>(
     name: String = "Pushiko"
 ) {
+    private val logger = Logger()
+
     private val scopeGroup = SingleThreadScopeGroup(name)
     private var activeLeaseCount = 0
     private var activeLeasesDrained = CompletableDeferred(Unit)
@@ -105,6 +108,16 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
     internal open fun onAvailable(poolable: P): Unit = Unit
 
     @JvmSynthetic
+    @PublishedApi
+    internal fun recordOutcome(poolable: P, holdNanos: Long, cause: Throwable?) {
+        runCatching {
+            poolable.recordOutcome(holdNanos, cause == null || !poolable.isError(cause))
+        }.onFailure {
+            logger.warn("Failed to record outcome for a pooled object", it)
+        }
+    }
+
+    @JvmSynthetic
     internal abstract fun allocatedSize(): Int
 
     @JvmSynthetic
@@ -147,18 +160,15 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
     internal fun schedulePermitRelease(acquired: P, holdNanos: Long?, cause: Throwable?) {
         launchInMainScope {
             try {
-                if (holdNanos != null) {
-                    acquired.recordOutcome(holdNanos, cause == null || !acquired.isError(cause))
-                }
+                acquired.releasePermit()
             } finally {
-                try {
-                    acquired.releasePermit()
-                } finally {
-                    releaseLease()
-                }
+                releaseLease()
             }
             if (isWorkActive && (acquired.isCanAcquire || !acquired.isAlive)) {
                 onAvailable(acquired)
+            }
+            if (holdNanos != null) {
+                recordOutcome(acquired, holdNanos, cause)
             }
         }
     }

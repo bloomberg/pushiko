@@ -256,20 +256,37 @@ internal class CommonMuxPoolFactoryFailureTest {
     }
 
     @Test
-    fun rejectsAndRecyclesPoolableWithNonPositivePermitCapacity() = runTest {
-        listOf(-1, 0).forEach { maximumPermits ->
-            val factory = ThrowingFactory(failuresRemaining = 0, maximumPermits = maximumPermits)
-            val pool = newPool(factory, minimumSize = 1, maximumSize = 1)
-            try {
-                withContext(Dispatchers.Default.limitedParallelism(1)) {
-                    assertEquals(0, pool.prepare())
-                    assertEquals(0, pool.allocatedSize())
-                    assertEquals(0, factory.allocations)
-                    assertEquals(1, factory.recyclingCount)
-                }
-            } finally {
-                pool.close()
+    fun rejectsAndRecyclesPoolableWithNegativePermitCapacity() = runTest {
+        val factory = ThrowingFactory(failuresRemaining = 0, maximumPermits = -1)
+        val pool = newPool(factory, minimumSize = 1, maximumSize = 1)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                assertEquals(0, pool.prepare())
+                assertEquals(0, pool.allocatedSize())
+                assertEquals(0, factory.allocations)
+                assertEquals(1, factory.recyclingCount)
             }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun negativePermitCapacityFailureIsPropagatedToPendingAcquisition() = runTest {
+        val factory = ThrowingFactory(failuresRemaining = 0, maximumPermits = -1)
+        val pool = newPool(factory, minimumSize = 0, maximumSize = 1)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                assertFailsWith<IllegalArgumentException> {
+                    pool.withPermit(5L.seconds) { }
+                }
+                assertEquals(0, pool.pendingAcquisitionCount())
+                assertEquals(0, pool.allocatedSize())
+                assertEquals(0, factory.allocations)
+                assertEquals(1, factory.recyclingCount)
+            }
+        } finally {
+            pool.close()
         }
     }
 

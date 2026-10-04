@@ -45,6 +45,12 @@ import io.netty.util.concurrent.Future
 import io.netty.util.concurrent.GenericFutureListener
 import io.netty.util.concurrent.ScheduledFuture
 import io.netty.util.concurrent.SucceededFuture
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.test.runTest
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argThat
@@ -202,8 +208,8 @@ internal class ConnectionHandlerTest {
 
     @Test
     fun firstSettingsFrameCapturesStreamCapacity() {
-        val readyContinuation = mock<Continuation<Channel>>()
-        val continuationAttribute = mock<Attribute<Continuation<Channel>>>().apply {
+        val readyContinuation = mock<CancellableContinuation<Channel>>()
+        val continuationAttribute = mock<Attribute<CancellableContinuation<Channel>>>().apply {
             whenever(getAndSet(anyOrNull())) doReturn readyContinuation
         }
         val maxConcurrentStreamsAttribute = mock<Attribute<Long>>()
@@ -215,8 +221,8 @@ internal class ConnectionHandlerTest {
 
     @Test
     fun subsequentSettingsFrameUpdatesStreamCapacity() {
-        val readyContinuation = mock<Continuation<Channel>>()
-        val continuationAttribute = mock<Attribute<Continuation<Channel>>>().apply {
+        val readyContinuation = mock<CancellableContinuation<Channel>>()
+        val continuationAttribute = mock<Attribute<CancellableContinuation<Channel>>>().apply {
             whenever(getAndSet(anyOrNull())).doReturn(readyContinuation, null)
         }
         val maxConcurrentStreamsAttribute = mock<Attribute<Long>>()
@@ -232,7 +238,7 @@ internal class ConnectionHandlerTest {
 
     @Test
     fun increasedSettingsFrameSignalsAdditionalStreamCapacity() {
-        val continuationAttribute = mock<Attribute<Continuation<Channel>>>()
+        val continuationAttribute = mock<Attribute<CancellableContinuation<Channel>>>()
         val maxConcurrentStreamsAttribute = mock<Attribute<Long>>().apply {
             whenever(get()) doReturn 0L
         }
@@ -250,38 +256,38 @@ internal class ConnectionHandlerTest {
     }
 
     @Test
-    fun initialSettingsTimeoutFailsCreationAndClosesChannel() {
-        var failure: Throwable? = null
-        val readyContinuation = object : Continuation<Channel> {
-            override val context = EmptyCoroutineContext
-
-            override fun resumeWith(result: Result<Channel>) {
-                failure = result.exceptionOrNull()
+    fun initialSettingsTimeoutFailsCreationAndClosesChannel() = runTest {
+        supervisorScope {
+            lateinit var readyContinuation: CancellableContinuation<Channel>
+            val channelReady = async(start = CoroutineStart.UNDISPATCHED) {
+                suspendCancellableCoroutine<Channel> { continuation ->
+                    readyContinuation = continuation
+                }
             }
-        }
-        val continuationAttribute = mock<Attribute<Continuation<Channel>>>().apply {
-            whenever(getAndSet(anyOrNull())) doReturn readyContinuation
-        }
-        whenever(channel.attr(channelContinuationAttributeKey)) doReturn continuationAttribute
-        val scheduledFuture = mock<ScheduledFuture<Void>>()
-        lateinit var timeoutTask: Runnable
-        whenever(eventLoop.schedule(any<Runnable>(), eq(25L), eq(TimeUnit.MILLISECONDS))) doAnswer {
-            timeoutTask = it.arguments.first() as Runnable
-            scheduledFuture
-        }
+            val continuationAttribute = mock<Attribute<CancellableContinuation<Channel>>>().apply {
+                whenever(getAndSet(anyOrNull())) doReturn readyContinuation
+            }
+            whenever(channel.attr(channelContinuationAttributeKey)) doReturn continuationAttribute
+            val scheduledFuture = mock<ScheduledFuture<Void>>()
+            lateinit var timeoutTask: Runnable
+            whenever(eventLoop.schedule(any<Runnable>(), eq(25L), eq(TimeUnit.MILLISECONDS))) doAnswer {
+                timeoutTask = it.arguments.first() as Runnable
+                scheduledFuture
+            }
 
-        ConnectionHandler(settingsReadTimeoutMillis = 25L).userEventTriggered(
-            context, SslHandshakeCompletionEvent.SUCCESS)
-        timeoutTask.run()
+            ConnectionHandler(settingsReadTimeoutMillis = 25L).userEventTriggered(
+                context, SslHandshakeCompletionEvent.SUCCESS)
+            timeoutTask.run()
 
-        assertIs<SocketTimeoutException>(failure)
-        verify(channel, times(1)).close()
+            assertIs<SocketTimeoutException>(runCatching { channelReady.await() }.exceptionOrNull())
+            verify(channel, times(1)).close()
+        }
     }
 
     @Test
     fun initialSettingsCancelsSettingsTimeout() {
-        val readyContinuation = mock<Continuation<Channel>>()
-        val continuationAttribute = mock<Attribute<Continuation<Channel>>>().apply {
+        val readyContinuation = mock<CancellableContinuation<Channel>>()
+        val continuationAttribute = mock<Attribute<CancellableContinuation<Channel>>>().apply {
             whenever(getAndSet(anyOrNull())) doReturn readyContinuation
         }
         val maxConcurrentStreamsAttribute = mock<Attribute<Long>>()
@@ -613,7 +619,7 @@ internal class ConnectionHandlerTest {
         whenever(pipeline.context(eq(handler))) doReturn context
         val continuation = HttpRequestContinuation(HttpRequest { }, channel, mock())
         whenever(channel.attr(channelContinuationAttributeKey)) doReturn
-            mock<Attribute<Continuation<Channel>>>()
+            mock<Attribute<CancellableContinuation<Channel>>>()
         handler.write(context, continuation, mock())
         handler.channelInactive(context)
         continuation.cancel()

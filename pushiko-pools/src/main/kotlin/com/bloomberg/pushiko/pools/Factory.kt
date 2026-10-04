@@ -34,7 +34,8 @@ public interface Factory<P : Any> {
 
     /**
      * Creates a pooled object. Implementations must avoid blocking and cooperate with coroutine cancellation so that
-     * pool shutdown can complete promptly.
+     * pool shutdown can complete promptly. If cancellation occurs after allocating a resource but before returning
+     * it, the implementation remains responsible for releasing that resource.
      */
     public suspend fun make(): P
 }

@@ -75,6 +75,8 @@ import io.netty.util.AttributeKey
 import io.netty.util.collection.IntObjectHashMap
 import io.netty.util.concurrent.Future
 import io.netty.util.concurrent.PromiseCombiner
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.slf4j.Logger as Slf4jLogger
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -102,7 +104,7 @@ private val channelInactiveWriteException = ChannelInactiveException("Channel in
 private val streamsExhaustedException = ChannelStreamQuotaException("HTTP/2 streams exhausted; closing connection")
 private val unrecognisedMessageException = IllegalArgumentException("Unrecognised message object in pipeline")
 
-private fun Channel.removeChannelContinuation(): Continuation<Channel>? =
+private fun Channel.removeChannelContinuation(): CancellableContinuation<Channel>? =
     attr(channelContinuationAttributeKey).getAndSet(null)
 
 private fun Channel.recordMaxConcurrentStreams(maxConcurrentStreams: Long) =
@@ -372,6 +374,7 @@ internal class ConnectionHandler(
 
     override fun onSettingsAckRead(context: ChannelHandlerContext) = Unit
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun onSettingsRead(context: ChannelHandlerContext, settings: Http2Settings) {
         initialSettingsReceived = true
         cancelSettingsReadTimeout()
@@ -389,7 +392,7 @@ internal class ConnectionHandler(
             }
             removeChannelContinuation()?.let {
                 logger.info("Initial settings from peer: {}", settings)
-                it.resume(this)
+                it.resume(this) { close() }
             } ?: logger.info("Received settings from peer: {}", settings)
         }
     }
@@ -480,7 +483,7 @@ internal class ConnectionHandler(
     ) {
         connectionError = connectionException ?: cause
         logger.warn("Channel ${context.channel()} encountered connection error", cause)
-        context.channel().removeChannelContinuation()?.tryResumeWithException(cause)
+        context.channel().removeChannelContinuation()?.resumeWithExceptionSafely(cause)
         super.onConnectionError(context, outbound, cause, connectionException)
     }
 
@@ -489,7 +492,7 @@ internal class ConnectionHandler(
         if (cause is WriteTimeoutException) {
             context.channel().pipeline().remove(WriteTimeoutHandler::class.java)
         }
-        context.channel().removeChannelContinuation()?.tryResumeWithException(cause)
+        context.channel().removeChannelContinuation()?.resumeWithExceptionSafely(cause)
     }
 
     override fun channelInactive(context: ChannelHandlerContext) {
@@ -504,7 +507,7 @@ internal class ConnectionHandler(
         ChannelInactiveException("Channel became inactive before SETTINGS frame was received").let {
             context.channel().removeChannelContinuation()?.run {
                 logger.debug(it.message)
-                tryResumeWithException(it)
+                resumeWithExceptionSafely(it)
             }
         }
         super.channelInactive(context)
@@ -619,7 +622,7 @@ internal class ConnectionHandler(
                     "Initial HTTP/2 SETTINGS frame was not received within ${settingsReadTimeoutMillis}ms")
                 connectionError = connectionError ?: cause
                 logger.warn("{}; closing channel {}", cause.message, channel())
-                channel().removeChannelContinuation()?.tryResumeWithException(cause)
+                channel().removeChannelContinuation()?.resumeWithExceptionSafely(cause)
                 channel().close()
             }
         }, settingsReadTimeoutMillis, TimeUnit.MILLISECONDS)
@@ -761,6 +764,12 @@ internal class ConnectionHandler(
     }
 
     private fun <T> Continuation<T>.tryResumeWithException(cause: Throwable) = runCatching {
+        resumeWithException(cause)
+    }.getOrElse {
+        logger.debug("Error resuming continuation", it)
+    }
+
+    private fun <T> CancellableContinuation<T>.resumeWithExceptionSafely(cause: Throwable) = runCatching {
         resumeWithException(cause)
     }.getOrElse {
         logger.debug("Error resuming continuation", it)

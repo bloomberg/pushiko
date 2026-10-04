@@ -21,6 +21,12 @@ import kotlin.math.pow
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
+/**
+ * A resource and its pool-specific capacity and health state.
+ *
+ * Property getters and [isError] are invoked on the pool's control dispatcher. Implementations must return promptly,
+ * must not block and must not throw. [summarize] may suspend, but must not block its calling thread.
+ */
 @NotThreadSafe
 public abstract class Poolable<out R : Any>(
     @JvmField

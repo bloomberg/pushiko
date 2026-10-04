@@ -265,7 +265,11 @@ internal class CommonMuxPoolScalingTest {
                 assertEquals(1, factory.allocations)
                 pool.withPermit(Duration.INFINITE) {
                     pool.withPermit(5L.seconds) {
-                        assertEquals(2, factory.allocations)
+                        withTimeout(5L.seconds) {
+                            while (factory.allocations != 2) {
+                                yield()
+                            }
+                        }
                     }
                 }
             }
@@ -317,7 +321,8 @@ internal class CommonMuxPoolScalingTest {
                     }
                 }
                 withTimeout(5L.seconds) {
-                    while (pool.metricsComponent.gauges(Duration.INFINITE).allocatedSize > 1) {
+                    while (pool.metricsComponent.gauges(Duration.INFINITE).allocatedSize > 1 ||
+                        factory.allocations > 1) {
                         yield()
                     }
                 }
@@ -349,7 +354,8 @@ internal class CommonMuxPoolScalingTest {
                     assertEquals(1, factory.allocations)
                 }
                 withTimeout(5L.seconds) {
-                    while (pool.metricsComponent.gauges(Duration.INFINITE).allocatedSize > 0) {
+                    while (pool.metricsComponent.gauges(Duration.INFINITE).allocatedSize > 0 ||
+                        factory.allocations > 0) {
                         yield()
                     }
                 }
@@ -420,10 +426,13 @@ internal class CommonMuxPoolScalingTest {
                 pool.prepare()
                 assertEquals(6, factory.allocations)
                 pool.withPermit(Duration.INFINITE) { }
-                pool.withPermit(Duration.INFINITE) {
-                    assertEquals(1, factory.allocations)
-                    assertEquals(5, factory.recyclingCount)
+                pool.withPermit(Duration.INFINITE) { }
+                withTimeout(5L.seconds) {
+                    while (factory.recyclingCount != 5) {
+                        yield()
+                    }
                 }
+                assertEquals(1, factory.allocations)
             }
         } finally {
             pool.close()
@@ -450,10 +459,13 @@ internal class CommonMuxPoolScalingTest {
             withContext(Dispatchers.Default.limitedParallelism(1)) {
                 pool.prepare()
                 assertEquals(5, factory.allocations)
-                pool.withPermit(5L.seconds) {
-                    assertEquals(5, factory.allocations)
-                    assertEquals(5, factory.recyclingCount)
+                pool.withPermit(5L.seconds) { }
+                withTimeout(5L.seconds) {
+                    while (factory.recyclingCount != 5) {
+                        yield()
+                    }
                 }
+                assertEquals(5, factory.allocations)
             }
         } finally {
             pool.close()
@@ -481,8 +493,12 @@ internal class CommonMuxPoolScalingTest {
 
                 pool.prepare()
 
+                withTimeout(5L.seconds) {
+                    while (factory.recyclingCount != 3) {
+                        yield()
+                    }
+                }
                 assertEquals(3, factory.allocations)
-                assertEquals(3, factory.recyclingCount)
                 assertNotNull(pool.selectPoolableForTest())
             }
         } finally {

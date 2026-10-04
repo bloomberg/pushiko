@@ -16,6 +16,16 @@
 
 package com.bloomberg.pushiko.pools
 
+import javax.annotation.concurrent.ThreadSafe
+
+/**
+ * Disposes resources removed from a pool.
+ *
+ * Implementations must be thread-safe, return promptly and not throw. A pool may invoke this callback away from its
+ * control dispatcher. Unexpected failures are isolated and logged, but failed disposal is not retried.
+ */
+@ThreadSafe
 public interface Recycler<R : Any> {
+    /** Disposes [obj]. */
     public fun recycle(obj: R)
 }

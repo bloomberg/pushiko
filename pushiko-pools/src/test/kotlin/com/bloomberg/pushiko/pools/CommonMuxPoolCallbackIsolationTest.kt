@@ -141,7 +141,8 @@ internal class CommonMuxPoolCallbackIsolationTest {
                 growTo(pool, size = 2)
                 withTimeout(5L.seconds) { recycleStarted.await() }
 
-                assertEquals(1, pool.metricsComponent.gauges(1L.seconds).allocatedSize)
+                assertEquals(2, pool.metricsComponent.gauges(1L.seconds).allocatedSize)
+                assertEquals(2, factory.allocations)
 
                 allowRecycle.countDown()
             }
@@ -170,7 +171,8 @@ internal class CommonMuxPoolCallbackIsolationTest {
                     }
                 }
 
-                assertEquals(1, pool.metricsComponent.gauges(1L.seconds).allocatedSize)
+                assertEquals(2, pool.metricsComponent.gauges(1L.seconds).allocatedSize)
+                assertEquals(2, factory.allocations)
                 assertEquals(2, factory.recyclingAttempts)
                 assertFalse(pool.isReaperScheduledForTest())
             }

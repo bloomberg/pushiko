@@ -104,6 +104,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private companion object {
         private const val MINIMUM_REAPER_BATCH_SIZE = 16
         private const val MAXIMUM_REAPER_BATCH_SIZE = 256
+        private const val MAXIMUM_OWNED_SIZE_MULTIPLIER = 2
     }
 
     private val logger = Logger()
@@ -114,8 +115,14 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private val pendingAcquisitions = LinkedHashSet<CancellableContinuation<Unit>>()
     private var pendingResumptionCount = 0
     private var pendingCreationCount = 0
+    private var unrecycledSize = 0
     private val anticipatedSize: Int
         get() = pool.size + pendingCreationCount
+    private val anticipatedOwnedSize: Int
+        get() = anticipatedSize + retiredPoolables.size + unrecycledSize
+    private val maximumOwnedSize = configuration.maximumSize * MAXIMUM_OWNED_SIZE_MULTIPLIER
+    private val availableOwnedSlots: Int
+        get() = (maximumOwnedSize - anticipatedOwnedSize).coerceAtLeast(0)
 
     private var scanLimitForPoolSize = -1
     private var cachedScanLimit = 0
@@ -153,7 +160,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     @JvmSynthetic
     override suspend fun performSelection(): P = acquirePoolable()
 
-    override fun allocatedSize(): Int = pool.size
+    override fun allocatedSize(): Int = pool.size + retiredPoolables.size + unrecycledSize
 
     @JvmSynthetic
     override fun onAvailable(poolable: P) {
@@ -180,7 +187,9 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
                 .appendLine("  Pending acquisitions: ${pendingAcquisitions.size}")
                 .appendLine("  Pending creations: $pendingCreationCount")
                 .appendLine("  Probe limit: ${probeLimit()}")
+                .appendLine("  Retired: ${retiredPoolables.size}")
                 .appendLine("  Size: ${pool.size}")
+                .appendLine("  Unrecycled: $unrecycledSize")
         }
         pool.map {
             launchInWorkScope {
@@ -320,13 +329,22 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private fun scheduleDetachedRecycle(poolable: P): Job {
         check(poolable.allocatedPermits == 0) { "Cannot recycle a poolable with allocated permits" }
         recyclingJobs.removeAll(Job::isCompleted)
+        ++unrecycledSize
         return launchInMainScope {
-            runCatching {
+            val recycled = runCatching {
                 withContext(callbackDispatcher) {
                     recycler.recycle(poolable.value)
                 }
             }.onFailure {
                 logger.warn("Failed to recycle poolable", it)
+            }.isSuccess
+            if (recycled) {
+                --unrecycledSize
+                val activeAcquisitionIsPending =
+                    pendingAcquisitions.any(CancellableContinuation<Unit>::isActive)
+                if (isWorkActive && activeAcquisitionIsPending) {
+                    perhapsGrow(chosen = null)
+                }
             }
         }.also {
             recyclingJobs += it
@@ -446,7 +464,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private suspend fun doAttemptFill(): Int {
         assertThisDispatcher()
         cleanPool()
-        val defect = (configuration.minimumSize - anticipatedSize).also {
+        val defect = minOf(configuration.minimumSize - anticipatedSize, availableOwnedSlots).also {
             if (it <= 0) {
                 return 0
             }
@@ -477,7 +495,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     }
 
     private fun perhapsGrow(chosen: P?) {
-        if (anticipatedSize >= configuration.maximumSize) {
+        if (anticipatedSize >= configuration.maximumSize || availableOwnedSlots == 0) {
             return
         }
         when {

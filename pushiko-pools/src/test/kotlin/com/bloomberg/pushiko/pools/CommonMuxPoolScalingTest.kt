@@ -18,6 +18,7 @@ package com.bloomberg.pushiko.pools
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -325,7 +326,7 @@ internal class CommonMuxPoolScalingTest {
                 withTimeout(5L.seconds) {
                     while (pool.metricsComponent.gauges(Duration.INFINITE).allocatedSize > 1 ||
                         factory.allocations > 1) {
-                        yield()
+                        delay(10L.milliseconds)
                     }
                 }
                 assertEquals(1, pool.metricsComponent.gauges(Duration.INFINITE).allocatedSize)
@@ -358,7 +359,7 @@ internal class CommonMuxPoolScalingTest {
                 withTimeout(5L.seconds) {
                     while (pool.metricsComponent.gauges(Duration.INFINITE).allocatedSize > 0 ||
                         factory.allocations > 0) {
-                        yield()
+                        delay(10L.milliseconds)
                     }
                 }
                 assertEquals(0, pool.metricsComponent.gauges(Duration.INFINITE).allocatedSize)

@@ -29,6 +29,7 @@ import kotlinx.coroutines.Job
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
+import kotlinx.coroutines.yield
 
 @ThreadSafe
 @Suppress("TooManyFunctions")
@@ -77,8 +78,7 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
         var failure: Throwable? = null
         try {
             withWorkContext(acquisitionTimeout) {
-                @Suppress("UNCHECKED_CAST")
-                poolable = performSelection().acquirePermit() as P
+                poolable = performPermitAcquisition()
                 registerLease()
             }
             // The acquisition of the reference, and then a permit, was definitely successful.
@@ -105,6 +105,21 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
     @JvmSynthetic
     @PublishedApi
     internal abstract suspend fun performSelection(): Poolable<R>
+
+    @JvmSynthetic
+    @PublishedApi
+    @Suppress("UNCHECKED_CAST")
+    internal suspend fun performPermitAcquisition(): P {
+        while (true) {
+            val selected = performSelection()
+            if (selected.tryAcquirePermit()) {
+                return selected as P
+            }
+            // Eligibility can change concurrently after selection. Let its notification and cancellation run
+            // before selecting again instead of exposing that supported race as an invariant failure.
+            yield()
+        }
+    }
 
     @JvmSynthetic
     @PublishedApi

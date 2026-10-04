@@ -59,7 +59,6 @@ import java.io.StringWriter
 import java.util.LinkedHashSet
 import javax.annotation.concurrent.ThreadSafe
 import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import kotlin.math.ceil
 import kotlin.math.sqrt
 
@@ -260,12 +259,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             pendingAcquisitions.removeAll { !it.isActive }
         }
         if (pendingAcquisitions.size >= configuration.maximumPendingAcquisitions) {
-            // The pending acquisitions queue is full, clear a slot.
-            runCatching {
-                removeFirstActivePendingAcquisition()?.resumeWithException(PendingAcquisitionLimitException)
-            }.onFailure {
-                logger.debug("Exception resuming a pending acquisition", it)
-            }
+            throw PendingAcquisitionLimitException
         }
         suspendCancellableCoroutine { continuation ->
             pendingAcquisitions.add(continuation)

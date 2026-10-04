@@ -16,6 +16,7 @@
 
 package com.bloomberg.pushiko.pools
 
+import com.bloomberg.pushiko.pools.exceptions.PermitAcquisitionRetryLimitException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -25,7 +26,9 @@ import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -119,6 +122,52 @@ internal class CommonMuxPoolAcquisitionRaceTest {
                         yield()
                     }
                 }
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    private class NeverStabilizesPoolable : Poolable<Any>(Any()) {
+        private var reads = 0
+        override val maximumPermits = 1
+        override val isAlive = true
+        override val isCanAcquire: Boolean
+            get() = ++reads % 2 == 0
+        override val isShouldAcquire = true
+    }
+
+    private class NeverAcquirableFactory : Factory<Poolable<Any>>, Recycler<Any> {
+        val poolable = NeverStabilizesPoolable()
+        override val allocations: Int = 1
+        override suspend fun close() = Unit
+        override suspend fun make(): Poolable<Any> = poolable
+        override fun recycle(obj: Any) = Unit
+    }
+
+    @Test
+    fun failsWithinBoundedRetriesWhenSelectedPoolableNeverBecomesAcquirable() = runTest {
+        val factory = NeverAcquirableFactory()
+        val pool = CommonMuxPool(
+            configuration = poolConfiguration(
+                maximumPendingAcquisitions = 1,
+                maximumSize = 1,
+                minimumSize = 1,
+                reaperDelay = 10L.minutes,
+                summaryInterval = 5L.minutes
+            ),
+            factory,
+            factory
+        )
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                assertFailsWith<PermitAcquisitionRetryLimitException> {
+                    withTimeout(5L.seconds) {
+                        pool.withPermit(Duration.INFINITE) { }
+                    }
+                }
+                assertEquals(0, factory.poolable.allocatedPermits)
             }
         } finally {
             pool.close()

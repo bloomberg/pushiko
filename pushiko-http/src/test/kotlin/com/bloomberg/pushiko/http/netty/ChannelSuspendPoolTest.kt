@@ -16,18 +16,20 @@
 
 package com.bloomberg.pushiko.http.netty
 
+import com.bloomberg.pushiko.http.IHttpClientProperties
 import com.bloomberg.pushiko.pools.PoolConfiguration
 import com.bloomberg.pushiko.pools.exceptions.PoolClosedException
 import io.netty.channel.Channel
+import io.netty.util.Attribute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.argThat
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.whenever
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
@@ -47,6 +49,25 @@ internal class ChannelSuspendPoolTest {
         summaryInterval = Duration.INFINITE
     )
 
+    private fun alwaysAcquirableChannel(): Channel {
+        val closingAttribute = mock<Attribute<Boolean>> {
+            on { get() } doReturn false
+        }
+        val drainingAttribute = mock<Attribute<Boolean>> {
+            on { get() } doReturn false
+        }
+        val maxConcurrentStreamsAttribute = mock<Attribute<Long>> {
+            on { get() } doReturn 10L
+        }
+        return mock<Channel> {
+            on { isActive } doReturn true
+            on { attr(maxConcurrentStreamsAttributeKey) } doReturn maxConcurrentStreamsAttribute
+            on { attr(streamCapacityChangedAttributeKey) } doReturn mock()
+            on { attr(channelIsDrainingAttributeKey) } doReturn drainingAttribute
+            on { attr<Boolean>(argThat { name() == "channelIsClosing" }) } doReturn closingAttribute
+        }
+    }
+
     @Test
     fun emptyChannelPoolSize() {
         ChannelPool(mock(), poolConfiguration()).run {
@@ -62,12 +83,7 @@ internal class ChannelSuspendPoolTest {
     fun close() = runTest {
         val factory = mock<PoolableChannelFactory> {
             onBlocking { make() } doSuspendableAnswer {
-                mock {
-                    whenever(it.isAlive) doReturn true
-                    whenever(it.isCanAcquire) doReturn true
-                    whenever(it.isShouldAcquire) doReturn true
-                    whenever(it.maximumPermits) doReturn 10
-                }
+                PoolableChannel(alwaysAcquirableChannel(), mock<IHttpClientProperties>())
             }
         }
         ChannelPool(factory, poolConfiguration()).run {

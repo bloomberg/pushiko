@@ -24,9 +24,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -34,7 +36,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import javax.annotation.concurrent.ThreadSafe
 import kotlin.coroutines.ContinuationInterceptor
-import kotlin.coroutines.coroutineContext
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 
 @ThreadSafe
@@ -80,7 +82,7 @@ public class SingleThreadScopeGroup(
     @JvmSynthetic
     internal suspend fun assertThisDispatcher() {
         assert("Execution must be confined to the single-threaded CoroutineDispatcher of this group") {
-            coroutineContext[ContinuationInterceptor] === dispatcher
+            currentCoroutineContext()[ContinuationInterceptor] === dispatcher
         }
     }
 
@@ -105,7 +107,7 @@ public class SingleThreadScopeGroup(
     @JvmSynthetic
     internal suspend fun <T> withMainContext(
         block: suspend CoroutineScope.() -> T
-    ): T = withContext(mainContext, block)
+    ): T = awaitInScope(mainScope, block)
 
     /**
      * Invokes the passed block with a given timeout in a scope whose parent is [mainJob], suspends until it completes,
@@ -115,16 +117,14 @@ public class SingleThreadScopeGroup(
     internal suspend fun <T> withMainContext(
         timeout: Duration,
         block: suspend CoroutineScope.() -> T
-    ): T = withContext(mainJob) {
-        withTimeout(timeout) {
-            withContext(dispatcher, block)
-        }
+    ): T = withTimeout(timeout) {
+        withMainContext(block)
     }
 
     @JvmSynthetic
     internal suspend fun <T> withWorkContext(
         block: suspend CoroutineScope.() -> T
-    ): T = withContext(workContext, block)
+    ): T = awaitInScope(workScope, block)
 
     /**
      * Invokes the passed block with a given timeout in a scope whose parent is [workJob], suspends until it completes,
@@ -134,9 +134,31 @@ public class SingleThreadScopeGroup(
     internal suspend fun <T> withWorkContext(
         timeout: Duration,
         block: suspend CoroutineScope.() -> T
-    ): T = withContext(workJob) {
-        withTimeout(timeout) {
-            withContext(dispatcher, block)
+    ): T = withTimeout(timeout) {
+        withWorkContext(block)
+    }
+
+    private suspend fun <T> awaitInScope(
+        scope: CoroutineScope,
+        block: suspend CoroutineScope.() -> T
+    ): T {
+        currentCoroutineContext().ensureActive()
+        scope.ensureActive()
+        val start = if (currentCoroutineContext()[ContinuationInterceptor] === dispatcher) {
+            CoroutineStart.UNDISPATCHED
+        } else {
+            CoroutineStart.DEFAULT
+        }
+        return scope.async(EmptyCoroutineContext, start, block).let {
+            try {
+                it.await()
+            } catch (cause: CancellationException) {
+                it.cancel(cause)
+                withContext(NonCancellable) {
+                    it.join()
+                }
+                throw cause
+            }
         }
     }
 }

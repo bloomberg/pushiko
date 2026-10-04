@@ -331,20 +331,17 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         recyclingJobs.removeAll(Job::isCompleted)
         ++unrecycledSize
         return launchInMainScope {
-            val recycled = runCatching {
+            runCatching {
                 withContext(callbackDispatcher) {
                     recycler.recycle(poolable.value)
                 }
             }.onFailure {
                 logger.warn("Failed to recycle poolable", it)
-            }.isSuccess
-            if (recycled) {
-                --unrecycledSize
-                val activeAcquisitionIsPending =
-                    pendingAcquisitions.any(CancellableContinuation<Unit>::isActive)
-                if (isWorkActive && activeAcquisitionIsPending) {
-                    perhapsGrow(chosen = null)
-                }
+            }
+            --unrecycledSize
+            val activeAcquisitionIsPending = pendingAcquisitions.any(CancellableContinuation<Unit>::isActive)
+            if (isWorkActive && activeAcquisitionIsPending) {
+                perhapsGrow(chosen = null)
             }
         }.also {
             recyclingJobs += it

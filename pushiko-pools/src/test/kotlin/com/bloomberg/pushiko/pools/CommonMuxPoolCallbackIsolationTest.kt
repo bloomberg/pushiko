@@ -171,7 +171,7 @@ internal class CommonMuxPoolCallbackIsolationTest {
                     }
                 }
 
-                assertEquals(2, pool.metricsComponent.gauges(1L.seconds).allocatedSize)
+                assertEquals(1, pool.metricsComponent.gauges(1L.seconds).allocatedSize)
                 assertEquals(2, factory.allocations)
                 assertEquals(2, factory.recyclingAttempts)
                 assertFalse(pool.isReaperScheduledForTest())

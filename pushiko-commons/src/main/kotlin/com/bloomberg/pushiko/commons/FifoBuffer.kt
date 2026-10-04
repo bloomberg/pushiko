@@ -92,6 +92,35 @@ public class FifoBuffer<T : Any>(capacity: Int) : Iterable<T> {
     }
 
     /**
+     * Inspects at most [maximumInspections] elements from the end of this buffer, removes at most [maximum] elements
+     * satisfying [predicate], and invokes [onRemove] for each one. Retained inspected elements are moved to the start
+     * so that consecutive calls continue through this buffer.
+     *
+     * @return the number of removed elements.
+     */
+    public inline fun removeAtMostFromLast(
+        maximum: Int,
+        maximumInspections: Int,
+        predicate: (T) -> Boolean,
+        onRemove: (T) -> Unit
+    ): Int {
+        require(maximum >= 0)
+        require(maximumInspections >= 0)
+        var removed = 0
+        repeat(minOf(size, maximumInspections)) {
+            removeLast().let {
+                if (removed < maximum && predicate(it)) {
+                    ++removed
+                    onRemove(it)
+                } else {
+                    addFirst(it)
+                }
+            }
+        }
+        return removed
+    }
+
+    /**
      * Removes the first element added to this buffer.
      *
      * @return the removed first element from this buffer.

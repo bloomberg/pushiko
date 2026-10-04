@@ -27,6 +27,8 @@ public data class WaterMarkScaleFactor(
 )
 
 /**
+ * @property maximumPendingAcquisitions maximum number of acquisitions that may wait for capacity. Once reached, a
+ * new acquisition is rejected without displacing an existing waiter.
  * @property shutdownTimeout maximum time each [SuspendPool.close] invocation waits for orderly shutdown. Expiry only
  * stops that invocation from waiting: it does not cancel cleanup. A later `close` call can await the same stored
  * shutdown result, including any cleanup failure.

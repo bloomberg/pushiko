@@ -80,9 +80,16 @@ public abstract class Poolable<out R : Any>(
         private set
 
     public fun acquirePermit(): Poolable<R> = apply {
-        check(isCanAcquire) { "No permit is available" }
+        check(tryAcquirePermit()) { "No permit is available" }
+    }
+
+    internal fun tryAcquirePermit(): Boolean {
+        if (!isCanAcquire) {
+            return false
+        }
         check(allocatedPermits < Int.MAX_VALUE) { "Allocated permit count overflow" }
         ++allocatedPermits
+        return true
     }
 
     public fun releasePermit() {

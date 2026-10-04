@@ -49,6 +49,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.awaitAll
@@ -491,11 +492,21 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private suspend fun createPoolable(): P {
         assertThisDispatcher()
         ++pendingCreationCount
+        var created: P? = null
         val result = try {
-            runCatching {
-                withContext(callbackDispatcher) {
-                    factory.make()
+            try {
+                Result.success(withContext(callbackDispatcher) {
+                    factory.make().also { created = it }
+                })
+            } catch (exception: CancellationException) {
+                created?.let {
+                    withContext(NonCancellable) {
+                        scheduleRecycle(it).join()
+                    }
                 }
+                throw exception
+            } catch (exception: Throwable) {
+                Result.failure(exception)
             }
         } finally {
             --pendingCreationCount

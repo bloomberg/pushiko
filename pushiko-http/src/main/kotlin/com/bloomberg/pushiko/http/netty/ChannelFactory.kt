@@ -60,8 +60,10 @@ import io.netty.resolver.dns.RoundRobinDnsAddressResolverGroup
 import io.netty.util.AttributeKey
 import kotlinx.atomicfu.atomic
 import kotlinx.atomicfu.update
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.lang.Long.min
 import java.net.ConnectException
@@ -70,9 +72,7 @@ import java.net.SocketAddress
 import java.net.SocketTimeoutException
 import java.util.concurrent.ThreadLocalRandom
 import javax.annotation.concurrent.ThreadSafe
-import kotlin.coroutines.Continuation
 import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
 import kotlin.math.max
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -81,7 +81,7 @@ import kotlin.time.toDuration
 
 private val CommonWriteBufferWaterMark = WriteBufferWaterMark(128 * 1_024, 512 * 1_024)
 
-internal val channelContinuationAttributeKey = AttributeKey.valueOf<Continuation<Channel>>(
+internal val channelContinuationAttributeKey = AttributeKey.valueOf<CancellableContinuation<Channel>>(
     ChannelFactory::class.java,
     "channelReadyPromise"
 )
@@ -168,20 +168,21 @@ internal class ChannelFactory(
                     frameLogger,
                     configuration
                 )
-                suspendCoroutine { continuation ->
-                    bootstrap.channelFactory(internalChannelFactory(continuation))
-                        .connect()
-                        .addListener {
-                            updateMinimumDelay(it.isSuccess)
-                            if (!it.isSuccess) {
-                                continuation.tryResumeWithException(it.cause())
-                            }
+                suspendCancellableCoroutine { continuation ->
+                    val connectFuture = bootstrap.channelFactory(internalChannelFactory(continuation)).connect()
+                    continuation.invokeOnCancellation {
+                        connectFuture.cancel(false)
+                        connectFuture.channel().apply {
+                            attr(channelContinuationAttributeKey).compareAndSet(continuation, null)
+                            close()
                         }
-                }
-            }.also {
-                if (allChannels.add(it)) {
-                    it.closeFuture().addListener { _ ->
-                        allChannels.remove(it)
+                    }
+                    connectFuture.addListener {
+                        updateMinimumDelay(it.isSuccess)
+                        if (!it.isSuccess) {
+                            connectFuture.channel().attr(channelContinuationAttributeKey).getAndSet(null)
+                                ?.resumeWithExceptionSafely(it.cause())
+                        }
                     }
                 }
             }
@@ -220,16 +221,21 @@ internal class ChannelFactory(
     )
 
     private fun internalChannelFactory(
-        continuation: Continuation<Channel>
+        continuation: CancellableContinuation<Channel>
     ) = object : ReflectiveChannelFactory<Channel>(
         bootstrapTemplate.config().group().javaClass.canonicalName.socketChannelClass()
     ) {
         override fun newChannel() = super.newChannel().apply {
+            if (allChannels.add(this)) {
+                closeFuture().addListener { _ ->
+                    allChannels.remove(this)
+                }
+            }
             attr(channelContinuationAttributeKey).set(continuation)
         }
     }
 
-    private fun <T> Continuation<T>.tryResumeWithException(cause: Throwable) = runCatching {
+    private fun <T> CancellableContinuation<T>.resumeWithExceptionSafely(cause: Throwable) = runCatching {
         resumeWithException(cause)
     }.getOrElse {
         logger.debug("Error resuming continuation", it)

@@ -20,6 +20,7 @@ import com.bloomberg.pushiko.pools.exceptions.PoolClosedException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.runTest
@@ -33,11 +34,49 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class CommonMuxPoolFactoryFailureTest {
+    private class CancellationIgnoringFactory : Factory<AnyPoolable>, Recycler<Any> {
+        private val allocationCount = AtomicInteger()
+        private val recyclingCount = AtomicInteger()
+        private val makeStarted = CompletableDeferred<Unit>()
+        private val allowMakeToReturn = CompletableDeferred<Unit>()
+
+        override val allocations: Int
+            get() = allocationCount.get()
+
+        val recycled: Int
+            get() = recyclingCount.get()
+
+        suspend fun awaitMakeStarted() {
+            makeStarted.await()
+        }
+
+        fun releaseMake() {
+            allowMakeToReturn.complete(Unit)
+        }
+
+        override suspend fun close() = Unit
+
+        override suspend fun make(): AnyPoolable {
+            makeStarted.complete(Unit)
+            withContext(NonCancellable) {
+                allowMakeToReturn.await()
+            }
+            allocationCount.incrementAndGet()
+            return AnyPoolable()
+        }
+
+        override fun recycle(obj: Any) {
+            allocationCount.decrementAndGet()
+            recyclingCount.incrementAndGet()
+        }
+    }
+
     private class FailThenSuspendFactory : Factory<AnyPoolable>, Recycler<Any> {
         private var callCount = 0
         private var _allocations = 0
@@ -158,6 +197,43 @@ internal class CommonMuxPoolFactoryFailureTest {
         factory,
         factory
     )
+
+    private fun newPool(factory: CancellationIgnoringFactory) = CommonMuxPool(
+        configuration = poolConfiguration(
+            maximumPendingAcquisitions = 1_000,
+            maximumSize = 1,
+            minimumSize = 1,
+            reaperDelay = 10L.minutes,
+            summaryInterval = 5L.minutes
+        ),
+        factory,
+        factory
+    )
+
+    @Test
+    fun cancellationRecyclesFactoryResultReturnedAfterCancelledHandoff() = runTest {
+        val factory = CancellationIgnoringFactory()
+        val pool = newPool(factory)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                val preparation = async { pool.prepare() }
+                factory.awaitMakeStarted()
+
+                preparation.cancel()
+                assertFalse(preparation.isCompleted)
+                factory.releaseMake()
+                preparation.join()
+
+                assertTrue(preparation.isCancelled)
+                assertEquals(0, pool.allocatedSize())
+                assertEquals(0, factory.allocations)
+                assertEquals(1, factory.recycled)
+            }
+        } finally {
+            factory.releaseMake()
+            pool.close()
+        }
+    }
 
     @Test
     fun prepareToleratesTotalFactoryFailureAndStaysCoherent() = runTest {

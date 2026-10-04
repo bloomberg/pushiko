@@ -32,6 +32,9 @@ public interface Factory<P : Any> {
     /** Releases all resources owned by this factory. */
     public suspend fun close()
 
-    /** Creates one resource. */
+    /**
+     * Creates a pooled object. Implementations must avoid blocking and cooperate with coroutine cancellation so that
+     * pool shutdown can complete promptly.
+     */
     public suspend fun make(): P
 }

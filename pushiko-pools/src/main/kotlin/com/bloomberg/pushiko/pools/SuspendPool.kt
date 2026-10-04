@@ -48,7 +48,10 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
     public val metricsComponent: MetricsComponent = MetricsComponent()
 
     /**
-     * Stops new pool work and waits for every active [withPermit] block to release its permit before shutdown.
+     * Stops new pool work and initiates an idempotent shutdown, waiting for every active [withPermit] block to
+     * release its permit. Shutdown failures are propagated to the caller.
+     * Implementations may bound how long each invocation waits. A wait timeout does not cancel the pool-owned
+     * shutdown; a later invocation can continue waiting for the same durable result.
      * Cancelling this call only stops the caller waiting; the pool-owned shutdown continues.
      * This must not be awaited from inside a [withPermit] block on the same pool because that lease cannot then finish.
      */
@@ -189,6 +192,12 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
         start: CoroutineStart = CoroutineStart.DEFAULT,
         block: suspend CoroutineScope.() -> T
     ): Deferred<T> = scopeGroup.asyncInWorkScope(start, block)
+
+    @JvmSynthetic
+    protected fun <T> asyncInMainScope(
+        start: CoroutineStart = CoroutineStart.DEFAULT,
+        block: suspend CoroutineScope.() -> T
+    ): Deferred<T> = scopeGroup.asyncInMainScope(start, block)
 
     @JvmSynthetic
     protected fun launchInMainScope(

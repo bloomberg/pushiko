@@ -18,6 +18,7 @@ package com.bloomberg.pushiko.pools
 
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Builds a [PoolConfiguration] with sensible defaults for every field so that tests need only override what is
@@ -35,7 +36,8 @@ internal fun poolConfiguration(
     minimumSize: Int = 1,
     name: String = "Pushiko.Pool",
     reaperDelay: Duration = 10L.minutes,
-    summaryInterval: Duration = 5L.minutes
+    summaryInterval: Duration = 5L.minutes,
+    shutdownTimeout: Duration = 30L.seconds
 ) = PoolConfiguration(
     errorRateThreshold = errorRateThreshold,
     fullScanPoolSize = fullScanPoolSize,
@@ -45,5 +47,6 @@ internal fun poolConfiguration(
     minimumSize = minimumSize,
     name = name,
     reaperDelay = reaperDelay,
-    summaryInterval = summaryInterval
+    summaryInterval = summaryInterval,
+    shutdownTimeout = shutdownTimeout
 )

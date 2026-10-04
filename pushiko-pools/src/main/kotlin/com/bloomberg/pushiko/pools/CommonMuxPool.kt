@@ -45,10 +45,12 @@ import com.bloomberg.pushiko.pools.exceptions.PendingAcquisitionLimitException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
@@ -61,6 +63,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.jetbrains.annotations.VisibleForTesting
 import java.io.StringWriter
 import java.util.LinkedHashSet
@@ -113,7 +116,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private var scanLimitForPoolSize = -1
     private var cachedScanLimit = 0
 
-    private val closeJob = launchInMainScope(start = CoroutineStart.LAZY) {
+    private val closeJob: Deferred<Unit> = asyncInMainScope(start = CoroutineStart.LAZY) {
         try {
             shutdown()
         } finally {
@@ -181,7 +184,18 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     @JvmSynthetic
     override suspend fun performClose() {
         closeJob.start()
-        closeJob.join()
+        try {
+            withContext(Dispatchers.Default) {
+                withTimeout(configuration.shutdownTimeout) {
+                    closeJob.await()
+                }
+            }
+        } catch (exception: TimeoutCancellationException) {
+            if (!closeJob.isCompleted) {
+                logger.warn("Timed out waiting for pool {} to shut down; shutdown continues in the background", this)
+            }
+            throw exception
+        }
     }
 
     private suspend fun acquirePoolable(): P {
@@ -559,7 +573,12 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         reaperJob?.cancelAndJoin()
         recyclingJobs.toList().joinAll()
         recyclingJobs.clear()
-        factory.close()
+        try {
+            factory.close()
+        } catch (exception: Throwable) {
+            logger.warn("Pool {} cleanup failed", this, exception)
+            throw exception
+        }
         logger.info("Pool {} has shutdown", this)
     }
 }

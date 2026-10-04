@@ -29,6 +29,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -51,8 +52,7 @@ internal class CommonMuxPoolPendingTest {
             }
 
         override val maximumPermits: Int = 1
-        override val isAlive: Boolean
-            get() = !isDraining || allocatedPermits > 0
+        override val isAlive = true
         override val isCanAcquire: Boolean
             get() = !isDraining && allocatedPermits < maximumPermits
         override val isShouldAcquire: Boolean
@@ -61,6 +61,9 @@ internal class CommonMuxPoolPendingTest {
 
     private class DrainingPoolableFactory : Factory<DrainingPoolable>, Recycler<Any> {
         private val allocationCount = AtomicInteger()
+        private val peakAllocationCount = AtomicInteger()
+
+        val poolables = CopyOnWriteArrayList<DrainingPoolable>()
 
         lateinit var latest: DrainingPoolable
             private set
@@ -68,17 +71,36 @@ internal class CommonMuxPoolPendingTest {
         override val allocations: Int
             get() = allocationCount.get()
 
+        val peakAllocations: Int
+            get() = peakAllocationCount.get()
+
         override suspend fun close() = Unit
 
         override suspend fun make(): DrainingPoolable {
-            allocationCount.incrementAndGet()
-            return DrainingPoolable().also { latest = it }
+            val allocations = allocationCount.incrementAndGet()
+            peakAllocationCount.getAndUpdate { maxOf(it, allocations) }
+            return DrainingPoolable().also {
+                latest = it
+                poolables += it
+            }
         }
 
         override fun recycle(obj: Any) {
             allocationCount.decrementAndGet()
         }
     }
+
+    private fun newDrainingPool(factory: DrainingPoolableFactory) = CommonMuxPool(
+        configuration = poolConfiguration(
+            maximumPendingAcquisitions = 4,
+            maximumSize = 1,
+            minimumSize = 1,
+            reaperDelay = 10L.minutes,
+            summaryInterval = 5L.minutes
+        ),
+        factory,
+        factory
+    )
 
     private class SinglePermitFactory : Factory<AnyPoolable>, Recycler<Any> {
         private var _allocations = 0
@@ -280,6 +302,73 @@ internal class CommonMuxPoolPendingTest {
                 }
             }
         } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun repeatedDrainingWaitsForPhysicalHeadroomBeforeReplacingAgain() = runTest {
+        val factory = DrainingPoolableFactory()
+        val pool = newDrainingPool(factory)
+        val releaseFirst = CompletableDeferred<Unit>()
+        val releaseSecond = CompletableDeferred<Unit>()
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                val firstEntered = CompletableDeferred<Unit>()
+                val first = launch {
+                    pool.withPermit(Duration.INFINITE) {
+                        firstEntered.complete(Unit)
+                        releaseFirst.await()
+                    }
+                }
+                firstEntered.await()
+                val firstPoolable = factory.poolables.single()
+                firstPoolable.isDraining = true
+
+                withTimeout(5L.seconds) {
+                    while (factory.allocations != 2) {
+                        yield()
+                    }
+                }
+                val secondPoolable = factory.latest
+                val secondEntered = CompletableDeferred<Unit>()
+                val second = launch {
+                    pool.withPermit(Duration.INFINITE) {
+                        secondEntered.complete(Unit)
+                        releaseSecond.await()
+                    }
+                }
+                secondEntered.await()
+                secondPoolable.isDraining = true
+
+                val waiter = async { pool.withPermit(Duration.INFINITE) { } }
+                while (pool.pendingAcquisitionCount() == 0) {
+                    yield()
+                }
+                assertFalse(waiter.isCompleted)
+                assertEquals(2, factory.allocations)
+                assertEquals(2, factory.peakAllocations)
+                assertEquals(2, pool.metricsComponent.gauges(5L.seconds).allocatedSize)
+
+                releaseFirst.complete(Unit)
+                first.join()
+                withTimeout(5L.seconds) {
+                    waiter.await()
+                }
+                assertEquals(2, factory.peakAllocations)
+
+                releaseSecond.complete(Unit)
+                second.join()
+                withTimeout(5L.seconds) {
+                    while (factory.allocations != 1) {
+                        yield()
+                    }
+                }
+            }
+        } finally {
+            releaseFirst.complete(Unit)
+            releaseSecond.complete(Unit)
             pool.close()
         }
     }

@@ -31,8 +31,10 @@ import io.netty.channel.ChannelException
 import io.netty.handler.codec.http2.Http2Error
 import io.netty.handler.codec.http2.Http2Exception
 import io.netty.util.Attribute
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.doReturn
@@ -129,14 +131,16 @@ internal class PoolableChannelTest {
             factory
         )
         try {
-            pool.prepare()
-            whenever(channel.isActive) doReturn false
+            withContext(Dispatchers.Default) {
+                pool.prepare()
+                whenever(channel.isActive) doReturn false
 
-            assertFailsWith<kotlinx.coroutines.TimeoutCancellationException> {
-                pool.testAcquisition(100L.milliseconds)
+                assertFailsWith<kotlinx.coroutines.TimeoutCancellationException> {
+                    pool.testAcquisition(100L.milliseconds)
+                }
+
+                verify(capacityChangedAttribute, times(1)).set(null)
             }
-
-            verify(capacityChangedAttribute, times(1)).set(null)
         } finally {
             pool.close()
         }

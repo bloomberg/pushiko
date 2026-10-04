@@ -23,6 +23,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -120,19 +121,20 @@ internal class CommonMuxPoolScalingTest {
     private class MixedFactory(
         private val deadCount: Int
     ) : Factory<Poolable<Any>>, Recycler<Any> {
-        private var _allocations = 0
+        private val allocationCount = AtomicInteger()
+        private val recycledCount = AtomicInteger()
         private var created = 0
 
-        var recyclingCount = 0
-            private set
+        val recyclingCount: Int
+            get() = recycledCount.get()
 
         override val allocations: Int
-            get() = _allocations
+            get() = allocationCount.get()
 
         override suspend fun close() = Unit
 
         override suspend fun make(): Poolable<Any> {
-            ++_allocations
+            allocationCount.incrementAndGet()
             return if (created++ < deadCount) {
                 DeadPoolable()
             } else {
@@ -141,8 +143,8 @@ internal class CommonMuxPoolScalingTest {
         }
 
         override fun recycle(obj: Any) {
-            --_allocations
-            ++recyclingCount
+            allocationCount.decrementAndGet()
+            recycledCount.incrementAndGet()
         }
     }
 

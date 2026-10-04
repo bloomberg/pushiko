@@ -167,7 +167,7 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
             } finally {
                 releaseLease()
             }
-            if (isWorkActive && (acquired.isCanAcquire || !acquired.isAlive)) {
+            if (isWorkActive) {
                 onAvailable(acquired)
             }
             if (holdNanos != null) {

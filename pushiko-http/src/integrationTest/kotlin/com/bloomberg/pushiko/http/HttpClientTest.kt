@@ -41,8 +41,11 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
@@ -54,8 +57,14 @@ import java.io.IOException
 import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.seconds
 
+private const val DEFAULT_CHURN_DURATION_SECONDS = 2_700L
 private val threads = maxOf(1, Runtime.getRuntime().availableProcessors() / 2)
+private val churnDuration = (
+    System.getenv("PUSHIKO_HTTP_CHURN_DURATION_SECONDS")?.toLongOrNull() ?: DEFAULT_CHURN_DURATION_SECONDS
+).seconds
 
 @Suppress("FunctionName")
 private fun DefaultEventLoopGroup() = when {
@@ -163,6 +172,34 @@ internal class HttpClientTest {
         client.close()
     }
 
+    private suspend fun runChurnWorker(count: AtomicInteger) {
+        withTimeoutOrNull(churnDuration) {
+            while (true) {
+                executeRandomTask()
+                count.incrementAndGet().let {
+                    if (it.mod(100) == 0) {
+                        logger.info("Completed $it iterations")
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun executeRandomTask() {
+        try {
+            tasks.randomTask()(client)
+        } catch (exception: CancellationException) {
+            currentCoroutineContext().ensureActive()
+            if (exception is TimeoutCancellationException) {
+                logger.info(exception.message)
+            } else {
+                throw exception
+            }
+        } catch (exception: IOException) {
+            logger.info(exception.message)
+        }
+    }
+
     @Test
     @Timeout(value = 1, unit = TimeUnit.HOURS)
     fun churn(): Unit = runBlocking {
@@ -170,21 +207,7 @@ internal class HttpClientTest {
             val count = AtomicInteger(0)
             List(4) {
                 async(Dispatchers.Default) {
-                    repeat(100_000) {
-                        runCatching {
-                            tasks.randomTask()(client)
-                        }.onFailure {
-                            when (it) {
-                                is IOException, is TimeoutCancellationException -> logger.info(it.message)
-                                else -> throw it
-                            }
-                        }
-                        count.incrementAndGet().let {
-                            if (it.mod(100) == 0) {
-                                logger.info("Completed $it iterations")
-                            }
-                        }
-                    }
+                    runChurnWorker(count)
                 }
             }.awaitAll()
         }

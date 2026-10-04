@@ -28,6 +28,7 @@ import io.netty.handler.codec.http2.Http2Error
 import io.netty.handler.codec.http2.Http2Exception
 import io.netty.util.Attribute
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.argThat
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
@@ -51,10 +52,14 @@ internal class PoolableChannelTest {
 
     private fun channelReporting(
         attribute: Attribute<Long>,
-        capacityChangedAttribute: Attribute<() -> Unit> = mock()
+        capacityChangedAttribute: Attribute<() -> Unit> = mock(),
+        drainingAttribute: Attribute<Boolean> = mock {
+            on { get() } doReturn false
+        }
     ) = mock<Channel>().apply {
         whenever(attr(maxConcurrentStreamsAttributeKey)) doReturn attribute
         whenever(attr(streamCapacityChangedAttributeKey)) doReturn capacityChangedAttribute
+        whenever(attr(channelIsDrainingAttributeKey)) doReturn drainingAttribute
     }
 
     private fun poolableChannel() = PoolableChannel(
@@ -153,6 +158,36 @@ internal class PoolableChannelTest {
         assertEquals(0, poolable.maximumPermits)
         assertFalse(poolable.isCanAcquire)
         assertFalse(poolable.isShouldAcquire)
+    }
+
+    @Test
+    fun goAwayMakesChannelIneligibleWithoutDiscardingAllocatedPermits() {
+        val drainingAttribute = mock<Attribute<Boolean>>().apply {
+            whenever(get()) doReturn false
+        }
+        val closingAttribute = mock<Attribute<Boolean>>().apply {
+            whenever(get()) doReturn false
+        }
+        val channel = channelReporting(
+            maxConcurrentStreamsAttribute(100L),
+            drainingAttribute = drainingAttribute
+        ).apply {
+            whenever(isActive) doReturn true
+            whenever(attr<Boolean>(argThat { name() == "channelIsClosing" })) doReturn closingAttribute
+        }
+        val poolable = PoolableChannel(channel, properties(default = 100L)).apply {
+            acquirePermit()
+        }
+
+        whenever(drainingAttribute.get()) doReturn true
+
+        assertTrue(poolable.isAlive)
+        assertFalse(poolable.isCanAcquire)
+        assertFalse(poolable.isShouldAcquire)
+        assertEquals(1, poolable.allocatedPermits)
+
+        poolable.releasePermit()
+        assertFalse(poolable.isAlive)
     }
 
     @Test

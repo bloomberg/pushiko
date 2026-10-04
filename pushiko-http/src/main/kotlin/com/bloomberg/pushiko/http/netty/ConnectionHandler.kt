@@ -154,6 +154,10 @@ private val channelIsClosingAttributeKey = AttributeKey.valueOf<Boolean>("channe
 internal fun Channel.isClosing() = attr(channelIsClosingAttributeKey).get() ?: false
 private fun Channel.signalIsClosing() = attr(channelIsClosingAttributeKey).getAndSet(true) != true
 
+internal val channelIsDrainingAttributeKey = AttributeKey.valueOf<Boolean>("channelIsDraining")
+internal fun Channel.isDraining() = attr(channelIsDrainingAttributeKey).get() ?: false
+private fun Channel.signalIsDraining() = attr(channelIsDrainingAttributeKey).getAndSet(true) != true
+
 internal class ConnectionHandler(
     decoder: Http2ConnectionDecoder,
     encoder: Http2ConnectionEncoder,
@@ -182,6 +186,7 @@ internal class ConnectionHandler(
     private var pingedSinceLastWrite = false
 
     private var connectionError: Throwable? = null
+    private var drainingChannel: Channel? = null
 
     init {
         connection().let {
@@ -414,7 +419,10 @@ internal class ConnectionHandler(
         errorCode: Long,
         data: ByteBuf
     ) {
-        context.channel().close()
+        context.channel().takeIf(Channel::signalIsDraining)?.let {
+            drainingChannel = it
+            closeIfDrained()
+        }
     }
 
     override fun onWindowUpdateRead(
@@ -539,9 +547,20 @@ internal class ConnectionHandler(
     override fun onStreamClosed(stream: Http2Stream) {
         logger.trace("onStreamClosed: connection {} stream {}", connection(), stream.id())
         responseTimeouts.remove(stream.id())?.cancel(false)
-        val continuation = stream.removeRequestContinuation() ?: return
-        val throwable = connectionError ?: streamClosedBeforeReplyException(stream.id())
-        continuation.tryResumeWithException(throwable)
+        stream.removeRequestContinuation()?.let {
+            val throwable = connectionError ?: streamClosedBeforeReplyException(stream.id())
+            it.tryResumeWithException(throwable)
+        }
+        closeIfDrained()
+    }
+
+    private fun closeIfDrained() {
+        if (connection().numActiveStreams() == 0) {
+            drainingChannel?.let {
+                drainingChannel = null
+                it.close()
+            }
+        }
     }
 
     override fun onStreamRemoved(stream: Http2Stream) {

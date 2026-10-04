@@ -86,7 +86,7 @@ internal class CommonMuxPoolScalingTest {
     }
 
     private class DeadPoolable : Poolable<Any>(Any()) {
-        override val maximumPermits: Int = 0
+        override val maximumPermits: Int = 1
         override val isAlive: Boolean = false
         override val isCanAcquire: Boolean = false
         override val isShouldAcquire: Boolean = false

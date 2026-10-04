@@ -37,6 +37,9 @@ internal class CommonMuxPoolFactoryFailureTest {
     ) : Factory<AnyPoolable>, Recycler<Any> {
         private var _allocations = 0
 
+        var recyclingCount = 0
+            private set
+
         override val allocations: Int
             get() = _allocations
 
@@ -57,6 +60,7 @@ internal class CommonMuxPoolFactoryFailureTest {
 
         override fun recycle(obj: Any) {
             --_allocations
+            ++recyclingCount
         }
     }
 
@@ -124,6 +128,24 @@ internal class CommonMuxPoolFactoryFailureTest {
             }
         } finally {
             pool.close()
+        }
+    }
+
+    @Test
+    fun rejectsAndRecyclesPoolableWithNonPositivePermitCapacity() = runTest {
+        listOf(-1, 0).forEach { maximumPermits ->
+            val factory = ThrowingFactory(failuresRemaining = 0, maximumPermits = maximumPermits)
+            val pool = newPool(factory, minimumSize = 1, maximumSize = 1)
+            try {
+                withContext(Dispatchers.Default.limitedParallelism(1)) {
+                    assertEquals(0, pool.prepare())
+                    assertEquals(0, pool.allocatedSize())
+                    assertEquals(0, factory.allocations)
+                    assertEquals(1, factory.recyclingCount)
+                }
+            } finally {
+                pool.close()
+            }
         }
     }
 }

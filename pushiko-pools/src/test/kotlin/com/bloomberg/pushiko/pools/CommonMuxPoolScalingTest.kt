@@ -408,7 +408,7 @@ internal class CommonMuxPoolScalingTest {
     }
 
     @Test
-    fun selectsLivePoolableEvenWhenDeadOnesAreInRotation() = runTest {
+    fun rejectsDeadFactoryResultsButRetainsLiveSibling() = runTest {
         val factory = MixedFactory(deadCount = 5)
         val pool = CommonMuxPool(
             configuration = poolConfiguration(
@@ -425,16 +425,15 @@ internal class CommonMuxPoolScalingTest {
         )
         try {
             withContext(Dispatchers.Default.limitedParallelism(1)) {
-                pool.prepare()
-                assertEquals(6, factory.allocations)
-                pool.withPermit(Duration.INFINITE) { }
-                pool.withPermit(Duration.INFINITE) { }
+                assertEquals(1, pool.prepare())
                 withTimeout(5L.seconds) {
                     while (factory.recyclingCount != 5) {
                         yield()
                     }
                 }
                 assertEquals(1, factory.allocations)
+                pool.withPermit(Duration.INFINITE) { }
+                pool.withPermit(Duration.INFINITE) { }
             }
         } finally {
             pool.close()
@@ -459,8 +458,8 @@ internal class CommonMuxPoolScalingTest {
         )
         try {
             withContext(Dispatchers.Default.limitedParallelism(1)) {
-                pool.prepare()
-                assertEquals(5, factory.allocations)
+                assertEquals(0, pool.prepare())
+                assertEquals(0, factory.allocations)
                 pool.withPermit(5L.seconds) { }
                 withTimeout(5L.seconds) {
                     while (factory.recyclingCount != 5) {
@@ -490,10 +489,10 @@ internal class CommonMuxPoolScalingTest {
         )
         try {
             withContext(Dispatchers.Default.limitedParallelism(1)) {
-                pool.prepare()
-                assertEquals(3, factory.allocations)
+                assertEquals(0, pool.prepare())
+                assertEquals(0, factory.allocations)
 
-                pool.prepare()
+                assertEquals(3, pool.prepare())
 
                 withTimeout(5L.seconds) {
                     while (factory.recyclingCount != 3) {

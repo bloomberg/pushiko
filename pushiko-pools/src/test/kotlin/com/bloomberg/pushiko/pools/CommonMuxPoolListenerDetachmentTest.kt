@@ -17,7 +17,10 @@
 package com.bloomberg.pushiko.pools
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
 import kotlin.test.assertFalse
@@ -26,6 +29,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
+@OptIn(ExperimentalCoroutinesApi::class)
 internal class CommonMuxPoolListenerDetachmentTest {
     private class Resource
 
@@ -83,21 +87,23 @@ internal class CommonMuxPoolListenerDetachmentTest {
         val factory = TrackingFactory()
         val pool = newPool(factory)
         try {
-            pool.prepare()
-            assertTrue(factory.poolable.isListenerAttached)
-            factory.poolable.acquirePermit()
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                assertTrue(factory.poolable.isListenerAttached)
+                factory.poolable.acquirePermit()
 
-            factory.poolable.isAlive = false
-            assertNull(pool.selectPoolableForTest())
+                factory.poolable.isAlive = false
+                assertNull(pool.selectPoolableForTest())
 
-            assertFalse(factory.poolable.isListenerAttached)
-            assertFalse(factory.recycled.isCompleted)
-            factory.poolable.releasePermit()
-            pool.onAvailable(factory.poolable)
-            withTimeout(5L.seconds) {
-                factory.recycled.await()
+                assertFalse(factory.poolable.isListenerAttached)
+                assertFalse(factory.recycled.isCompleted)
+                factory.poolable.releasePermit()
+                pool.onAvailable(factory.poolable)
+                withTimeout(5L.seconds) {
+                    factory.recycled.await()
+                }
+                assertFalse(checkNotNull(factory.listenerAttachedAtRecycle))
             }
-            assertFalse(checkNotNull(factory.listenerAttachedAtRecycle))
         } finally {
             pool.close()
         }

@@ -65,10 +65,16 @@ internal class PoolableChannelTest {
         drainingAttribute: Attribute<Boolean> = mock {
             on { get() } doReturn false
         }
-    ) = mock<Channel>().apply {
-        whenever(attr(maxConcurrentStreamsAttributeKey)) doReturn attribute
-        whenever(attr(streamCapacityChangedAttributeKey)) doReturn capacityChangedAttribute
-        whenever(attr(channelIsDrainingAttributeKey)) doReturn drainingAttribute
+    ): Channel {
+        val closingAttribute = mock<Attribute<Boolean>> {
+            on { get() } doReturn false
+        }
+        return mock<Channel>().apply {
+            whenever(attr(maxConcurrentStreamsAttributeKey)) doReturn attribute
+            whenever(attr(streamCapacityChangedAttributeKey)) doReturn capacityChangedAttribute
+            whenever(attr(channelIsDrainingAttributeKey)) doReturn drainingAttribute
+            whenever(attr<Boolean>(argThat { name() == "channelIsClosing" })) doReturn closingAttribute
+        }
     }
 
     private fun poolableChannel() = PoolableChannel(

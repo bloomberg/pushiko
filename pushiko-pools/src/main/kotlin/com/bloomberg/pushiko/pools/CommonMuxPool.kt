@@ -535,6 +535,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
                     resumeForAvailableCapacity()
                 }
             }
+            rejectIfUnavailable(it)
             pool.addFirst(it)
             // Re-read dynamic capacity after installing the listener so that a concurrent increase cannot be lost.
             resumeForAvailableCapacity()
@@ -542,6 +543,17 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
                 perhapsGrow(chosen = null)
             }
         }
+    }
+
+    private suspend fun rejectIfUnavailable(poolable: P) {
+        if (poolable.isAlive && !poolable.isDraining) {
+            return
+        }
+        val exception = IllegalStateException("Factory returned an unavailable poolable")
+        val recyclingJob = scheduleRecycle(poolable)
+        propagateCreationFailure(exception)
+        recyclingJob.join()
+        throw exception
     }
 
     private fun retireIfUnavailable(poolable: P) {

@@ -241,7 +241,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         var lastResort: P? = null
         var probed = 0
         while (pool.isNotEmpty() && probed < probeLimit()) {
-            val poolable = rotateNextAlive() ?: continue
+            val poolable = rotateNextSelectable() ?: continue
             ++probed
             if (poolable.isCanAcquire) {
                 when {
@@ -292,9 +292,9 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             .coerceAtMost(configuration.maximumSampledScan)
     }
 
-    private fun rotateNextAlive(): P? {
+    private fun rotateNextSelectable(): P? {
         val poolable = pool.removeFirst()
-        return if (poolable.isAlive) {
+        return if (poolable.isAlive && !poolable.isDraining) {
             pool.addLast(poolable)
             poolable
         } else {
@@ -434,7 +434,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
 
     private suspend fun cleanPool() = withMainContext {
         pool.removeAll { poolable ->
-            if (poolable.isAlive) {
+            if (poolable.isAlive && !poolable.isDraining) {
                 false
             } else {
                 retirePoolable(poolable)
@@ -531,6 +531,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         return poolable.also {
             it.setAvailabilityChangedListener {
                 launchInWorkScope {
+                    retireIfUnavailable(it)
                     resumeForAvailableCapacity()
                 }
             }
@@ -540,6 +541,27 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             if (pendingAcquisitions.any(CancellableContinuation<Unit>::isActive)) {
                 perhapsGrow(chosen = null)
             }
+        }
+    }
+
+    private fun retireIfUnavailable(poolable: P) {
+        if (poolable.isAlive && !poolable.isDraining) {
+            return
+        }
+        var removed = false
+        pool.removeAll {
+            (it === poolable).also { matches ->
+                if (matches) {
+                    removed = true
+                    retirePoolable(it)
+                }
+            }
+        }
+        if (removed && (
+                anticipatedSize < configuration.minimumSize ||
+                    pendingAcquisitions.any(CancellableContinuation<Unit>::isActive)
+            )) {
+            perhapsGrow(chosen = null)
         }
     }
 

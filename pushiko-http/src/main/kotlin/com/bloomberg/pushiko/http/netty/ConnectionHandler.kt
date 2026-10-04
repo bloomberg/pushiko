@@ -453,6 +453,7 @@ internal class ConnectionHandler(
         val channel = context.channel()
         if (channel.signalIsDraining()) {
             drainingChannel = channel
+            channel.attr(streamCapacityChangedAttributeKey).get()?.invoke()
         }
         removeRequestsNotProcessedByPeer(
             connection(), requestContinuations, requestContinuationPropertyKey, lastStreamId,

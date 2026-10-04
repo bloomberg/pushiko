@@ -63,9 +63,11 @@ import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import java.io.IOException
+import java.net.ConnectException
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
@@ -206,7 +208,7 @@ internal class HttpClientTest {
     }
 
     @Test
-    fun failure(): Unit = runTest {
+    fun connectionCreationFailureIsPropagated(): Unit = runTest {
         HttpClient {
             host = "local"
             port = 8888
@@ -214,7 +216,7 @@ internal class HttpClientTest {
             httpProperties = clientProperties
         }.run {
             try {
-                assertFailsWith<TimeoutCancellationException> {
+                assertFailsWith<UnknownHostException> {
                     withContext(Dispatchers.Default.limitedParallelism(1)) {
                         send(HttpRequest {
                             authority("localhost")
@@ -403,7 +405,7 @@ internal class HttpClientTest {
             eventLoopGroup,
             properties = clientProperties
         )
-        runCatching {
+        assertFailsWith<ConnectException> {
             withContext(Dispatchers.Default.limitedParallelism(1)) {
                 try {
                     client.send(mock())
@@ -411,8 +413,6 @@ internal class HttpClientTest {
                     client.close()
                 }
             }
-        }.exceptionOrNull()!!.let {
-            assert(it is TimeoutCancellationException)
         }
     }
 

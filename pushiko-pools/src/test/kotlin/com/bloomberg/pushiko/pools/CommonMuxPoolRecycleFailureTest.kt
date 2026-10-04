@@ -1,0 +1,109 @@
+/*
+ * Copyright 2026 Bloomberg Finance L.P.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.bloomberg.pushiko.pools
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
+import org.junit.jupiter.api.Test
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+
+@OptIn(ExperimentalCoroutinesApi::class)
+internal class CommonMuxPoolRecycleFailureTest {
+    private class KillablePoolable(resource: Any) : Poolable<Any>(resource) {
+        override val maximumPermits: Int = 1
+        override var isAlive: Boolean = true
+        override val isCanAcquire: Boolean
+            get() = isAlive && allocatedPermits < maximumPermits
+        override val isShouldAcquire: Boolean
+            get() = isCanAcquire
+    }
+
+    private class AlwaysFailingRecycleFactory : Factory<KillablePoolable>, Recycler<Any> {
+        private val makeCount = AtomicInteger()
+        private val recycleAttemptCount = AtomicInteger()
+
+        lateinit var current: KillablePoolable
+            private set
+
+        val recycleAttempts: Int
+            get() = recycleAttemptCount.get()
+
+        override val allocations: Int
+            get() = makeCount.get()
+
+        override suspend fun close() = Unit
+
+        override suspend fun make(): KillablePoolable {
+            makeCount.incrementAndGet()
+            return KillablePoolable(Any()).also { current = it }
+        }
+
+        override fun recycle(obj: Any) {
+            recycleAttemptCount.incrementAndGet()
+            error("Simulated recycle failure")
+        }
+    }
+
+    @Test
+    fun recycleFailureReleasesOwnedResourceBudgetInsteadOfLeakingItPermanently() = runTest {
+        val factory = AlwaysFailingRecycleFactory()
+        val pool = CommonMuxPool(
+            configuration = poolConfiguration(
+                maximumPendingAcquisitions = 1,
+                maximumSize = 1,
+                minimumSize = 1,
+                reaperDelay = 10L.minutes,
+                summaryInterval = 10L.minutes
+            ),
+            factory,
+            factory
+        )
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                repeat(5) { cycle ->
+                    val killed = factory.current
+                    killed.isAlive = false
+                    assertNull(pool.selectPoolableForTest(), "cycle $cycle: dead poolable must not be selectable")
+                    withTimeout(5L.seconds) {
+                        while (pool.allocatedSize() != 0) {
+                            yield()
+                        }
+                    }
+                    assertEquals(cycle + 1, factory.recycleAttempts, "cycle $cycle: recycle should have been attempted")
+                    assertEquals(
+                        1,
+                        pool.prepare(),
+                        "cycle $cycle: a failing recycler must not stop a replacement from being created"
+                    )
+                }
+                assertEquals(5, factory.recycleAttempts)
+                assertEquals(1, pool.allocatedSize())
+            }
+        } finally {
+            pool.close()
+        }
+    }
+}

@@ -23,7 +23,7 @@ import io.netty.channel.Channel
 import javax.annotation.concurrent.ThreadSafe
 
 @ThreadSafe
-internal class PoolableChannelFactory(
+internal open class PoolableChannelFactory(
     private val factory: ChannelFactory,
     private val httpProperties: IHttpClientProperties
 ) : Factory<PoolableChannel>, Recycler<Channel> {

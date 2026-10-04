@@ -76,7 +76,7 @@ internal fun ChannelPool(
     )
 }
 
-private fun IHttpClientProperties.poolConfiguration() = PoolConfiguration(
+internal fun IHttpClientProperties.poolConfiguration() = PoolConfiguration(
     errorRateThreshold = errorRateThreshold,
     fullScanPoolSize = fullScanPoolSize,
     maximumPendingAcquisitions = maximumPendingAcquisitions,

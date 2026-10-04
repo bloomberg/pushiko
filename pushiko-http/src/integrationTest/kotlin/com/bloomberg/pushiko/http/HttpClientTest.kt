@@ -19,6 +19,11 @@ package com.bloomberg.pushiko.http
 import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.bloomberg.pushiko.http.HttpClientProperties.Companion.OptionalHttpProperties
 import com.bloomberg.pushiko.http.HttpClientProperties.Companion.logger
+import com.bloomberg.pushiko.http.netty.ChannelFactory
+import com.bloomberg.pushiko.http.netty.ChannelPool
+import com.bloomberg.pushiko.http.netty.FlakyPoolableChannelFactory
+import com.bloomberg.pushiko.http.netty.factoryConfiguration
+import com.bloomberg.pushiko.http.netty.poolConfiguration
 import com.bloomberg.pushiko.server.FakeHttp2Server
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.epoll.Epoll
@@ -61,10 +66,16 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.seconds
 
 private const val DEFAULT_CHURN_DURATION_SECONDS = 2_700L
+private const val DEFAULT_CHURN_CREATION_FAILURE_RATE = 0.02
+private const val DEFAULT_CHURN_RECYCLE_FAILURE_RATE = 0.1
 private val threads = maxOf(1, Runtime.getRuntime().availableProcessors() / 2)
 private val churnDuration = (
     System.getenv("PUSHIKO_HTTP_CHURN_DURATION_SECONDS")?.toLongOrNull() ?: DEFAULT_CHURN_DURATION_SECONDS
 ).seconds
+private val churnCreationFailureRate =
+    System.getenv("PUSHIKO_HTTP_CHURN_CREATION_FAILURE_RATE")?.toDoubleOrNull() ?: DEFAULT_CHURN_CREATION_FAILURE_RATE
+private val churnRecycleFailureRate =
+    System.getenv("PUSHIKO_HTTP_CHURN_RECYCLE_FAILURE_RATE")?.toDoubleOrNull() ?: DEFAULT_CHURN_RECYCLE_FAILURE_RATE
 
 @Suppress("FunctionName")
 private fun DefaultEventLoopGroup() = when {
@@ -116,15 +127,29 @@ internal class HttpClientTest {
         .applicationProtocolConfig(ApplicationProtocolConfig(ALPN, NO_ADVERTISE, ACCEPT, HTTP_2))
         .build()
 
+    private val properties = OptionalHttpProperties().copy(
+        isMonitorConnections = true,
+        maximumConnections = threads,
+        minimumConnections = threads
+    )
+
+    private val flakyFactory = FlakyPoolableChannelFactory(
+        ChannelFactory(
+            InetSocketAddress.createUnresolved("localhost", server.port),
+            sslContext,
+            clientEventLoopGroup,
+            properties,
+            frameLogger = null,
+            properties.factoryConfiguration()
+        ),
+        properties,
+        creationFailureRate = churnCreationFailureRate,
+        recycleFailureRate = churnRecycleFailureRate
+    )
+
     private val client = HttpClient(
-        InetSocketAddress.createUnresolved("localhost", server.port),
-        sslContext,
-        clientEventLoopGroup,
-        properties = OptionalHttpProperties().copy(
-            isMonitorConnections = true,
-            maximumConnections = threads,
-            minimumConnections = threads
-        )
+        HttpRequestSender(ChannelPool(flakyFactory, properties.poolConfiguration()), properties),
+        properties
     )
 
     private val tasks = listOf(
@@ -169,6 +194,11 @@ internal class HttpClientTest {
 
     @AfterEach
     fun tearDown() = runBlocking {
+        logger.info(
+            "Injected {} channel-creation faults and {} recycle faults",
+            flakyFactory.creationFailureCount,
+            flakyFactory.recycleFailureCount
+        )
         client.close()
     }
 

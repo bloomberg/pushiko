@@ -16,21 +16,61 @@
 
 package com.bloomberg.pushiko.pools
 
+import com.bloomberg.pushiko.pools.exceptions.PoolClosedException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
 import java.io.IOException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class CommonMuxPoolFactoryFailureTest {
+    private class FailThenSuspendFactory : Factory<AnyPoolable>, Recycler<Any> {
+        private var callCount = 0
+        private var _allocations = 0
+        private val secondMakeStarted = CompletableDeferred<Unit>()
+        private val allowSecondMake = CompletableDeferred<Unit>()
+
+        override val allocations: Int
+            get() = _allocations
+
+        suspend fun awaitSecondMake() {
+            secondMakeStarted.await()
+        }
+
+        fun releaseSecondMake() {
+            allowSecondMake.complete(Unit)
+        }
+
+        override suspend fun close() = Unit
+
+        override suspend fun make(): AnyPoolable = when (++callCount) {
+            1 -> throw IOException("Simulated connection failure")
+            else -> {
+                secondMakeStarted.complete(Unit)
+                allowSecondMake.await()
+                ++_allocations
+                AnyPoolable()
+            }
+        }
+
+        override fun recycle(obj: Any) {
+            --_allocations
+        }
+    }
+
     private class ThrowingFactory(
         @Volatile private var failuresRemaining: Int,
         private val maximumPermits: Int = 10
@@ -80,6 +120,22 @@ internal class CommonMuxPoolFactoryFailureTest {
         factory
     )
 
+    private fun newPool(
+        factory: FailThenSuspendFactory,
+        minimumSize: Int,
+        maximumSize: Int
+    ) = CommonMuxPool(
+        configuration = poolConfiguration(
+            maximumPendingAcquisitions = 1_000,
+            maximumSize = maximumSize,
+            minimumSize = minimumSize,
+            reaperDelay = 10L.minutes,
+            summaryInterval = 5L.minutes
+        ),
+        factory,
+        factory
+    )
+
     @Test
     fun prepareToleratesTotalFactoryFailureAndStaysCoherent() = runTest {
         val factory = ThrowingFactory(failuresRemaining = Int.MAX_VALUE)
@@ -110,6 +166,51 @@ internal class CommonMuxPoolFactoryFailureTest {
             }
         } finally {
             pool.close()
+        }
+    }
+
+    @Test
+    fun prepareWaitsForSuspendedSiblingAfterAnotherCreationFails() = runTest {
+        val factory = FailThenSuspendFactory()
+        val pool = newPool(factory, minimumSize = 2, maximumSize = 2)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                val preparation = async { pool.prepare() }
+                withTimeout(5L.seconds) { factory.awaitSecondMake() }
+
+                assertFalse(preparation.isCompleted)
+
+                factory.releaseSecondMake()
+                assertEquals(1, preparation.await())
+                assertEquals(1, pool.allocatedSize())
+            }
+        } finally {
+            factory.releaseSecondMake()
+            pool.close()
+        }
+    }
+
+    @Test
+    fun closingPoolCancelsStructuredFillWithSuspendedSibling() = runTest {
+        val factory = FailThenSuspendFactory()
+        val pool = newPool(factory, minimumSize = 2, maximumSize = 2)
+        var closed = false
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                val preparation = async { runCatching { pool.prepare() } }
+                withTimeout(5L.seconds) { factory.awaitSecondMake() }
+
+                pool.close()
+                closed = true
+
+                assertSame(PoolClosedException, preparation.await().exceptionOrNull())
+                assertEquals(0, pool.allocatedSize())
+            }
+        } finally {
+            factory.releaseSecondMake()
+            if (!closed) {
+                pool.close()
+            }
         }
     }
 

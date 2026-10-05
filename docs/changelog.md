@@ -1,3 +1,33 @@
+## Version 2.2.0
+
+### Fixes
+
+* Remove cancelled pool acquisitions from the pending queue.
+* Recycle dead poolables when removed.
+* Prevent reaping poolables with active permits.
+* Grow after selecting an unhealthy poolable.
+* Reject newest acquisition when queue is full.
+* Fix lost pool availability notifications.
+* Fix caller cancellation of pending pool acquisitions.
+* Drain active leases before shutdown.
+* Validate pool capacity invariants.
+* Await all pool creation attempts.
+* Gracefully drain pooled channels after GOAWAY.
+* Isolate external callbacks from pool control.
+* Preserve pool permits when telemetry fails.
+* Propagate pool creation failures to pending acquisitions.
+* Bound pool shutdown and propagate cleanup failures.
+* Defer dead poolable recycling until permit release.
+* Prevent cancellation from orphaning factory resources.
+* Handle HTTP/2 GOAWAY errors by stream boundary.
+* Detach poolable listeners before disposal.
+* Replace draining poolables before active leases finish.
+* Reject unavailable factory results before pooling.
+* Release recycle budget regardless of recycle outcome.
+* Retire poolables discovered unavailable during their own selection read.
+* Refuse permits on poolables that are no longer alive.
+* Notify the pool when a channel starts closing or becomes inactive.
+
 ## Version 2.1.1
 
 ### Fixes

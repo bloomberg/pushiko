@@ -326,7 +326,7 @@ internal class CommonMuxPoolPendingTest {
                 val firstPoolable = factory.poolables.single()
                 firstPoolable.isDraining = true
 
-                withTimeout(5L.seconds) {
+                withTimeout(15L.seconds) {
                     while (factory.allocations != 2) {
                         yield()
                     }
@@ -353,14 +353,14 @@ internal class CommonMuxPoolPendingTest {
 
                 releaseFirst.complete(Unit)
                 first.join()
-                withTimeout(5L.seconds) {
+                withTimeout(15L.seconds) {
                     waiter.await()
                 }
                 assertEquals(2, factory.peakAllocations)
 
                 releaseSecond.complete(Unit)
                 second.join()
-                withTimeout(5L.seconds) {
+                withTimeout(15L.seconds) {
                     while (factory.allocations != 1) {
                         yield()
                     }

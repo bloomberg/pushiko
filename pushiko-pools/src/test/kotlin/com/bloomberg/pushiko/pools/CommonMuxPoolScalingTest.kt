@@ -25,6 +25,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
 import java.io.IOException
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
@@ -158,6 +159,44 @@ internal class CommonMuxPoolScalingTest {
             if (first != null && first.value === obj && first.allocatedPermits > 0) {
                 recycledWhileLeased.incrementAndGet()
             }
+        }
+    }
+
+    private class DiesDuringCapacityReadPoolable(private val armed: AtomicBoolean) : Poolable<Any>(Any()) {
+        val capacityReads = AtomicInteger()
+
+        @Volatile
+        private var dead = false
+
+        override val maximumPermits = 1
+        override val isAlive: Boolean
+            get() = !dead
+        override val isCanAcquire: Boolean
+            get() {
+                capacityReads.incrementAndGet()
+                if (armed.get()) {
+                    dead = true
+                }
+                return !dead && allocatedPermits < maximumPermits
+            }
+        override val isShouldAcquire: Boolean
+            get() = !dead && allocatedPermits < maximumPermits
+    }
+
+    private class DiesDuringCapacityReadFactory(
+        private val armed: AtomicBoolean
+    ) : Factory<DiesDuringCapacityReadPoolable>, Recycler<Any> {
+        val made = CopyOnWriteArrayList<DiesDuringCapacityReadPoolable>()
+        val recycled = AtomicInteger()
+
+        override val allocations: Int = 0
+
+        override suspend fun close() = Unit
+
+        override suspend fun make() = DiesDuringCapacityReadPoolable(armed).also { made += it }
+
+        override fun recycle(obj: Any) {
+            recycled.incrementAndGet()
         }
     }
 
@@ -698,6 +737,44 @@ internal class CommonMuxPoolScalingTest {
         // Assigning a non-suspend function reference fails to compile if selectPoolable ever becomes `suspend`.
         val reference: (CommonMuxPool<Any, AnyPoolable>) -> AnyPoolable? = CommonMuxPool<Any, AnyPoolable>::selectPoolable
         assertNotNull(reference)
+    }
+
+    @Test
+    fun selectionRetiresAPoolableThatDiesDuringItsOwnCapacityRead() = runTest {
+        val armed = AtomicBoolean(false)
+        val factory = DiesDuringCapacityReadFactory(armed)
+        val pool = CommonMuxPool(
+            configuration = poolConfiguration(
+                maximumPendingAcquisitions = 10,
+                maximumSize = 1,
+                minimumSize = 1,
+                reaperDelay = Duration.INFINITE,
+                summaryInterval = 5L.minutes
+            ),
+            factory,
+            factory
+        )
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                assertEquals(1, pool.prepare())
+                val poolable = factory.made.single()
+                armed.set(true)
+
+                assertNull(pool.selectPoolableForTest())
+                withTimeout(5L.seconds) {
+                    while (factory.recycled.get() != 1) {
+                        yield()
+                    }
+                }
+
+                val capacityReads = poolable.capacityReads.get()
+                assertNull(pool.selectPoolableForTest())
+                assertEquals(capacityReads, poolable.capacityReads.get())
+                assertEquals(1, factory.made.size)
+            }
+        } finally {
+            pool.close()
+        }
     }
 
     @Test

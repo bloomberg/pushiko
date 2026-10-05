@@ -14,11 +14,18 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.http.netty
+package com.bloomberg.pushiko.http.netty.http2
 
+import com.bloomberg.pushiko.http.IHttpClientProperties
+import com.bloomberg.pushiko.http.netty.PoolableChannel
+import com.bloomberg.pushiko.http.netty.channelContinuationAttributeKey
+import com.bloomberg.pushiko.http.netty.channelIsDrainingAttributeKey
+import com.bloomberg.pushiko.http.netty.maxConcurrentStreamsAttributeKey
+import com.bloomberg.pushiko.http.netty.newResponseBodyBuffer
+import com.bloomberg.pushiko.http.netty.streamCapacityChangedAttributeKey
+import com.bloomberg.pushiko.http.netty.tryAppendResponseData
 import com.code_intelligence.jazzer.api.FuzzedDataProvider
 import com.code_intelligence.jazzer.junit.FuzzTest
-import com.bloomberg.pushiko.http.IHttpClientProperties
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import io.netty.channel.Channel

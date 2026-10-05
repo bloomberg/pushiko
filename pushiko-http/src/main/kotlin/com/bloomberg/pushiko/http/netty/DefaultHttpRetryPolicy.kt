@@ -20,8 +20,6 @@ import com.bloomberg.pushiko.http.HttpRetryPolicy
 import com.bloomberg.pushiko.http.exceptions.ChannelInactiveException
 import com.bloomberg.pushiko.http.exceptions.ChannelStreamQuotaException
 import com.bloomberg.pushiko.http.exceptions.ChannelWriteFailedException
-import io.netty.handler.codec.http2.Http2Error
-import io.netty.handler.codec.http2.Http2Exception
 import javax.annotation.concurrent.ThreadSafe
 
 /**
@@ -46,7 +44,6 @@ public object DefaultHttpRetryPolicy : HttpRetryPolicy {
         is ChannelInactiveException,
         is ChannelStreamQuotaException,
         is ChannelWriteFailedException -> true
-        is Http2Exception.StreamException -> Http2Error.REFUSED_STREAM === throwable.error()
-        else -> false
+        else -> throwable.isRequestNotProcessed()
     }
 }

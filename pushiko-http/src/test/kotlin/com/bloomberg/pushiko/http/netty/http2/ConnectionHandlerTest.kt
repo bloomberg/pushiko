@@ -14,13 +14,19 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.http.netty
+package com.bloomberg.pushiko.http.netty.http2
 
 import com.bloomberg.pushiko.http.HttpRequest
 import com.bloomberg.pushiko.http.HttpRequestContinuation
 import com.bloomberg.pushiko.http.HttpResponse
 import com.bloomberg.pushiko.http.exceptions.ChannelInactiveException
 import com.bloomberg.pushiko.http.exceptions.ChannelStreamQuotaException
+import com.bloomberg.pushiko.http.netty.DefaultHttpRetryPolicy
+import com.bloomberg.pushiko.http.netty.channelContinuationAttributeKey
+import com.bloomberg.pushiko.http.netty.maxConcurrentStreamsAttributeKey
+import com.bloomberg.pushiko.http.netty.newResponseBodyBuffer
+import com.bloomberg.pushiko.http.netty.streamCapacityChangedAttributeKey
+import com.bloomberg.pushiko.http.netty.tryAppendResponseData
 import io.netty.buffer.CompositeByteBuf
 import io.netty.buffer.Unpooled
 import io.netty.channel.Channel

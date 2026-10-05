@@ -18,7 +18,7 @@ package com.bloomberg.pushiko.http
 
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufInputStream
-import io.netty.handler.codec.http2.Http2Headers
+import io.netty.handler.codec.Headers
 import java.io.Closeable
 import java.io.InputStream
 import javax.annotation.concurrent.NotThreadSafe
@@ -26,12 +26,12 @@ import javax.annotation.concurrent.NotThreadSafe
 @NotThreadSafe
 public class HttpResponse private constructor(
     public val code: Int,
-    private val headers: Http2Headers,
+    private val headers: Headers<CharSequence, CharSequence, *>,
     public val body: InputStream? = null
 ) : Closeable {
     internal constructor(
         code: Int,
-        headers: Http2Headers,
+        headers: Headers<CharSequence, CharSequence, *>,
         body: ByteBuf? = null
     ) : this(
         code,

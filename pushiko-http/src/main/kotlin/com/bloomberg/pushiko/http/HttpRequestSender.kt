@@ -17,7 +17,7 @@
 package com.bloomberg.pushiko.http
 
 import com.bloomberg.pushiko.http.netty.ChannelPool
-import com.bloomberg.pushiko.http.netty.ConnectionHandler
+import com.bloomberg.pushiko.http.netty.http2.ConnectionHandler
 import io.netty.channel.Channel
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resumeWithException

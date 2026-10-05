@@ -17,31 +17,20 @@
 package com.bloomberg.pushiko.http.netty
 
 import com.bloomberg.pushiko.http.IHttpClientProperties
+import com.bloomberg.pushiko.http.netty.http2.ConnectionHandler
+import com.bloomberg.pushiko.http.netty.http2.activeStreamCount
+import com.bloomberg.pushiko.http.netty.http2.bufferedStreamCount
+import com.bloomberg.pushiko.http.netty.http2.isGoAwayReceived
+import com.bloomberg.pushiko.http.netty.http2.isGoAwaySent
 import com.bloomberg.pushiko.pools.Poolable
 import com.bloomberg.pushiko.pools.WaterMarkScaleFactor
 import io.netty.channel.Channel
 import io.netty.channel.ChannelException
-import io.netty.handler.codec.http2.Http2Exception
-import io.netty.handler.codec.http2.StreamBufferingEncoder
-import io.netty.util.AttributeKey
 import java.io.IOException
 import java.time.Duration
 import java.time.Instant
 import javax.annotation.concurrent.NotThreadSafe
 import kotlin.coroutines.cancellation.CancellationException
-
-internal val maxConcurrentStreamsAttributeKey = AttributeKey.valueOf<Long>(
-    Channel::class.java,
-    "channelMaxConcurrentStreams"
-)
-
-internal val streamCapacityChangedAttributeKey = AttributeKey.valueOf<() -> Unit>(
-    Channel::class.java,
-    "channelStreamCapacityChanged"
-)
-
-internal val Channel.maxConcurrentStreams: Long?
-    get() = attr(maxConcurrentStreamsAttributeKey).get()
 
 private const val NO_NEGOTIATED_LIMIT = -1L
 private const val UNOBSERVED = Long.MIN_VALUE
@@ -121,9 +110,8 @@ internal class PoolableChannel internal constructor(
     override fun isError(throwable: Throwable): Boolean = when (throwable) {
         is CancellationException -> false
         is IOException,
-        is Http2Exception,
         is ChannelException -> true
-        else -> false
+        else -> throwable.isProtocolError()
     }
 
     fun close() {
@@ -133,16 +121,15 @@ internal class PoolableChannel internal constructor(
     override suspend fun summarize(appendable: Appendable) {
         super.summarize(appendable)
         val connectionHandler: ConnectionHandler? = channel.pipeline().get(ConnectionHandler::class.java)
-        val connection = connectionHandler?.connection()
-        val encoder = connectionHandler?.encoder() as StreamBufferingEncoder?
         appendable.appendLine("  Channel $channel:")
-            .appendLine("    Active streams: ${connection?.run { local().numActiveStreams() }}")
+            .appendLine("    Active streams: ${connectionHandler?.activeStreamCount}")
             .appendLine("    Age: ${Duration.between(createdAt, Instant.now())}")
+            .appendLine("    Buffered streams: ${connectionHandler?.bufferedStreamCount}")
             .appendLine("    Bytes before unwritable: ${channel.bytesBeforeUnwritable()}")
             .appendLine("    Bytes before writable: ${channel.bytesBeforeWritable()}")
             .appendLine("    Created at: $createdAt")
-            .appendLine("    GOAWAY received: ${connection?.goAwayReceived()}")
-            .appendLine("    GOAWAY sent: ${connection?.goAwaySent()}")
+            .appendLine("    GOAWAY received: ${connectionHandler?.isGoAwayReceived}")
+            .appendLine("    GOAWAY sent: ${connectionHandler?.isGoAwaySent}")
             .appendLine("    Is active: ${channel.isActive}")
             .appendLine("    Is open: ${channel.isOpen}")
             .appendLine("    Is writable: ${channel.isWritable}")
@@ -151,7 +138,5 @@ internal class PoolableChannel internal constructor(
             .appendLine("      High watermark: $highWaterMark")
             .appendLine("    Outstanding requests: $allocatedPermits")
             .appendLine("    Remote address: ${channel.remoteAddress()}")
-            .appendLine("    Encoder $encoder:")
-            .appendLine("      Buffered streams: ${encoder?.numBufferedStreams()}")
     }
 }

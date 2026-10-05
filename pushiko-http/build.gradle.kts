@@ -112,10 +112,10 @@ val jvmFuzzDuration = when (jvmFuzzProfile) {
 val jvmFuzzTargets = mapOf(
     "jvmFuzzRetryAfter" to "com.bloomberg.pushiko.http.HttpResponseExtensionsFuzzTest.fuzzRetryAfter",
     "jvmFuzzResponseAccumulator" to
-        "com.bloomberg.pushiko.http.netty.ConnectionHandlerFuzzTest.fuzzResponseAccumulator",
-    "jvmFuzzGoAwayRead" to "com.bloomberg.pushiko.http.netty.ConnectionHandlerFuzzTest.fuzzGoAwayRead",
-    "jvmFuzzSettingsRead" to "com.bloomberg.pushiko.http.netty.ConnectionHandlerFuzzTest.fuzzSettingsRead",
-    "jvmFuzzAvailabilityChange" to "com.bloomberg.pushiko.http.netty.ConnectionHandlerFuzzTest." +
+        "com.bloomberg.pushiko.http.netty.http2.ConnectionHandlerFuzzTest.fuzzResponseAccumulator",
+    "jvmFuzzGoAwayRead" to "com.bloomberg.pushiko.http.netty.http2.ConnectionHandlerFuzzTest.fuzzGoAwayRead",
+    "jvmFuzzSettingsRead" to "com.bloomberg.pushiko.http.netty.http2.ConnectionHandlerFuzzTest.fuzzSettingsRead",
+    "jvmFuzzAvailabilityChange" to "com.bloomberg.pushiko.http.netty.http2.ConnectionHandlerFuzzTest." +
         "fuzzAvailabilityChangeIsSignalledWhenChannelStopsBeingAlive"
 )
 val jvmFuzzTasks = jvmFuzzTargets.map { (taskName, testName) ->

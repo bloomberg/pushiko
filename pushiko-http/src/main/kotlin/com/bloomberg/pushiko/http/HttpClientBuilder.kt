@@ -18,22 +18,13 @@ package com.bloomberg.pushiko.http
 
 import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.bloomberg.pushiko.http.HttpClientProperties.Companion.OptionalHttpProperties
-import com.bloomberg.pushiko.http.netty.PushikoHttp2FrameLogger
 import com.bloomberg.pushiko.http.netty.EventLoopGroups.sharedEventLoopGroup
 import com.bloomberg.pushiko.http.netty.EventLoopGroups.sharedSingleEventLoopGroup
-import io.netty.handler.codec.http2.Http2SecurityUtil
-import io.netty.handler.ssl.ApplicationProtocolConfig
-import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol.ALPN
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE
-import io.netty.handler.ssl.ApplicationProtocolNames.HTTP_2
+import com.bloomberg.pushiko.http.netty.http2.newHttp2SslContext
 import io.netty.handler.ssl.OpenSsl
 import io.netty.handler.ssl.SslContext
-import io.netty.handler.ssl.SslContextBuilder
 import io.netty.handler.ssl.SslProvider
-import io.netty.handler.ssl.SupportedCipherSuiteFilter
 import org.slf4j.LoggerFactory
-import org.slf4j.event.Level
 import java.net.InetSocketAddress
 import java.security.KeyStore
 import java.security.PrivateKey
@@ -75,20 +66,11 @@ public class HttpClientBuilder internal constructor() {
     private var concurrentRequestWaterMark: ConcurrentRequestWaterMark = defaultWatermark
 
     private val sslContext: SslContext by lazy(LazyThreadSafetyMode.NONE) {
-        SslContextBuilder.forClient()
-            .sslProvider(sslProvider)
-            .apply {
-                if (clientCertificate != null) {
-                    keyManager(keyManagerFactory())
-                }
-            }
-            .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-            .apply {
-                if (requiresAlpn) {
-                    applicationProtocolConfig(ApplicationProtocolConfig(ALPN, NO_ADVERTISE, ACCEPT, HTTP_2))
-                }
-            }
-            .build()
+        newHttp2SslContext(
+            sslProvider,
+            clientCertificate?.let { keyManagerFactory() },
+            requiresAlpn
+        )
     }
 
     public fun clientCredentials(
@@ -111,7 +93,7 @@ public class HttpClientBuilder internal constructor() {
         sslContext,
         eventLoopGroupType?.eventLoopGroup() ?: sharedEventLoopGroup,
         httpProperties ?: OptionalHttpProperties(),
-        PushikoHttp2FrameLogger(httpLogger, Level.DEBUG)
+        httpLogger
     )
 
     private fun EventLoopGroupType.eventLoopGroup() = when (this) {

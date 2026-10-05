@@ -262,6 +262,35 @@ internal class PoolableChannelTest {
     }
 
     @Test
+    fun closingChannelRefusesPermitDespiteSpareStreamCapacity() {
+        val closingAttribute = mock<Attribute<Boolean>> {
+            on { get() } doReturn true
+        }
+        val channel = channelReporting(maxConcurrentStreamsAttribute(100L)).apply {
+            whenever(attr<Boolean>(argThat { name() == "channelIsClosing" })) doReturn closingAttribute
+        }
+        val poolable = PoolableChannel(channel, properties(default = 100L))
+
+        assertTrue(poolable.isCanAcquire)
+        assertFalse(poolable.isAlive)
+        assertFailsWith<IllegalStateException> { poolable.acquirePermit() }
+        assertEquals(0, poolable.allocatedPermits)
+    }
+
+    @Test
+    fun inactiveChannelRefusesPermitDespiteSpareStreamCapacity() {
+        val channel = channelReporting(maxConcurrentStreamsAttribute(100L)).apply {
+            whenever(isActive) doReturn false
+        }
+        val poolable = PoolableChannel(channel, properties(default = 100L))
+
+        assertTrue(poolable.isCanAcquire)
+        assertFalse(poolable.isAlive)
+        assertFailsWith<IllegalStateException> { poolable.acquirePermit() }
+        assertEquals(0, poolable.allocatedPermits)
+    }
+
+    @Test
     fun zeroNegotiatedLimitRecoversWhenPeerRaisesLimit() {
         val attribute = maxConcurrentStreamsAttribute(0L)
         val poolable = PoolableChannel(

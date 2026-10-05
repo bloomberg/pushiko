@@ -180,12 +180,13 @@ internal class CommonMuxPoolAcquisitionRaceTest {
     }
 
     private class NeverStabilizesPoolable : Poolable<Any>(Any()) {
-        private var reads = 0
+        private var selected = false
         override val maximumPermits = 1
         override val isAlive = true
         override val isCanAcquire: Boolean
-            get() = ++reads % 2 == 0
-        override val isShouldAcquire = true
+            get() = !selected.also { selected = false }
+        override val isShouldAcquire: Boolean
+            get() = true.also { selected = true }
     }
 
     private class NeverAcquirableFactory : Factory<Poolable<Any>>, Recycler<Any> {

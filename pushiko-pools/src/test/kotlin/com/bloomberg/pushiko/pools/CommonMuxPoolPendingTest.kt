@@ -119,6 +119,21 @@ internal class CommonMuxPoolPendingTest {
                 return false
             }
         override val isShouldAcquire = false
+
+        fun signalAvailabilityChanged() = notifyAvailabilityChanged()
+    }
+
+    private class SaturatedFactory : Factory<NeverAcquirablePoolable>, Recycler<Any> {
+        val capacityReads = AtomicInteger()
+        val poolables = CopyOnWriteArrayList<NeverAcquirablePoolable>()
+
+        override val allocations: Int = 0
+
+        override suspend fun close() = Unit
+
+        override suspend fun make() = NeverAcquirablePoolable(capacityReads).also { poolables += it }
+
+        override fun recycle(obj: Any) = Unit
     }
 
     private class DrainThenSaturatedFactory : Factory<Poolable<Any>>, Recycler<Any> {
@@ -386,6 +401,35 @@ internal class CommonMuxPoolPendingTest {
     }
 
     @Test
+    fun availabilityChangeWithoutPendingAcquisitionsDoesNotScanThePool() = runTest {
+        val factory = SaturatedFactory()
+        val pool = CommonMuxPool(
+            configuration = poolConfiguration(
+                maximumPendingAcquisitions = 4,
+                maximumSize = 2,
+                minimumSize = 2,
+                reaperDelay = 10L.minutes,
+                summaryInterval = 5L.minutes
+            ),
+            factory,
+            factory
+        )
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                assertEquals(2, pool.prepare())
+                val readsBefore = factory.capacityReads.get()
+
+                factory.poolables.forEach { it.signalAvailabilityChanged() }
+                pool.pendingAcquisitionCount()
+
+                assertEquals(readsBefore, factory.capacityReads.get())
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
     fun releasingAPermitOnARetiredPoolableDoesNotWakeAWaiter() = runTest {
         val factory = DrainThenSaturatedFactory()
         val pool = CommonMuxPool(
@@ -417,7 +461,9 @@ internal class CommonMuxPoolPendingTest {
 
                 val waiter = async { pool.withPermit(Duration.INFINITE) { } }
                 withTimeout(5L.seconds) {
-                    while (factory.made != 3 || pool.pendingAcquisitionCount() != 1) {
+                    while (pool.metricsComponent.gauges(5L.seconds).allocatedSize != 3 ||
+                        pool.pendingAcquisitionCount() != 1
+                    ) {
                         yield()
                     }
                 }

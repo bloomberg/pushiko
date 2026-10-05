@@ -85,6 +85,14 @@ internal class PoolableOutcomeTest {
     }
 
     @Test
+    fun cannotAcquireFromAnObjectThatIsNoLongerAlive() {
+        val poolable = LivenessPoolable(isAlive = false)
+
+        assertFailsWith<IllegalStateException> { poolable.acquirePermit() }
+        assertEquals(0, poolable.allocatedPermits)
+    }
+
+    @Test
     fun cannotAcquireBeyondAvailablePermits() {
         val poolable = AnyPoolable(maximumPermits = 1)
         poolable.acquirePermit()

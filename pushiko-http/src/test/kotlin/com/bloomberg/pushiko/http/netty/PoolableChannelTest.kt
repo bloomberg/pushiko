@@ -72,6 +72,7 @@ internal class PoolableChannelTest {
             on { get() } doReturn false
         }
         return mock<Channel>().apply {
+            whenever(isActive) doReturn true
             whenever(attr(maxConcurrentStreamsAttributeKey)) doReturn attribute
             whenever(attr(streamCapacityChangedAttributeKey)) doReturn capacityChangedAttribute
             whenever(attr(channelIsDrainingAttributeKey)) doReturn drainingAttribute

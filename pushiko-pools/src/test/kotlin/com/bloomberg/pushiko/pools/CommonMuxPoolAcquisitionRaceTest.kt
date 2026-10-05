@@ -61,11 +61,27 @@ internal class CommonMuxPoolAcquisitionRaceTest {
         }
     }
 
-    private class RaceFactory : Factory<Poolable<Any>>, Recycler<Any> {
+    private class DiesAfterSelectionPoolable : Poolable<Any>(Any()) {
+        private val armedAliveChecks = AtomicInteger()
+
+        @Volatile
+        private var armed = false
+
+        override val maximumPermits = 1
+        override val isAlive: Boolean
+            get() = !armed || armedAliveChecks.incrementAndGet() == 1
+        override val isCanAcquire: Boolean
+            get() = allocatedPermits < maximumPermits
+        override val isShouldAcquire = true
+
+        fun arm() {
+            armed = true
+        }
+    }
+
+    private class RaceFactory<T : Poolable<Any>>(val racing: T) : Factory<Poolable<Any>>, Recycler<Any> {
         private val allocationCount = AtomicInteger()
         private val recyclingCount = AtomicInteger()
-
-        val racing = EligibilityRacePoolable()
 
         lateinit var replacement: Poolable<Any>
             private set
@@ -95,7 +111,42 @@ internal class CommonMuxPoolAcquisitionRaceTest {
 
     @Test
     fun retriesWhenPoolableStartsDrainingBetweenSelectionAndPermitAcquisition() = runTest {
-        val factory = RaceFactory()
+        val factory = RaceFactory(EligibilityRacePoolable())
+        val pool = CommonMuxPool(
+            configuration = poolConfiguration(
+                maximumPendingAcquisitions = 1,
+                maximumSize = 1,
+                minimumSize = 1,
+                reaperDelay = 10L.minutes,
+                summaryInterval = 5L.minutes
+            ),
+            factory,
+            factory
+        )
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                pool.prepare()
+                factory.racing.arm()
+
+                pool.withPermit(5L.seconds) {
+                    assertSame(factory.replacement.value, it)
+                }
+
+                assertEquals(0, factory.racing.allocatedPermits)
+                withTimeout(5L.seconds) {
+                    while (factory.recycled != 1) {
+                        yield()
+                    }
+                }
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun doesNotLeasePoolableThatDiesBetweenSelectionAndPermitAcquisition() = runTest {
+        val factory = RaceFactory(DiesAfterSelectionPoolable())
         val pool = CommonMuxPool(
             configuration = poolConfiguration(
                 maximumPendingAcquisitions = 1,

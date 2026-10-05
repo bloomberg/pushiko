@@ -23,6 +23,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -89,6 +90,55 @@ internal class CommonMuxPoolPendingTest {
         override fun recycle(obj: Any) {
             allocationCount.decrementAndGet()
         }
+    }
+
+    private class MultiPermitDrainingPoolable : Poolable<Any>(Any()) {
+        @Volatile
+        var isDraining = false
+            set(value) {
+                field = value
+                notifyAvailabilityChanged()
+            }
+
+        override val maximumPermits = 3
+        override val isAlive: Boolean
+            get() = !isDraining
+        override val isCanAcquire: Boolean
+            get() = !isDraining && allocatedPermits < maximumPermits
+        override val isShouldAcquire: Boolean
+            get() = isCanAcquire
+    }
+
+    private class NeverAcquirablePoolable(private val capacityReads: AtomicInteger) : Poolable<Any>(Any()) {
+        override val maximumPermits = 1
+        override val isAlive = true
+        override val isCanAcquire: Boolean
+            get() {
+                capacityReads.incrementAndGet()
+                return false
+            }
+        override val isShouldAcquire = false
+    }
+
+    private class DrainThenSaturatedFactory : Factory<Poolable<Any>>, Recycler<Any> {
+        private val madeCount = AtomicInteger()
+        val capacityReads = AtomicInteger()
+        val draining = MultiPermitDrainingPoolable()
+
+        val made: Int
+            get() = madeCount.get()
+
+        override val allocations: Int = 0
+
+        override suspend fun close() = Unit
+
+        override suspend fun make(): Poolable<Any> = if (madeCount.getAndIncrement() == 0) {
+            draining
+        } else {
+            NeverAcquirablePoolable(capacityReads)
+        }
+
+        override fun recycle(obj: Any) = Unit
     }
 
     private fun newDrainingPool(factory: DrainingPoolableFactory) = CommonMuxPool(
@@ -303,6 +353,61 @@ internal class CommonMuxPoolPendingTest {
                 }
             }
         } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun releasingAPermitOnARetiredPoolableDoesNotWakeAWaiter() = runTest {
+        val factory = DrainThenSaturatedFactory()
+        val pool = CommonMuxPool(
+            configuration = poolConfiguration(
+                maximumPendingAcquisitions = 4,
+                maximumSize = 2,
+                minimumSize = 1,
+                reaperDelay = 10L.minutes,
+                summaryInterval = 5L.minutes
+            ),
+            factory,
+            factory
+        )
+        val releases = List(3) { CompletableDeferred<Unit>() }
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                assertEquals(1, pool.prepare())
+                val entered = List(3) { CompletableDeferred<Unit>() }
+                val holders = List(3) { index ->
+                    launch {
+                        pool.withPermit(Duration.INFINITE) {
+                            entered[index].complete(Unit)
+                            releases[index].await()
+                        }
+                    }
+                }
+                entered.forEach { it.await() }
+                factory.draining.isDraining = true
+
+                val waiter = async { pool.withPermit(Duration.INFINITE) { } }
+                withTimeout(5L.seconds) {
+                    while (factory.made != 3 || pool.pendingAcquisitionCount() != 1) {
+                        yield()
+                    }
+                }
+                val readsBeforeRelease = factory.capacityReads.get()
+
+                releases[0].complete(Unit)
+                holders[0].join()
+                pool.pendingAcquisitionCount()
+                pool.pendingAcquisitionCount()
+
+                assertEquals(readsBeforeRelease, factory.capacityReads.get())
+                assertFalse(waiter.isCompleted)
+                waiter.cancel()
+                releases.forEach { it.complete(Unit) }
+                holders.joinAll()
+            }
+        } finally {
+            releases.forEach { it.complete(Unit) }
             pool.close()
         }
     }

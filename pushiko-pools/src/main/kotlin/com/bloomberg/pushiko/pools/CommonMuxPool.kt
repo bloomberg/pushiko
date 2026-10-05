@@ -401,6 +401,9 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     }
 
     private fun resumeForAvailableCapacity() {
+        if (pendingAcquisitions.isEmpty()) {
+            return
+        }
         var alreadyResumed = pendingResumptionCount.toLong()
         for (poolable in pool) {
             if (!poolable.isAlive || !poolable.isCanAcquire) {

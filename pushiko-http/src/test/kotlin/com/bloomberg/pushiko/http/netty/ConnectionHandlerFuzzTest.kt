@@ -43,6 +43,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellableContinuation
 import org.junit.jupiter.params.provider.MethodSource
+import org.mockito.Mockito
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.doAnswer
@@ -120,67 +121,75 @@ internal class ConnectionHandlerFuzzTest {
 
     @FuzzTest
     fun fuzzGoAwayRead(data: FuzzedDataProvider) {
-        val fixture = GoAwayReadFixture()
-        val handler = fixture.newHandler()
-        val callCount = 1 + data.consumeInt(0, MAX_GOAWAY_CALLS_PER_RUN - 1)
-        repeat(callCount) {
-            val lastStreamId = data.consumeInt()
-            val errorCode = if (data.consumeBoolean()) {
-                KNOWN_ERROR_CODES[data.consumeInt(0, KNOWN_ERROR_CODES.size - 1)]
-            } else {
-                data.consumeLong()
+        GoAwayReadFixture().use { fixture ->
+            val handler = fixture.newHandler()
+            val callCount = 1 + data.consumeInt(0, MAX_GOAWAY_CALLS_PER_RUN - 1)
+            repeat(callCount) {
+                val lastStreamId = data.consumeInt()
+                val errorCode = if (data.consumeBoolean()) {
+                    KNOWN_ERROR_CODES[data.consumeInt(0, KNOWN_ERROR_CODES.size - 1)]
+                } else {
+                    data.consumeLong()
+                }
+                val debugData = Unpooled.wrappedBuffer(data.consumeBytes(MAX_DEBUG_DATA_SIZE))
+                try {
+                    handler.onGoAwayRead(fixture.context, lastStreamId, errorCode, debugData)
+                    assertEquals(0, debugData.readerIndex())
+                    assertEquals(1, debugData.refCnt())
+                } finally {
+                    assertTrue(debugData.release() || debugData.capacity() == 0)
+                }
             }
-            val debugData = Unpooled.wrappedBuffer(data.consumeBytes(MAX_DEBUG_DATA_SIZE))
-            try {
-                handler.onGoAwayRead(fixture.context, lastStreamId, errorCode, debugData)
-                assertEquals(0, debugData.readerIndex())
-                assertEquals(1, debugData.refCnt())
-            } finally {
-                assertTrue(debugData.release() || debugData.capacity() == 0)
-            }
+            verify(fixture.channel, atLeastOnce()).close()
         }
-        verify(fixture.channel, atLeastOnce()).close()
     }
 
     @FuzzTest
     fun fuzzSettingsRead(data: FuzzedDataProvider) {
-        val fixture = GoAwayReadFixture()
-        val handler = fixture.newHandler()
-        val callCount = 1 + data.consumeInt(0, MAX_SETTINGS_CALLS_PER_RUN - 1)
-        repeat(callCount) {
-            val maxConcurrentStreams = data.consumeLong(0L, MAXIMUM_UNSIGNED_INT)
-            handler.onSettingsRead(fixture.context, Http2Settings().maxConcurrentStreams(maxConcurrentStreams))
-            assertEquals(maxConcurrentStreams, fixture.maxConcurrentStreamsAttribute.get())
+        GoAwayReadFixture().use { fixture ->
+            val handler = fixture.newHandler()
+            val callCount = 1 + data.consumeInt(0, MAX_SETTINGS_CALLS_PER_RUN - 1)
+            repeat(callCount) {
+                val maxConcurrentStreams = data.consumeLong(0L, MAXIMUM_UNSIGNED_INT)
+                handler.onSettingsRead(fixture.context, Http2Settings().maxConcurrentStreams(maxConcurrentStreams))
+                assertEquals(maxConcurrentStreams, fixture.maxConcurrentStreamsAttribute.get())
+            }
         }
     }
 
     @FuzzTest
     fun fuzzAvailabilityChangeIsSignalledWhenChannelStopsBeingAlive(data: FuzzedDataProvider) {
-        val fixture = GoAwayReadFixture()
-        val handler = fixture.newHandler()
-        val poolable = PoolableChannel(fixture.channel, mock<IHttpClientProperties>())
-        var signals = 0
-        fixture.streamCapacityChangedAttribute.set { signals++ }
-        var remaining = 1 + data.consumeInt(0, MAX_LIFECYCLE_EVENTS_PER_RUN - 1)
-        while (remaining-- > 0 && fixture.isActive) {
-            val wasAlive = poolable.isAlive
-            val signalsBefore = signals
-            val event = data.consumeInt(0, LIFECYCLE_EVENT_KINDS - 1)
-            when (event) {
-                0 -> handler.onGoAwayRead(fixture.context, data.consumeInt(), data.consumeErrorCode(), Unpooled.EMPTY_BUFFER)
-                1 -> handler.onSettingsRead(
-                    fixture.context,
-                    Http2Settings().maxConcurrentStreams(data.consumeLong(0L, MAXIMUM_UNSIGNED_INT))
-                )
-                2 -> handler.close(fixture.context, mock())
-                3 -> handler.userEventTriggered(fixture.context, IdleStateEvent.READER_IDLE_STATE_EVENT)
-                else -> {
-                    fixture.isActive = false
-                    handler.channelInactive(fixture.context)
+        GoAwayReadFixture().use { fixture ->
+            val handler = fixture.newHandler()
+            val poolable = PoolableChannel(fixture.channel, fixture.track(mock<IHttpClientProperties>()))
+            var signals = 0
+            fixture.streamCapacityChangedAttribute.set { signals++ }
+            var remaining = 1 + data.consumeInt(0, MAX_LIFECYCLE_EVENTS_PER_RUN - 1)
+            while (remaining-- > 0 && fixture.isActive) {
+                val wasAlive = poolable.isAlive
+                val signalsBefore = signals
+                val event = data.consumeInt(0, LIFECYCLE_EVENT_KINDS - 1)
+                when (event) {
+                    0 -> handler.onGoAwayRead(
+                        fixture.context,
+                        data.consumeInt(),
+                        data.consumeErrorCode(),
+                        Unpooled.EMPTY_BUFFER
+                    )
+                    1 -> handler.onSettingsRead(
+                        fixture.context,
+                        Http2Settings().maxConcurrentStreams(data.consumeLong(0L, MAXIMUM_UNSIGNED_INT))
+                    )
+                    2 -> handler.close(fixture.context, fixture.track(mock()))
+                    3 -> handler.userEventTriggered(fixture.context, IdleStateEvent.READER_IDLE_STATE_EVENT)
+                    else -> {
+                        fixture.isActive = false
+                        handler.channelInactive(fixture.context)
+                    }
                 }
-            }
-            if (wasAlive && !poolable.isAlive) {
-                assertTrue(signals > signalsBefore, "Channel stopped being alive on event $event without signalling")
+                if (wasAlive && !poolable.isAlive) {
+                    assertTrue(signals > signalsBefore, "Channel stopped being alive on event $event without signalling")
+                }
             }
         }
     }
@@ -191,19 +200,21 @@ internal class ConnectionHandlerFuzzTest {
         consumeLong()
     }
 
-    private class GoAwayReadFixture {
+    private class GoAwayReadFixture : AutoCloseable {
+        private val mocks = ArrayList<Any>()
+
         @Volatile
         var isActive = true
-        val isDrainingAttribute = statefulAttribute<Boolean>(initial = false)
-        val isClosingAttribute = statefulAttribute<Boolean>(initial = false)
-        val maxConcurrentStreamsAttribute = statefulAttribute<Long>()
-        val streamCapacityChangedAttribute = statefulAttribute<() -> Unit>()
-        val channelContinuationAttribute = mock<Attribute<CancellableContinuation<Channel>>>()
-        val pipeline = mock<ChannelPipeline>()
-        val eventLoop = mock<EventLoop>().apply {
+        val isDrainingAttribute = track(statefulAttribute<Boolean>(initial = false))
+        val isClosingAttribute = track(statefulAttribute<Boolean>(initial = false))
+        val maxConcurrentStreamsAttribute = track(statefulAttribute<Long>())
+        val streamCapacityChangedAttribute = track(statefulAttribute<() -> Unit>())
+        val channelContinuationAttribute = track(mock<Attribute<CancellableContinuation<Channel>>>())
+        val pipeline = track(mock<ChannelPipeline>())
+        val eventLoop = track(mock<EventLoop>()).apply {
             whenever(inEventLoop()) doReturn true
         }
-        val channel = mock<Channel>().apply {
+        val channel = track(mock<Channel>()).apply {
             whenever(isActive) doAnswer { this@GoAwayReadFixture.isActive }
             whenever(eventLoop()) doReturn eventLoop
             whenever(pipeline()) doReturn pipeline
@@ -213,27 +224,34 @@ internal class ConnectionHandlerFuzzTest {
             whenever(attr(maxConcurrentStreamsAttributeKey)) doReturn maxConcurrentStreamsAttribute
             whenever(attr(channelContinuationAttributeKey)) doReturn channelContinuationAttribute
         }
-        val context = mock<ChannelHandlerContext>().apply {
+        val context = track(mock<ChannelHandlerContext>()).apply {
             whenever(channel()) doReturn channel
             whenever(executor()) doReturn eventLoop
-            whenever(newPromise()) doReturn mock()
+            whenever(newPromise()) doReturn track(mock())
         }
-        val local = mock<Http2Connection.Endpoint<Http2LocalFlowController>>()
-        val connection = mock<Http2Connection>().apply {
+        val local = track(mock<Http2Connection.Endpoint<Http2LocalFlowController>>())
+        val connection = track(mock<Http2Connection>()).apply {
             whenever(local()) doReturn local
         }
-        val flowController = mock<Http2RemoteFlowController>()
+        val flowController = track(mock<Http2RemoteFlowController>())
 
         fun newHandler() = ConnectionHandler(
-            mock<Http2ConnectionDecoder>().apply {
+            track(mock<Http2ConnectionDecoder>()).apply {
                 whenever(connection()) doReturn connection
             },
-            mock<Http2ConnectionEncoder>().apply {
+            track(mock<Http2ConnectionEncoder>()).apply {
                 whenever(connection()) doReturn connection
                 whenever(flowController()) doReturn flowController
             },
             Http2Settings()
         )
+
+        fun <T : Any> track(mock: T): T = mock.also { mocks += it }
+
+        override fun close() {
+            mocks.forEach(Mockito.framework()::clearInlineMock)
+            mocks.clear()
+        }
     }
 
     companion object {

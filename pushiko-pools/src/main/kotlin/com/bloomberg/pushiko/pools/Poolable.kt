@@ -82,7 +82,7 @@ public abstract class Poolable<out R : Any>(
     }
 
     internal fun tryAcquirePermit(): Boolean {
-        if (!isCanAcquire) {
+        if (!isCanAcquire || !isAlive) {
             return false
         }
         check(allocatedPermits < Int.MAX_VALUE) { "Allocated permit count overflow" }

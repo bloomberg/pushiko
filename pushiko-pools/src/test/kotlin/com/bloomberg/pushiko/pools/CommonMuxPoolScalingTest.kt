@@ -28,6 +28,7 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Duration
@@ -718,9 +719,10 @@ internal class CommonMuxPoolScalingTest {
             withContext(Dispatchers.Default.limitedParallelism(1)) {
                 assertEquals(1, pool.prepare())
                 armed.set(true)
-                pool.withPermit(5L.seconds) {
-                    Thread.sleep(200L)
+                assertFailsWith<IOException> {
+                    pool.withPermit(5L.seconds) { }
                 }
+                assertEquals(0, factory.first!!.allocatedPermits)
                 assertEquals(0, factory.recycledWhileLeased.get())
             }
         } finally {

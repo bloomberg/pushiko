@@ -472,6 +472,26 @@ internal class CommonMuxPoolFactoryFailureTest {
     }
 
     @Test
+    fun successfulAcquisitionRefillsAPoolLeftBelowItsMinimum() = runTest {
+        val factory = ThrowingFactory(failuresRemaining = 2)
+        val pool = newPool(factory, minimumSize = 3, maximumSize = 5)
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                assertEquals(1, pool.prepare())
+                pool.withPermit(5L.seconds) { }
+                withTimeout(5L.seconds) {
+                    while (pool.metricsComponent.gauges(5L.seconds).allocatedSize != 3) {
+                        yield()
+                    }
+                }
+                assertEquals(5, factory.makeCalls)
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
     fun minimumFillFailureFailsPendingAcquisition() = runTest {
         val factory = ThrowingFactory(failuresRemaining = 2)
         val pool = newPool(factory, minimumSize = 1, maximumSize = 1)

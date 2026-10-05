@@ -250,9 +250,15 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         var lastResort: P? = null
         var probed = 0
         while (pool.isNotEmpty() && probed < probeLimit()) {
-            val poolable = rotateNextSelectable() ?: continue
+            val poolable = pool.removeFirst()
             ++probed
-            if (poolable.isCanAcquire) {
+            val canAcquire = poolable.isCanAcquire
+            if (!poolable.isAlive || poolable.isDraining) {
+                retirePoolable(poolable)
+                continue
+            }
+            pool.addLast(poolable)
+            if (canAcquire) {
                 when {
                     poolable.isShouldAcquire && poolable.isHealthy() -> return poolable
                     poolable.isHealthy() -> if (fallback == null) { fallback = poolable }
@@ -299,17 +305,6 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         else -> (configuration.fullScanPoolSize +
             ceil(sqrt((poolSize - configuration.fullScanPoolSize).toDouble())).toInt())
             .coerceAtMost(configuration.maximumSampledScan)
-    }
-
-    private fun rotateNextSelectable(): P? {
-        val poolable = pool.removeFirst()
-        return if (poolable.isAlive && !poolable.isDraining) {
-            pool.addLast(poolable)
-            poolable
-        } else {
-            retirePoolable(poolable)
-            null
-        }
     }
 
     private fun retirePoolable(poolable: P) {

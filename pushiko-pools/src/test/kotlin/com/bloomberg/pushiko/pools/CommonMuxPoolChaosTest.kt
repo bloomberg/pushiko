@@ -28,12 +28,14 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.RepeatedTest
 import java.io.IOException
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertTrue
@@ -71,11 +73,13 @@ internal class CommonMuxPoolChaosTest {
             makeHangRate = 0.0,
             recycleFailureRate = 0.0
         )
-        withPoolUnderChaos(random, config) { pool ->
+        withPoolUnderChaos(random, config) { pool, factory ->
             coroutineScope {
+                val flapper = launch { flapEligibility(factory) }
                 List(random.nextInt(MINIMUM_WORKERS, MAXIMUM_WORKERS + 1)) {
                     async { runFastFailWorker(pool) }
                 }.awaitAll()
+                flapper.cancel()
             }
         }
     }
@@ -90,7 +94,7 @@ internal class CommonMuxPoolChaosTest {
             makeHangRate = random.nextDouble(0.0, MAXIMUM_MAKE_HANG_RATE),
             recycleFailureRate = random.nextDouble(0.0, MAXIMUM_RECYCLE_FAILURE_RATE)
         )
-        withPoolUnderChaos(random, config) { pool ->
+        withPoolUnderChaos(random, config) { pool, _ ->
             coroutineScope {
                 List(random.nextInt(MINIMUM_WORKERS, MAXIMUM_WORKERS + 1)) {
                     async { runResourceChaosWorker(pool) }
@@ -113,7 +117,7 @@ internal class CommonMuxPoolChaosTest {
     private suspend fun withPoolUnderChaos(
         random: ThreadLocalRandom,
         config: ChaosConfig,
-        block: suspend (CommonMuxPool<Any, ChaosPoolable>) -> Unit
+        block: suspend (CommonMuxPool<Any, ChaosPoolable>, ChaosFactory) -> Unit
     ) {
         val factory = ChaosFactory(config)
         val pool = CommonMuxPool(
@@ -131,11 +135,18 @@ internal class CommonMuxPoolChaosTest {
             withTimeout(PREPARE_BOUND) {
                 pool.prepare()
             }
-            block(pool)
+            block(pool, factory)
         } finally {
             withTimeout(CLOSE_BOUND) {
                 pool.close()
             }
+        }
+    }
+
+    private suspend fun flapEligibility(factory: ChaosFactory) {
+        while (true) {
+            delay(FLAP_INTERVAL)
+            factory.poolables.forEach(ChaosPoolable::flap)
         }
     }
 
@@ -191,6 +202,7 @@ internal class CommonMuxPoolChaosTest {
         private val CANARY_BOUND = 10L.seconds
         private val CLOSE_BOUND = 10L.seconds
         private val TRIAL_BUDGET = 60L.seconds
+        private val FLAP_INTERVAL = 1L.milliseconds
     }
 }
 
@@ -207,7 +219,9 @@ private class ChaosPoolable(config: ChaosConfig) : Poolable<Any>(Any()) {
     private val isFlapper = ThreadLocalRandom.current().nextDouble() < config.flapRate
     private val deathRate = config.deathRate
     private val drainRate = config.drainRate
-    private var flapReads = 0
+
+    @Volatile
+    private var flapAvailable = true
 
     @Volatile
     private var dead = false
@@ -225,17 +239,22 @@ private class ChaosPoolable(config: ChaosConfig) : Poolable<Any>(Any()) {
             rollDeathAndDrain()
             return when {
                 dead || draining -> false
-                isFlapper -> (flapReads++ % 2 == 0).also { available ->
-                    if (available) {
-                        notifyAvailabilityChanged()
-                    }
-                }
+                isFlapper -> flapAvailable && allocatedPermits < maximumPermits
                 else -> allocatedPermits < maximumPermits
             }
         }
 
     override val isShouldAcquire: Boolean
         get() = isCanAcquire
+
+    fun flap() {
+        if (isFlapper && ThreadLocalRandom.current().nextBoolean()) {
+            flapAvailable = !flapAvailable
+            if (flapAvailable) {
+                notifyAvailabilityChanged()
+            }
+        }
+    }
 
     private fun rollDeathAndDrain() {
         val random = ThreadLocalRandom.current()
@@ -254,6 +273,8 @@ private class ChaosFactory(private val config: ChaosConfig) : Factory<ChaosPoola
     private val madeCount = AtomicInteger()
     private val recycledCount = AtomicInteger()
 
+    val poolables = CopyOnWriteArrayList<ChaosPoolable>()
+
     override val allocations: Int
         get() = madeCount.get() - recycledCount.get()
 
@@ -268,7 +289,7 @@ private class ChaosFactory(private val config: ChaosConfig) : Factory<ChaosPoola
             throw IOException("Chaos: injected creation failure")
         }
         madeCount.incrementAndGet()
-        return ChaosPoolable(config)
+        return ChaosPoolable(config).also { poolables += it }
     }
 
     override fun recycle(obj: Any) {

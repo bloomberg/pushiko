@@ -154,6 +154,33 @@ internal class CommonMuxPoolPendingTest {
         factory
     )
 
+    private class SpareCapacityPoolable(private val capacityReads: AtomicInteger) : Poolable<Any>(Any()) {
+        override val maximumPermits = 1
+        override val isAlive = true
+        override val isCanAcquire: Boolean
+            get() {
+                capacityReads.incrementAndGet()
+                return allocatedPermits < maximumPermits
+            }
+        override val isShouldAcquire: Boolean
+            get() = allocatedPermits < maximumPermits
+
+        fun signalAvailabilityChanged() = notifyAvailabilityChanged()
+    }
+
+    private class SpareCapacityFactory : Factory<SpareCapacityPoolable>, Recycler<Any> {
+        val capacityReads = AtomicInteger()
+        val poolables = CopyOnWriteArrayList<SpareCapacityPoolable>()
+
+        override val allocations: Int = 0
+
+        override suspend fun close() = Unit
+
+        override suspend fun make() = SpareCapacityPoolable(capacityReads).also { poolables += it }
+
+        override fun recycle(obj: Any) = Unit
+    }
+
     private class SinglePermitFactory : Factory<AnyPoolable>, Recycler<Any> {
         private var _allocations = 0
 
@@ -561,6 +588,35 @@ internal class CommonMuxPoolPendingTest {
                 holder.join()
                 assertEquals(0, pool.pendingAcquisitionCount())
                 assertEquals(1, factory.allocations)
+            }
+        } finally {
+            pool.close()
+        }
+    }
+
+    @Test
+    fun capacityRescanStopsOnceNoWaiterIsLeftToResume() = runTest {
+        val factory = SpareCapacityFactory()
+        val pool = CommonMuxPool(
+            configuration = poolConfiguration(
+                maximumPendingAcquisitions = 4,
+                maximumSize = 3,
+                minimumSize = 3,
+                reaperDelay = 10L.minutes,
+                summaryInterval = 5L.minutes
+            ),
+            factory,
+            factory
+        )
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                assertEquals(3, pool.prepare())
+                val readsBefore = factory.capacityReads.get()
+
+                factory.poolables.first().signalAvailabilityChanged()
+                pool.pendingAcquisitionCount()
+
+                assertTrue(factory.capacityReads.get() - readsBefore <= 1)
             }
         } finally {
             pool.close()

@@ -172,7 +172,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             return
         }
         if (poolable.isCanAcquire || !poolable.isAlive) {
-            resumeNextPendingAcquisitions()
+            resumeNextPendingAcquisition()
         }
     }
 
@@ -376,17 +376,16 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private fun resumeNextPendingAcquisitions(limit: Int = 1) {
-        repeat(limit) {
-            val continuation = removeFirstActivePendingAcquisition() ?: return
-            ++pendingResumptionCount
-            continuation.resume(Unit) {
-                launchInWorkScope {
-                    --pendingResumptionCount
-                    resumeForAvailableCapacity()
-                }
+    private fun resumeNextPendingAcquisition(): Boolean {
+        val continuation = removeFirstActivePendingAcquisition() ?: return false
+        ++pendingResumptionCount
+        continuation.resume(Unit) {
+            launchInWorkScope {
+                --pendingResumptionCount
+                resumeForAvailableCapacity()
             }
         }
+        return true
     }
 
     private fun removeFirstActivePendingAcquisition(): CancellableContinuation<Unit>? {
@@ -402,15 +401,20 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     }
 
     private fun resumeForAvailableCapacity() {
-        val availablePermits = pool.fold(0L) { capacity, poolable ->
-            capacity + if (poolable.isAlive && poolable.isCanAcquire) {
-                (poolable.maximumPermits.toLong() - poolable.allocatedPermits).coerceAtLeast(1L)
-            } else {
-                0L
+        var alreadyResumed = pendingResumptionCount.toLong()
+        for (poolable in pool) {
+            if (!poolable.isAlive || !poolable.isCanAcquire) {
+                continue
+            }
+            val permits = (poolable.maximumPermits.toLong() - poolable.allocatedPermits).coerceAtLeast(1L)
+            val covered = minOf(permits, alreadyResumed)
+            alreadyResumed -= covered
+            repeat((permits - covered).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()) {
+                if (!resumeNextPendingAcquisition()) {
+                    return
+                }
             }
         }
-        val unnotifiedPermits = (availablePermits - pendingResumptionCount).coerceAtLeast(0L)
-        resumeNextPendingAcquisitions(unnotifiedPermits.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
     }
 
     private fun resumePendingAcquisitionWithException(

@@ -84,11 +84,8 @@ internal class PoolableChannel internal constructor(
 
     override val isAlive: Boolean
         get() = channel.let {
-            it.isActive && !it.isClosing() && (!it.isDraining() || allocatedPermits > 0)
+            it.isActive && !it.isClosing() && !it.isDraining()
         }
-
-    override val isDraining: Boolean
-        get() = channel.isDraining()
 
     override val isCanAcquire: Boolean
         get() {

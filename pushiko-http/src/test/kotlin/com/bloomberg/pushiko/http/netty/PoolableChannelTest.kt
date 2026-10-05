@@ -250,13 +250,13 @@ internal class PoolableChannelTest {
 
         whenever(drainingAttribute.get()) doReturn true
 
-        assertTrue(poolable.isAlive)
-        assertTrue(poolable.isDraining)
+        assertFalse(poolable.isAlive)
         assertFalse(poolable.isCanAcquire)
         assertFalse(poolable.isShouldAcquire)
         assertEquals(1, poolable.allocatedPermits)
 
         poolable.releasePermit()
+        assertEquals(0, poolable.allocatedPermits)
         assertFalse(poolable.isAlive)
     }
 

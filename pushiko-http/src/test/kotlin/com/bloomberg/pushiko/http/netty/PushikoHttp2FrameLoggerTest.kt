@@ -38,6 +38,6 @@ internal class PushikoHttp2FrameLoggerTest {
 
     @Test
     fun isEnabled() {
-        assertFalse(PushikoHttp2FrameLogger(mock(), Level.INFO).isEnabled)
+        assertFalse(PushikoHttp2FrameLogger(mock(stubOnly = true), Level.INFO).isEnabled)
     }
 }

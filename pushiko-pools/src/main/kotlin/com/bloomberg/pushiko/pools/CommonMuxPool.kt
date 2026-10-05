@@ -164,8 +164,12 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
 
     @JvmSynthetic
     override fun onAvailable(poolable: P) {
-        if (poolable.allocatedPermits == 0 && retiredPoolables.remove(poolable)) {
-            scheduleDetachedRecycle(poolable)
+        if (poolable in retiredPoolables) {
+            if (poolable.allocatedPermits == 0) {
+                retiredPoolables.remove(poolable)
+                scheduleDetachedRecycle(poolable)
+            }
+            return
         }
         if (poolable.isCanAcquire || !poolable.isAlive) {
             resumeNextPendingAcquisitions()

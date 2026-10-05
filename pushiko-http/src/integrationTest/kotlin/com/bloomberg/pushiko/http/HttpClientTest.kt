@@ -49,6 +49,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterAll
@@ -63,11 +64,17 @@ import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 private const val DEFAULT_CHURN_DURATION_SECONDS = 2_700L
 private const val DEFAULT_CHURN_CREATION_FAILURE_RATE = 0.02
 private const val DEFAULT_CHURN_RECYCLE_FAILURE_RATE = 0.1
+private const val OWNED_SIZE_MULTIPLIER = 2
+private val GAUGE_SAMPLE_INTERVAL = 100L.milliseconds
+private val GAUGE_TIMEOUT = 5L.seconds
+private val REFILL_BOUND = 30L.seconds
 private val threads = maxOf(1, Runtime.getRuntime().availableProcessors() / 2)
 private val churnDuration = (
     System.getenv("PUSHIKO_HTTP_CHURN_DURATION_SECONDS")?.toLongOrNull() ?: DEFAULT_CHURN_DURATION_SECONDS
@@ -147,10 +154,9 @@ internal class HttpClientTest {
         recycleFailureRate = churnRecycleFailureRate
     )
 
-    private val client = HttpClient(
-        HttpRequestSender(ChannelPool(flakyFactory, properties.poolConfiguration()), properties),
-        properties
-    )
+    private val pool = ChannelPool(flakyFactory, properties.poolConfiguration())
+
+    private val client = HttpClient(HttpRequestSender(pool, properties), properties)
 
     private val tasks = listOf(
         WeightedTask(2_000) {
@@ -215,9 +221,11 @@ internal class HttpClientTest {
         }
     }
 
-    private suspend fun executeRandomTask() {
+    private suspend fun executeRandomTask() = runTolerantly(tasks.randomTask())
+
+    private suspend fun runTolerantly(task: suspend (HttpClient) -> Unit) {
         try {
-            tasks.randomTask()(client)
+            task(client)
         } catch (exception: CancellationException) {
             currentCoroutineContext().ensureActive()
             if (exception is TimeoutCancellationException) {
@@ -233,13 +241,43 @@ internal class HttpClientTest {
     @Test
     @Timeout(value = 1, unit = TimeUnit.HOURS)
     fun churn(): Unit = runBlocking {
+        val peakActiveChannelCount = AtomicInteger(0)
         coroutineScope {
+            val monitor = launch(Dispatchers.Default) {
+                while (true) {
+                    peakActiveChannelCount.accumulateAndGet(activeChannelCount(), ::maxOf)
+                    delay(GAUGE_SAMPLE_INTERVAL)
+                }
+            }
             val count = AtomicInteger(0)
             List(4) {
                 async(Dispatchers.Default) {
                     runChurnWorker(count)
                 }
             }.awaitAll()
+            monitor.cancel()
         }
+        assertTrue(
+            peakActiveChannelCount.get() <= OWNED_SIZE_MULTIPLIER * threads,
+            "Pool held ${peakActiveChannelCount.get()} channels, beyond its budget of ${OWNED_SIZE_MULTIPLIER * threads}"
+        )
+        assertRefillsToMinimum()
     }
+
+    private suspend fun assertRefillsToMinimum() {
+        val refilled = withTimeoutOrNull(REFILL_BOUND) {
+            while (activeChannelCount() != threads) {
+                runTolerantly {
+                    it.send(HttpRequest {
+                        authority("localhost")
+                        path("/ok")
+                    })
+                }
+                delay(GAUGE_SAMPLE_INTERVAL)
+            }
+        } != null
+        assertTrue(refilled, "Pool did not return to its minimum of $threads connections within $REFILL_BOUND")
+    }
+
+    private suspend fun activeChannelCount() = pool.metricsComponent.gauges.read(GAUGE_TIMEOUT).activeChannelCount
 }

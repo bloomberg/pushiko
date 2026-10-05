@@ -409,12 +409,15 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         resumeNextPendingAcquisitions(unnotifiedPermits.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
     }
 
-    private fun failNextPendingAcquisition(cause: Throwable) {
-        removeFirstActivePendingAcquisition()?.let { continuation ->
+    private fun resumePendingAcquisitionWithException(
+        continuation: CancellableContinuation<Unit>?,
+        cause: Throwable
+    ) {
+        continuation?.let {
             runCatching {
-                continuation.resumeWithException(cause)
-            }.onFailure {
-                logger.debug("Exception failing a pending acquisition", it)
+                it.resumeWithException(cause)
+            }.onFailure { e ->
+                logger.debug("Exception failing a pending acquisition", e)
             }
         }
         if (pendingAcquisitions.any(CancellableContinuation<Unit>::isActive)) {
@@ -425,6 +428,10 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
                 }
             }
         }
+    }
+
+    private fun failNextPendingAcquisition(cause: Throwable) {
+        resumePendingAcquisitionWithException(removeFirstActivePendingAcquisition(), cause)
     }
 
     private fun propagateCreationFailure(cause: Throwable) {
@@ -533,11 +540,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             val exception = IllegalArgumentException(
                 "Poolable maximum permits must be non-negative, got $maximumPermits"
             )
-            scheduleRecycle(poolable).run {
-                propagateCreationFailure(exception)
-                join()
-            }
-            throw exception
+            recycleAndFailPendingAcquisition(poolable, exception)
         }
         return poolable.also {
             it.setAvailabilityChangedListener {
@@ -560,10 +563,18 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         if (poolable.isAlive && !poolable.isDraining) {
             return
         }
-        val exception = IllegalStateException("Factory returned an unavailable poolable")
-        val recyclingJob = scheduleRecycle(poolable)
-        propagateCreationFailure(exception)
-        recyclingJob.join()
+        recycleAndFailPendingAcquisition(poolable, IllegalStateException("Factory returned an unavailable poolable"))
+    }
+
+    private suspend fun recycleAndFailPendingAcquisition(poolable: P, exception: Throwable): Nothing {
+        val wasWorkActive = isWorkActive
+        val pending = if (wasWorkActive) {
+            removeFirstActivePendingAcquisition()
+        } else null
+        scheduleRecycle(poolable).join()
+        if (wasWorkActive) {
+            resumePendingAcquisitionWithException(pending, exception)
+        }
         throw exception
     }
 

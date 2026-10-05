@@ -530,6 +530,7 @@ internal class ConnectionHandlerTest {
         ConnectionHandler().userEventTriggered(context, IdleStateEvent.READER_IDLE_STATE_EVENT)
         verify(channel, times(1)).close()
         verify(isClosingAttribute, times(1)).getAndSet(eq(true))
+        verify(streamCapacityChanged, times(1)).invoke()
     }
 
     @Test
@@ -748,6 +749,23 @@ internal class ConnectionHandlerTest {
     fun closeSignals() {
         ConnectionHandler().close(context, mock())
         verify(isClosingAttribute, times(1)).getAndSet(eq(true))
+        verify(streamCapacityChanged, times(1)).invoke()
+    }
+
+    @Test
+    fun repeatedCloseSignalsAvailabilityChangeOnce() {
+        whenever(isClosingAttribute.getAndSet(eq(true))).thenReturn(false, true)
+        val handler = ConnectionHandler()
+        handler.close(context, mock())
+        handler.close(context, mock())
+        verify(streamCapacityChanged, times(1)).invoke()
+    }
+
+    @Test
+    fun channelInactiveSignalsAvailabilityChange() {
+        whenever(channel.attr(channelContinuationAttributeKey)) doReturn mock()
+        ConnectionHandler().channelInactive(context)
+        verify(streamCapacityChanged, times(1)).invoke()
     }
 
     /* FIXME Restore?

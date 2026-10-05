@@ -114,7 +114,9 @@ val jvmFuzzTargets = mapOf(
     "jvmFuzzResponseAccumulator" to
         "com.bloomberg.pushiko.http.netty.ConnectionHandlerFuzzTest.fuzzResponseAccumulator",
     "jvmFuzzGoAwayRead" to "com.bloomberg.pushiko.http.netty.ConnectionHandlerFuzzTest.fuzzGoAwayRead",
-    "jvmFuzzSettingsRead" to "com.bloomberg.pushiko.http.netty.ConnectionHandlerFuzzTest.fuzzSettingsRead"
+    "jvmFuzzSettingsRead" to "com.bloomberg.pushiko.http.netty.ConnectionHandlerFuzzTest.fuzzSettingsRead",
+    "jvmFuzzAvailabilityChange" to "com.bloomberg.pushiko.http.netty.ConnectionHandlerFuzzTest." +
+        "fuzzAvailabilityChangeIsSignalledWhenChannelStopsBeingAlive"
 )
 val jvmFuzzTasks = jvmFuzzTargets.map { (taskName, testName) ->
     tasks.register<Test>(taskName) {

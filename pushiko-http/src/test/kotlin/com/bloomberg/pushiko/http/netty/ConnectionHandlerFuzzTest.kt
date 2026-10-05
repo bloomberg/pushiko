@@ -18,6 +18,7 @@ package com.bloomberg.pushiko.http.netty
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider
 import com.code_intelligence.jazzer.junit.FuzzTest
+import com.bloomberg.pushiko.http.IHttpClientProperties
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import io.netty.channel.Channel
@@ -31,6 +32,7 @@ import io.netty.handler.codec.http2.Http2Error
 import io.netty.handler.codec.http2.Http2LocalFlowController
 import io.netty.handler.codec.http2.Http2RemoteFlowController
 import io.netty.handler.codec.http2.Http2Settings
+import io.netty.handler.timeout.IdleStateEvent
 import io.netty.util.Attribute
 import io.netty.util.AttributeKey
 import java.io.ByteArrayOutputStream
@@ -152,17 +154,57 @@ internal class ConnectionHandlerFuzzTest {
         }
     }
 
+    @FuzzTest
+    fun fuzzAvailabilityChangeIsSignalledWhenChannelStopsBeingAlive(data: FuzzedDataProvider) {
+        val fixture = GoAwayReadFixture()
+        val handler = fixture.newHandler()
+        val poolable = PoolableChannel(fixture.channel, mock<IHttpClientProperties>())
+        var signals = 0
+        fixture.streamCapacityChangedAttribute.set { signals++ }
+        var remaining = 1 + data.consumeInt(0, MAX_LIFECYCLE_EVENTS_PER_RUN - 1)
+        while (remaining-- > 0 && fixture.isActive) {
+            val wasAlive = poolable.isAlive
+            val signalsBefore = signals
+            val event = data.consumeInt(0, LIFECYCLE_EVENT_KINDS - 1)
+            when (event) {
+                0 -> handler.onGoAwayRead(fixture.context, data.consumeInt(), data.consumeErrorCode(), Unpooled.EMPTY_BUFFER)
+                1 -> handler.onSettingsRead(
+                    fixture.context,
+                    Http2Settings().maxConcurrentStreams(data.consumeLong(0L, MAXIMUM_UNSIGNED_INT))
+                )
+                2 -> handler.close(fixture.context, mock())
+                3 -> handler.userEventTriggered(fixture.context, IdleStateEvent.READER_IDLE_STATE_EVENT)
+                else -> {
+                    fixture.isActive = false
+                    handler.channelInactive(fixture.context)
+                }
+            }
+            if (wasAlive && !poolable.isAlive) {
+                assertTrue(signals > signalsBefore, "Channel stopped being alive on event $event without signalling")
+            }
+        }
+    }
+
+    private fun FuzzedDataProvider.consumeErrorCode(): Long = if (consumeBoolean()) {
+        KNOWN_ERROR_CODES[consumeInt(0, KNOWN_ERROR_CODES.size - 1)]
+    } else {
+        consumeLong()
+    }
+
     private class GoAwayReadFixture {
+        @Volatile
+        var isActive = true
         val isDrainingAttribute = statefulAttribute<Boolean>(initial = false)
         val isClosingAttribute = statefulAttribute<Boolean>(initial = false)
         val maxConcurrentStreamsAttribute = statefulAttribute<Long>()
-        val streamCapacityChangedAttribute = mock<Attribute<() -> Unit>>()
+        val streamCapacityChangedAttribute = statefulAttribute<() -> Unit>()
         val channelContinuationAttribute = mock<Attribute<CancellableContinuation<Channel>>>()
         val pipeline = mock<ChannelPipeline>()
         val eventLoop = mock<EventLoop>().apply {
             whenever(inEventLoop()) doReturn true
         }
         val channel = mock<Channel>().apply {
+            whenever(isActive) doAnswer { this@GoAwayReadFixture.isActive }
             whenever(eventLoop()) doReturn eventLoop
             whenever(pipeline()) doReturn pipeline
             whenever(attr(closingAttributeKey)) doReturn isClosingAttribute
@@ -200,6 +242,8 @@ internal class ConnectionHandlerFuzzTest {
         private const val BOUNDARY_CASE_FLAG = 0x80
         private const val MAX_GOAWAY_CALLS_PER_RUN = 8
         private const val MAX_SETTINGS_CALLS_PER_RUN = 8
+        private const val MAX_LIFECYCLE_EVENTS_PER_RUN = 16
+        private const val LIFECYCLE_EVENT_KINDS = 5
         private const val MAX_DEBUG_DATA_SIZE = 256
         private const val MAXIMUM_UNSIGNED_INT = 0xFFFFFFFFL
         private val KNOWN_ERROR_CODES = Http2Error.entries.map(Http2Error::code)

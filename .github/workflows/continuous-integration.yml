@@ -30,7 +30,9 @@ jobs:
       - name: 'Check'
         run: ./gradlew check -x integrationTest
       - name: 'Integration test'
-        run: ./gradlew :pushiko-apns:integrationTest :pushiko-fcm:integrationTest
+        env:
+          PUSHIKO_HTTP_CHURN_DURATION_SECONDS: '120'
+        run: ./gradlew :pushiko-apns:integrationTest :pushiko-fcm:integrationTest :pushiko-http:integrationTest
       - name: 'Check semantic versioning'
         id: semver
         if: github.event_name == 'pull_request'

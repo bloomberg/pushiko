@@ -24,6 +24,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -116,6 +118,45 @@ internal class CommonMuxPoolScalingTest {
 
         override fun recycle(obj: Any) {
             --_allocations
+        }
+    }
+
+    private class DiesAfterSelectionPoolable(private val armed: AtomicBoolean) : Poolable<Any>(Any()) {
+        private val armedAliveReads = AtomicInteger()
+        override val maximumPermits = 1
+        override val isAlive: Boolean
+            get() = !armed.get() || armedAliveReads.incrementAndGet() == 1
+        override val isCanAcquire: Boolean
+            get() = allocatedPermits < maximumPermits
+        override val isShouldAcquire: Boolean
+            get() = isCanAcquire
+    }
+
+    private class SingleSuccessFactory(
+        private val armed: AtomicBoolean
+    ) : Factory<DiesAfterSelectionPoolable>, Recycler<Any> {
+        private val makeCount = AtomicInteger()
+        val recycledWhileLeased = AtomicInteger()
+
+        @Volatile
+        var first: DiesAfterSelectionPoolable? = null
+
+        override val allocations: Int = 0
+
+        override suspend fun close() = Unit
+
+        override suspend fun make(): DiesAfterSelectionPoolable {
+            if (makeCount.getAndIncrement() > 0) {
+                throw IOException("Simulated connection failure")
+            }
+            return DiesAfterSelectionPoolable(armed).also { first = it }
+        }
+
+        override fun recycle(obj: Any) {
+            val first = first
+            if (first != null && first.value === obj && first.allocatedPermits > 0) {
+                recycledWhileLeased.incrementAndGet()
+            }
         }
     }
 
@@ -656,5 +697,34 @@ internal class CommonMuxPoolScalingTest {
         // Assigning a non-suspend function reference fails to compile if selectPoolable ever becomes `suspend`.
         val reference: (CommonMuxPool<Any, AnyPoolable>) -> AnyPoolable? = CommonMuxPool<Any, AnyPoolable>::selectPoolable
         assertNotNull(reference)
+    }
+
+    @Test
+    fun minimumTopUpDoesNotRecycleASelectedPoolableBeforeItsPermitIsTaken() = runTest {
+        val armed = AtomicBoolean(false)
+        val factory = SingleSuccessFactory(armed)
+        val pool = CommonMuxPool(
+            configuration = poolConfiguration(
+                maximumPendingAcquisitions = 10,
+                maximumSize = 2,
+                minimumSize = 2,
+                reaperDelay = 10L.minutes,
+                summaryInterval = 5L.minutes
+            ),
+            factory,
+            factory
+        )
+        try {
+            withContext(Dispatchers.Default.limitedParallelism(1)) {
+                assertEquals(1, pool.prepare())
+                armed.set(true)
+                pool.withPermit(5L.seconds) {
+                    Thread.sleep(200L)
+                }
+                assertEquals(0, factory.recycledWhileLeased.get())
+            }
+        } finally {
+            pool.close()
+        }
     }
 }

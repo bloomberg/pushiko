@@ -443,7 +443,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private suspend fun ensureMinimumAllocation() {
         assertThisDispatcher()
         if (anticipatedSize < configuration.minimumSize) {
-            launchInWorkScope(start = CoroutineStart.UNDISPATCHED) {
+            launchInWorkScope {
                 doAttemptFill()
             }
         }

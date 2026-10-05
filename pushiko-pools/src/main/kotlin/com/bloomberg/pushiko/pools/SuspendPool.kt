@@ -19,6 +19,7 @@
 package com.bloomberg.pushiko.pools
 
 import com.bloomberg.pushiko.commons.slf4j.Logger
+import com.bloomberg.pushiko.pools.exceptions.PermitAcquisitionRetryLimitException
 import javax.annotation.concurrent.ThreadSafe
 import kotlin.time.Duration
 import kotlinx.coroutines.CompletableDeferred
@@ -109,14 +110,16 @@ public sealed class SuspendPool<R : Any, P : Poolable<R>>(
     @JvmSynthetic
     @PublishedApi
     @Suppress("UNCHECKED_CAST")
-    internal suspend fun performPermitAcquisition(): P {
+    internal suspend fun performPermitAcquisition(maximumAttempts: Int = 3): P {
+        var attempts = 0
         while (true) {
             val selected = performSelection()
             if (selected.tryAcquirePermit()) {
                 return selected as P
             }
-            // Eligibility can change concurrently after selection. Let its notification and cancellation run
-            // before selecting again instead of exposing that supported race as an invariant failure.
+            if (++attempts >= maximumAttempts) {
+                throw PermitAcquisitionRetryLimitException
+            }
             yield()
         }
     }

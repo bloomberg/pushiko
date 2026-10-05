@@ -160,6 +160,10 @@ internal val channelIsDrainingAttributeKey = AttributeKey.valueOf<Boolean>("chan
 internal fun Channel.isDraining() = attr(channelIsDrainingAttributeKey).get() ?: false
 private fun Channel.signalIsDraining() = attr(channelIsDrainingAttributeKey).getAndSet(true) != true
 
+private fun Channel.signalAvailabilityChanged() {
+    attr(streamCapacityChangedAttributeKey).get()?.invoke()
+}
+
 private fun removeRequestsNotProcessedByPeer(
     connection: Http2Connection,
     requestContinuations: IntObjectHashMap<HttpRequestContinuation>,
@@ -411,7 +415,7 @@ internal class ConnectionHandler(
                 val previous = maxConcurrentStreams
                 recordMaxConcurrentStreams(it)
                 if (previous != null && it > previous) {
-                    attr(streamCapacityChangedAttributeKey).get()?.invoke()
+                    signalAvailabilityChanged()
                 }
                 if (previous != null && previous != it) {
                     logger.info("Peer changed SETTINGS_MAX_CONCURRENT_STREAMS from: {} to: {} channel: {}",
@@ -453,7 +457,7 @@ internal class ConnectionHandler(
         val channel = context.channel()
         if (channel.signalIsDraining()) {
             drainingChannel = channel
-            channel.attr(streamCapacityChangedAttributeKey).get()?.invoke()
+            channel.signalAvailabilityChanged()
         }
         removeRequestsNotProcessedByPeer(
             connection(), requestContinuations, requestContinuationPropertyKey, lastStreamId,
@@ -566,6 +570,7 @@ internal class ConnectionHandler(
             logger.debug(inactiveCause.message)
             resumeWithExceptionSafely(inactiveCause)
         }
+        context.channel().signalAvailabilityChanged()
         super.channelInactive(context)
     }
 
@@ -691,6 +696,7 @@ internal class ConnectionHandler(
 
     private fun ChannelHandlerContext.doSignalIsClosing() {
         if (channel().signalIsClosing()) {
+            channel().signalAvailabilityChanged()
             val activeStreamsCount = connection().numActiveStreams()
             logger.info("Channel {} is closing, has {} active stream{}", channel(),
                 activeStreamsCount, activeStreamsCount.commonPluralSuffix())

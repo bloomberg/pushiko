@@ -463,7 +463,7 @@ internal class CommonMuxPoolScalingTest {
                 assertEquals(0, factory.allocations)
                 pool.withPermit(5L.seconds) { }
                 withTimeout(5L.seconds) {
-                    while (factory.recyclingCount != 5) {
+                    while (factory.recyclingCount != 5 || factory.allocations != 5) {
                         yield()
                     }
                 }

@@ -41,11 +41,11 @@ internal class CommonMuxPoolAcquisitionRaceTest {
         private var armed = false
 
         @Volatile
-        override var isDraining = false
-            private set
+        private var isDraining = false
 
         override val maximumPermits = 1
-        override val isAlive = true
+        override val isAlive: Boolean
+            get() = !isDraining
         override val isCanAcquire: Boolean
             get() {
                 if (armed && armedCapacityChecks.incrementAndGet() == 2) {

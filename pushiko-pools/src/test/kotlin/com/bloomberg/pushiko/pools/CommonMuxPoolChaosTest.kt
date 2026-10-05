@@ -218,10 +218,7 @@ private class ChaosPoolable(config: ChaosConfig) : Poolable<Any>(Any()) {
     override val maximumPermits = 1
 
     override val isAlive: Boolean
-        get() = !dead
-
-    override val isDraining: Boolean
-        get() = draining
+        get() = !dead && !draining
 
     override val isCanAcquire: Boolean
         get() {

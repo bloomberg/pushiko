@@ -57,13 +57,11 @@ public abstract class Poolable<out R : Any>(
 
     public abstract val maximumPermits: Int
 
-    public abstract val isAlive: Boolean
-
     /**
-     * Whether this object must accept no further acquisitions while existing permits are allowed to finish.
-     * Implementations must call [notifyAvailabilityChanged] when this changes from `false` to `true`.
+     * Whether this object may serve further acquisitions. Once `false`, existing permits are allowed to finish.
+     * Implementations must call [notifyAvailabilityChanged] when this changes from `true` to `false`.
      */
-    public open val isDraining: Boolean = false
+    public abstract val isAlive: Boolean
 
     public abstract val isCanAcquire: Boolean
 

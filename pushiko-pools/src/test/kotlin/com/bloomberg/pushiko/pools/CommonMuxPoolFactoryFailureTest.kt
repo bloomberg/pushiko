@@ -43,19 +43,14 @@ import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class CommonMuxPoolFactoryFailureTest {
-    private class InitiallyUnavailablePoolable(
-        override val isAlive: Boolean,
-        override val isDraining: Boolean
-    ) : Poolable<Any>(Any()) {
+    private class InitiallyUnavailablePoolable : Poolable<Any>(Any()) {
         override val maximumPermits = 1
+        override val isAlive = false
         override val isCanAcquire = false
         override val isShouldAcquire = false
     }
 
-    private class InitiallyUnavailableFactory(
-        private val isAlive: Boolean,
-        private val isDraining: Boolean
-    ) : Factory<InitiallyUnavailablePoolable>, Recycler<Any> {
+    private class InitiallyUnavailableFactory : Factory<InitiallyUnavailablePoolable>, Recycler<Any> {
         private val allocationCount = AtomicInteger()
         private val recyclingCount = AtomicInteger()
 
@@ -65,7 +60,7 @@ internal class CommonMuxPoolFactoryFailureTest {
         val recycled: Int
             get() = recyclingCount.get()
 
-        override suspend fun make() = InitiallyUnavailablePoolable(isAlive, isDraining).also {
+        override suspend fun make() = InitiallyUnavailablePoolable().also {
             allocationCount.incrementAndGet()
         }
 
@@ -268,11 +263,9 @@ internal class CommonMuxPoolFactoryFailureTest {
         factory
     )
 
-    private suspend fun assertInitiallyUnavailableFactoryResultIsRejected(
-        isAlive: Boolean,
-        isDraining: Boolean
-    ) {
-        val factory = InitiallyUnavailableFactory(isAlive, isDraining)
+    @Test
+    fun deadFactoryResultIsRejectedAndPropagatedToPendingAcquisition() = runTest {
+        val factory = InitiallyUnavailableFactory()
         val pool = newPool(factory)
         try {
             withContext(Dispatchers.Default.limitedParallelism(1)) {
@@ -314,16 +307,6 @@ internal class CommonMuxPoolFactoryFailureTest {
             factory.releaseMake()
             pool.close()
         }
-    }
-
-    @Test
-    fun deadFactoryResultIsRejectedAndPropagatedToPendingAcquisition() = runTest {
-        assertInitiallyUnavailableFactoryResultIsRejected(isAlive = false, isDraining = false)
-    }
-
-    @Test
-    fun drainingFactoryResultIsRejectedAndPropagatedToPendingAcquisition() = runTest {
-        assertInitiallyUnavailableFactoryResultIsRejected(isAlive = true, isDraining = true)
     }
 
     @Test

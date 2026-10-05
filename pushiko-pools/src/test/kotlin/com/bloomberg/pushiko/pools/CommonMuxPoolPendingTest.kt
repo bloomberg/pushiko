@@ -45,14 +45,15 @@ import kotlin.time.Duration.Companion.seconds
 internal class CommonMuxPoolPendingTest {
     private class DrainingPoolable : Poolable<Any>(Any()) {
         @Volatile
-        override var isDraining = false
+        var isDraining = false
             set(value) {
                 field = value
                 notifyAvailabilityChanged()
             }
 
         override val maximumPermits: Int = 1
-        override val isAlive = true
+        override val isAlive: Boolean
+            get() = !isDraining
         override val isCanAcquire: Boolean
             get() = !isDraining && allocatedPermits < maximumPermits
         override val isShouldAcquire: Boolean

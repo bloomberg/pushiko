@@ -253,7 +253,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             val poolable = pool.removeFirst()
             ++probed
             val canAcquire = poolable.isCanAcquire
-            if (!poolable.isAlive || poolable.isDraining) {
+            if (!poolable.isAlive) {
                 retirePoolable(poolable)
                 continue
             }
@@ -451,7 +451,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
 
     private suspend fun cleanPool() = withMainContext {
         pool.removeAll { poolable ->
-            if (poolable.isAlive && !poolable.isDraining) {
+            if (poolable.isAlive) {
                 false
             } else {
                 retirePoolable(poolable)
@@ -560,7 +560,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     }
 
     private suspend fun rejectIfUnavailable(poolable: P) {
-        if (poolable.isAlive && !poolable.isDraining) {
+        if (poolable.isAlive) {
             return
         }
         recycleAndFailPendingAcquisition(poolable, IllegalStateException("Factory returned an unavailable poolable"))
@@ -581,7 +581,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     }
 
     private fun retireIfUnavailable(poolable: P) {
-        if (poolable.isAlive && !poolable.isDraining) {
+        if (poolable.isAlive) {
             return
         }
         var removed = false

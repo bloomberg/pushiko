@@ -79,12 +79,13 @@ internal class CommonMuxPoolPendingTest {
         override suspend fun close() = Unit
 
         override suspend fun make(): DrainingPoolable {
-            val allocations = allocationCount.incrementAndGet()
-            peakAllocationCount.getAndUpdate { maxOf(it, allocations) }
-            return DrainingPoolable().also {
+            val poolable = DrainingPoolable().also {
                 latest = it
                 poolables += it
             }
+            val allocations = allocationCount.incrementAndGet()
+            peakAllocationCount.getAndUpdate { maxOf(it, allocations) }
+            return poolable
         }
 
         override fun recycle(obj: Any) {

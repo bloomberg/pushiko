@@ -232,8 +232,8 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
             if (wasResumed) {
                 --pendingResumptionCount
             }
-            ensureMinimumAllocation()
             selectPoolable()?.let {
+                ensureMinimumAllocation()
                 perhapsGrow(it)
                 return it
             }
@@ -570,7 +570,9 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
         val wasWorkActive = isWorkActive
         val pending = if (wasWorkActive) {
             removeFirstActivePendingAcquisition()
-        } else null
+        } else {
+            null
+        }
         scheduleRecycle(poolable).join()
         if (wasWorkActive) {
             resumePendingAcquisitionWithException(pending, exception)

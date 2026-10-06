@@ -42,15 +42,19 @@ import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.bloomberg.pushiko.commons.strings.commonPluralSuffix
 import com.bloomberg.pushiko.netty.ktx.awaitKt
 import io.netty.channel.EventLoopGroup
+import io.netty.channel.IoEventLoopGroup
+import io.netty.channel.IoHandler
+import io.netty.channel.IoHandlerFactory
+import io.netty.channel.MultiThreadIoEventLoopGroup
 import io.netty.channel.epoll.Epoll
 import io.netty.channel.epoll.EpollDatagramChannel
-import io.netty.channel.epoll.EpollEventLoopGroup
+import io.netty.channel.epoll.EpollIoHandler
 import io.netty.channel.epoll.EpollSocketChannel
 import io.netty.channel.kqueue.KQueue
 import io.netty.channel.kqueue.KQueueDatagramChannel
-import io.netty.channel.kqueue.KQueueEventLoopGroup
+import io.netty.channel.kqueue.KQueueIoHandler
 import io.netty.channel.kqueue.KQueueSocketChannel
-import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.nio.NioIoHandler
 import io.netty.channel.socket.DatagramChannel
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.socket.nio.NioDatagramChannel
@@ -60,7 +64,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import javax.annotation.concurrent.GuardedBy
 
-private suspend fun Iterable<EventLoopGroup>.shutdownEach() = supervisorScope {
+private fun newIoHandlerFactory(): IoHandlerFactory = when {
+    Epoll.isAvailable() -> EpollIoHandler.newFactory()
+    KQueue.isAvailable() -> KQueueIoHandler.newFactory()
+    else -> NioIoHandler.newFactory()
+}
+
+internal suspend fun Iterable<EventLoopGroup>.shutdownEach() = supervisorScope {
     forEach {
         launch(Dispatchers.Default) { it.shutdownGracefully().awaitKt() }
     }
@@ -79,12 +89,9 @@ internal object EventLoopGroups {
     }
 
     val sharedEventLoopGroup: EventLoopGroup by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-        when {
-            Epoll.isAvailable() -> EpollEventLoopGroup()
-            KQueue.isAvailable() -> KQueueEventLoopGroup()
-            else -> NioEventLoopGroup()
-        }.apply {
-            logger.info("Shared EventLoopGroup {} has {} executors", this, executorCount())
+        MultiThreadIoEventLoopGroup(newIoHandlerFactory()).apply {
+            logger.info("Shared EventLoopGroup {} has {} executors using {}", this, executorCount(),
+                socketChannelClass().simpleName)
             terminationFuture().addListener {
                 if (it.isSuccess) {
                     logger.info("Successfully shutdown the shared EventLoopGroup")
@@ -100,13 +107,10 @@ internal object EventLoopGroups {
     }
 
     val sharedSingleEventLoopGroup: EventLoopGroup by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-        when {
-            Epoll.isAvailable() -> EpollEventLoopGroup(1)
-            KQueue.isAvailable() -> KQueueEventLoopGroup(1)
-            else -> NioEventLoopGroup(1)
-        }.apply {
+        MultiThreadIoEventLoopGroup(1, newIoHandlerFactory()).apply {
             executorCount().let {
-                logger.info("Single EventLoopGroup {} has {} executor{}", this, it, it.commonPluralSuffix())
+                logger.info("Single EventLoopGroup {} has {} executor{} using {}", this, it, it.commonPluralSuffix(),
+                    socketChannelClass().simpleName)
             }
             terminationFuture().addListener {
                 if (it.isSuccess) {
@@ -123,18 +127,20 @@ internal object EventLoopGroups {
     }
 }
 
+private fun EventLoopGroup.isIoType(type: Class<out IoHandler>) = (this as? IoEventLoopGroup)?.isIoType(type) == true
+
 @JvmSynthetic
-internal fun String.datagramChannelClass() = when (this) {
-    NioEventLoopGroup::class.java.canonicalName -> NioDatagramChannel::class.java
-    EpollEventLoopGroup::class.java.canonicalName -> EpollDatagramChannel::class.java
-    KQueueEventLoopGroup::class.java.canonicalName -> KQueueDatagramChannel::class.java
-    else -> error("Unrecognised event loop group: $javaClass")
+internal fun EventLoopGroup.datagramChannelClass() = when {
+    isIoType(EpollIoHandler::class.java) -> EpollDatagramChannel::class.java
+    isIoType(KQueueIoHandler::class.java) -> KQueueDatagramChannel::class.java
+    isIoType(NioIoHandler::class.java) -> NioDatagramChannel::class.java
+    else -> error("Unrecognised event loop group: $this")
 }.asSubclass(DatagramChannel::class.java)
 
 @JvmSynthetic
-internal fun String.socketChannelClass() = when (this) {
-    NioEventLoopGroup::class.java.canonicalName -> NioSocketChannel::class.java
-    EpollEventLoopGroup::class.java.canonicalName -> EpollSocketChannel::class.java
-    KQueueEventLoopGroup::class.java.canonicalName -> KQueueSocketChannel::class.java
-    else -> error("Unrecognised event loop group: $javaClass")
+internal fun EventLoopGroup.socketChannelClass() = when {
+    isIoType(EpollIoHandler::class.java) -> EpollSocketChannel::class.java
+    isIoType(KQueueIoHandler::class.java) -> KQueueSocketChannel::class.java
+    isIoType(NioIoHandler::class.java) -> NioSocketChannel::class.java
+    else -> error("Unrecognised event loop group: $this")
 }.asSubclass(SocketChannel::class.java)

@@ -16,46 +16,107 @@
 
 package com.bloomberg.pushiko.http.netty
 
+import io.netty.channel.EventLoopGroup
+import io.netty.channel.IoHandlerFactory
+import io.netty.channel.MultiThreadIoEventLoopGroup
+import io.netty.channel.epoll.Epoll
 import io.netty.channel.epoll.EpollDatagramChannel
-import io.netty.channel.epoll.EpollEventLoopGroup
+import io.netty.channel.epoll.EpollIoHandler
 import io.netty.channel.epoll.EpollSocketChannel
+import io.netty.channel.kqueue.KQueue
 import io.netty.channel.kqueue.KQueueDatagramChannel
-import io.netty.channel.kqueue.KQueueEventLoopGroup
+import io.netty.channel.kqueue.KQueueIoHandler
 import io.netty.channel.kqueue.KQueueSocketChannel
-import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.local.LocalIoHandler
+import io.netty.channel.nio.NioIoHandler
 import io.netty.channel.socket.nio.NioDatagramChannel
 import io.netty.channel.socket.nio.NioSocketChannel
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
+import kotlinx.coroutines.test.runTest
+import org.mockito.kotlin.mock
+
+private inline fun <T> EventLoopGroup.use(block: (EventLoopGroup) -> T): T = try {
+    block(this)
+} finally {
+    shutdownGracefully(0L, 0L, java.util.concurrent.TimeUnit.MILLISECONDS)
+}
+
+private fun ioGroup(factory: IoHandlerFactory) = MultiThreadIoEventLoopGroup(1, factory)
 
 internal class EventLoopGroupsTest {
     @Test
-    fun epollDatagramChannel() {
-        assertSame(EpollDatagramChannel::class.java, EpollEventLoopGroup::class.java.canonicalName.datagramChannelClass())
+    fun epollChannels() {
+        assumeTrue(Epoll.isAvailable())
+        ioGroup(EpollIoHandler.newFactory()).use {
+            assertSame(EpollDatagramChannel::class.java, it.datagramChannelClass())
+            assertSame(EpollSocketChannel::class.java, it.socketChannelClass())
+        }
     }
 
     @Test
-    fun kqueueDatagramChannel() {
-        assertSame(KQueueDatagramChannel::class.java, KQueueEventLoopGroup::class.java.canonicalName.datagramChannelClass())
+    fun kqueueChannels() {
+        assumeTrue(KQueue.isAvailable())
+        ioGroup(KQueueIoHandler.newFactory()).use {
+            assertSame(KQueueDatagramChannel::class.java, it.datagramChannelClass())
+            assertSame(KQueueSocketChannel::class.java, it.socketChannelClass())
+        }
     }
 
     @Test
-    fun nioDatagramChannel() {
-        assertSame(NioDatagramChannel::class.java, NioEventLoopGroup::class.java.canonicalName.datagramChannelClass())
+    fun nioChannels() {
+        ioGroup(NioIoHandler.newFactory()).use {
+            assertSame(NioDatagramChannel::class.java, it.datagramChannelClass())
+            assertSame(NioSocketChannel::class.java, it.socketChannelClass())
+        }
     }
 
     @Test
-    fun epollSocketChannel() {
-        assertSame(EpollSocketChannel::class.java, EpollEventLoopGroup::class.java.canonicalName.socketChannelClass())
+    fun shutdownTerminatesEveryGroup() = runTest {
+        val groups = listOf(
+            MultiThreadIoEventLoopGroup(2, NioIoHandler.newFactory()),
+            ioGroup(NioIoHandler.newFactory()),
+            ioGroup(
+                when {
+                    Epoll.isAvailable() -> EpollIoHandler.newFactory()
+                    KQueue.isAvailable() -> KQueueIoHandler.newFactory()
+                    else -> NioIoHandler.newFactory()
+                }
+            )
+        )
+        groups.shutdownEach()
+        assertTrue(groups.all { it.isTerminated })
+        groups.shutdownEach()
+        assertTrue(groups.all { it.isTerminated })
     }
 
     @Test
-    fun kqueueSocketChannel() {
-        assertSame(KQueueSocketChannel::class.java, KQueueEventLoopGroup::class.java.canonicalName.socketChannelClass())
+    fun shutdownOfNoGroupsCompletes() = runTest {
+        emptyList<EventLoopGroup>().shutdownEach()
     }
 
     @Test
-    fun nioSocketChannel() {
-        assertSame(NioSocketChannel::class.java, NioEventLoopGroup::class.java.canonicalName.socketChannelClass())
+    fun sharedGroupsHaveChannelClasses() {
+        EventLoopGroups.sharedEventLoopGroup.socketChannelClass()
+        EventLoopGroups.sharedSingleEventLoopGroup.datagramChannelClass()
+    }
+
+    @Test
+    fun groupWithUnsupportedTransportIsRejected() {
+        ioGroup(LocalIoHandler.newFactory()).use {
+            assertFailsWith<IllegalStateException> { it.socketChannelClass() }
+            assertFailsWith<IllegalStateException> { it.datagramChannelClass() }
+        }
+    }
+
+    @Test
+    fun groupWithoutIoHandlerIsRejected() {
+        mock<EventLoopGroup>(stubOnly = true).let {
+            assertFailsWith<IllegalStateException> { it.socketChannelClass() }
+            assertFailsWith<IllegalStateException> { it.datagramChannelClass() }
+        }
     }
 }

@@ -114,7 +114,7 @@ internal class ChannelFactory(
     private val allChannels = DefaultChannelGroup(eventLoopGroup.next(), true)
 
     private val addressResolverGroup: AddressResolverGroup<out SocketAddress> = RoundRobinDnsAddressResolverGroup(
-        eventLoopGroup.javaClass.canonicalName.datagramChannelClass(), DefaultDnsServerAddressStreamProvider.INSTANCE)
+        eventLoopGroup.datagramChannelClass(), DefaultDnsServerAddressStreamProvider.INSTANCE)
     private val proxyHandlerFactory: ProxyHandlerFactory? = httpProperties.unresolvedProxyAddress?.let {
         val eventLoop = eventLoopGroup.next()
         HttpProxyHandlerFactory(eventLoop, addressResolverGroup.getResolver(eventLoop), it)
@@ -226,7 +226,7 @@ internal class ChannelFactory(
     private fun internalChannelFactory(
         continuation: CancellableContinuation<Channel>
     ) = object : ReflectiveChannelFactory<Channel>(
-        bootstrapTemplate.config().group().javaClass.canonicalName.socketChannelClass()
+        bootstrapTemplate.config().group().socketChannelClass()
     ) {
         override fun newChannel() = super.newChannel().apply {
             if (allChannels.add(this)) {

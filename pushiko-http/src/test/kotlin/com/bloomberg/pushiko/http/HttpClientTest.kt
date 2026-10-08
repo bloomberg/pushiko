@@ -24,7 +24,8 @@ import com.bloomberg.pushiko.http.exceptions.HttpClientClosedException
 import com.bloomberg.pushiko.http.netty.ChannelPool
 import com.bloomberg.pushiko.http.netty.SharedAllocatorMetric
 import com.bloomberg.pushiko.server.FakeHttp2Server
-import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.MultiThreadIoEventLoopGroup
+import io.netty.channel.nio.NioIoHandler
 import io.netty.handler.codec.http2.Http2Error
 import io.netty.handler.codec.http2.Http2Exception
 import io.netty.handler.codec.http2.Http2SecurityUtil
@@ -119,7 +120,7 @@ internal class HttpClientTest {
         .applicationProtocolConfig(ApplicationProtocolConfig(ALPN, NO_ADVERTISE, ACCEPT, HTTP_2))
         .build()
 
-    private val eventLoopGroup = NioEventLoopGroup(1)
+    private val eventLoopGroup = MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory())
     private val client = HttpClient(
         InetSocketAddress.createUnresolved("localhost", server.port),
         sslContext,

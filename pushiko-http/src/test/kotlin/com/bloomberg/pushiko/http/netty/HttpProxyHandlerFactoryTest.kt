@@ -18,7 +18,8 @@
 
 package com.bloomberg.pushiko.http.netty
 
-import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.MultiThreadIoEventLoopGroup
+import io.netty.channel.nio.NioIoHandler
 import io.netty.resolver.dns.DefaultDnsServerAddressStreamProvider
 import io.netty.resolver.dns.RoundRobinDnsAddressResolverGroup
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,9 +31,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
 internal class HttpProxyHandlerFactoryTest {
-    private val eventLoopGroup = NioEventLoopGroup(1)
+    private val eventLoopGroup = MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory())
     private val resolverGroups = RoundRobinDnsAddressResolverGroup(
-        eventLoopGroup.javaClass.canonicalName.datagramChannelClass(),
+        eventLoopGroup.datagramChannelClass(),
         DefaultDnsServerAddressStreamProvider.INSTANCE
     )
 

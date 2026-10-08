@@ -28,6 +28,7 @@ application {
 }
 
 dependencies {
+    api(libs.netty.pkitesting)
     implementation(platform(libs.log4j.bom))
     implementation(platform(libs.netty.bom))
     implementation(projects.pushikoApi)

@@ -24,19 +24,24 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.ChannelInitializer
 import io.netty.channel.ChannelOption
 import io.netty.channel.EventLoopGroup
-import io.netty.channel.epoll.EpollEventLoopGroup
+import io.netty.channel.IoEventLoopGroup
+import io.netty.channel.IoHandler
+import io.netty.channel.MultiThreadIoEventLoopGroup
+import io.netty.channel.epoll.EpollIoHandler
 import io.netty.channel.epoll.EpollServerSocketChannel
 import io.netty.channel.group.ChannelGroup
 import io.netty.channel.group.DefaultChannelGroup
-import io.netty.channel.kqueue.KQueueEventLoopGroup
+import io.netty.channel.kqueue.KQueueIoHandler
 import io.netty.channel.kqueue.KQueueServerSocketChannel
-import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.nio.NioIoHandler
 import io.netty.channel.socket.ServerSocketChannel
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.codec.http2.Http2SecurityUtil
 import io.netty.handler.logging.LogLevel
 import io.netty.handler.logging.LoggingHandler
+import io.netty.pkitesting.CertificateBuilder
+import io.netty.pkitesting.X509Bundle
 import io.netty.handler.ssl.ApplicationProtocolConfig
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol.ALPN
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE
@@ -46,7 +51,6 @@ import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler
 import io.netty.handler.ssl.SslContextBuilder
 import io.netty.handler.ssl.SslProvider
 import io.netty.handler.ssl.SupportedCipherSuiteFilter
-import io.netty.handler.ssl.util.SelfSignedCertificate
 import java.net.InetSocketAddress
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -68,19 +72,19 @@ suspend fun main() {
 }
 
 class FakeHttp2Server(
-    private val eventLoopGroup: EventLoopGroup = NioEventLoopGroup(1),
+    private val eventLoopGroup: EventLoopGroup = MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory()),
     private val requestedPort: Int = 0,
-    private val maxConcurrentStreams: Long = 100L
+    private val maxConcurrentStreams: Long = 100L,
+    private val certificate: X509Bundle = selfSignedLocalhostCertificate()
 ) {
     private val logger = Logger()
-    private val certificate = SelfSignedCertificate()
 
     private val dispatcher = eventLoopGroup.asCoroutineDispatcher()
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val startDeferred = scope.async(start = CoroutineStart.LAZY) { doStart() }
     private val closedDeferred = scope.async(context = Dispatchers.Default, start = CoroutineStart.LAZY) { doClose() }
 
-    private val sslContext = SslContextBuilder.forServer(certificate.certificate(), certificate.privateKey())
+    private val sslContext = SslContextBuilder.forServer(certificate.keyPair.private, *certificate.certificatePath)
         .sslProvider(SslProvider.OPENSSL)
         .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
         .applicationProtocolConfig(ApplicationProtocolConfig(ALPN, NO_ADVERTISE, ACCEPT, HTTP_2))
@@ -138,10 +142,18 @@ class FakeHttp2Server(
     }
 }
 
+private fun selfSignedLocalhostCertificate(): X509Bundle = CertificateBuilder()
+    .subject("CN=localhost")
+    .addSanDnsName("localhost")
+    .setIsCertificateAuthority(true)
+    .buildSelfSigned()
+
+private fun EventLoopGroup.isIoType(type: Class<out IoHandler>) = (this as? IoEventLoopGroup)?.isIoType(type) == true
+
 @JvmSynthetic
-internal fun EventLoopGroup.serverSocketChannelClass() = when (this) {
-    is NioEventLoopGroup -> NioServerSocketChannel::class.java
-    is EpollEventLoopGroup -> EpollServerSocketChannel::class.java
-    is KQueueEventLoopGroup -> KQueueServerSocketChannel::class.java
-    else -> error("Unrecognised event loop group: $javaClass")
+internal fun EventLoopGroup.serverSocketChannelClass() = when {
+    isIoType(EpollIoHandler::class.java) -> EpollServerSocketChannel::class.java
+    isIoType(KQueueIoHandler::class.java) -> KQueueServerSocketChannel::class.java
+    isIoType(NioIoHandler::class.java) -> NioServerSocketChannel::class.java
+    else -> error("Unrecognised event loop group: $this")
 }.asSubclass(ServerSocketChannel::class.java)

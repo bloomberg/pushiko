@@ -26,11 +26,12 @@ import com.bloomberg.pushiko.http.netty.factoryConfiguration
 import com.bloomberg.pushiko.http.netty.poolConfiguration
 import com.bloomberg.pushiko.server.FakeHttp2Server
 import io.netty.channel.EventLoopGroup
+import io.netty.channel.MultiThreadIoEventLoopGroup
 import io.netty.channel.epoll.Epoll
-import io.netty.channel.epoll.EpollEventLoopGroup
+import io.netty.channel.epoll.EpollIoHandler
 import io.netty.channel.kqueue.KQueue
-import io.netty.channel.kqueue.KQueueEventLoopGroup
-import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.kqueue.KQueueIoHandler
+import io.netty.channel.nio.NioIoHandler
 import io.netty.handler.codec.http2.Http2SecurityUtil
 import io.netty.handler.ssl.ApplicationProtocolConfig
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol.ALPN
@@ -85,11 +86,11 @@ private val churnRecycleFailureRate =
     System.getenv("PUSHIKO_HTTP_CHURN_RECYCLE_FAILURE_RATE")?.toDoubleOrNull() ?: DEFAULT_CHURN_RECYCLE_FAILURE_RATE
 
 @Suppress("FunctionName")
-private fun DefaultEventLoopGroup() = when {
-    Epoll.isAvailable() -> EpollEventLoopGroup(threads)
-    KQueue.isAvailable() -> KQueueEventLoopGroup(threads)
-    else -> NioEventLoopGroup(threads)
-}.also {
+private fun DefaultEventLoopGroup() = MultiThreadIoEventLoopGroup(threads, when {
+    Epoll.isAvailable() -> EpollIoHandler.newFactory()
+    KQueue.isAvailable() -> KQueueIoHandler.newFactory()
+    else -> NioIoHandler.newFactory()
+}).also {
     logger.info("Shared event loop group {} has {} executors", it, it.executorCount())
 }
 

@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.http.netty
+package com.bloomberg.pushiko.http.netty.http2
 
+import com.bloomberg.pushiko.http.netty.nettyLevel
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http2.Http2FrameLogger
 import io.netty.handler.codec.http2.Http2Settings

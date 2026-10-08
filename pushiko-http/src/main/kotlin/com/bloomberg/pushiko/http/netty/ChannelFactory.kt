@@ -51,7 +51,6 @@ import io.netty.channel.WriteBufferWaterMark
 import io.netty.channel.epoll.Epoll
 import io.netty.channel.epoll.EpollChannelOption
 import io.netty.channel.group.DefaultChannelGroup
-import io.netty.handler.codec.http2.Http2FrameLogger
 import io.netty.handler.ssl.SslContext
 import io.netty.handler.timeout.TimeoutException
 import io.netty.resolver.AddressResolverGroup
@@ -65,6 +64,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import org.slf4j.Logger as Slf4jLogger
 import java.lang.Long.min
 import java.net.ConnectException
 import java.net.InetSocketAddress
@@ -86,6 +86,9 @@ internal val channelContinuationAttributeKey = AttributeKey.valueOf<CancellableC
     "channelReadyPromise"
 )
 
+internal fun Channel.removeChannelContinuation(): CancellableContinuation<Channel>? =
+    attr(channelContinuationAttributeKey).getAndSet(null)
+
 internal data class ChannelFactoryConfiguration(
     val connectionRetryFuzzInterval: Duration = 500L.toDuration(DurationUnit.MILLISECONDS),
     val idleInterval: Duration,
@@ -104,7 +107,7 @@ internal class ChannelFactory(
     private val sslContext: SslContext,
     eventLoopGroup: EventLoopGroup,
     private val httpProperties: IHttpClientProperties,
-    private val frameLogger: Http2FrameLogger?,
+    private val frameLogger: Slf4jLogger?,
     private val configuration: ChannelFactoryConfiguration
 ) {
     private val logger = Logger()
@@ -180,7 +183,7 @@ internal class ChannelFactory(
                     connectFuture.addListener {
                         updateMinimumDelay(it.isSuccess)
                         if (!it.isSuccess) {
-                            connectFuture.channel().attr(channelContinuationAttributeKey).getAndSet(null)
+                            connectFuture.channel().removeChannelContinuation()
                                 ?.resumeWithExceptionSafely(it.cause())
                         }
                     }

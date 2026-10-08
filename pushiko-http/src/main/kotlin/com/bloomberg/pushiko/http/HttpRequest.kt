@@ -16,15 +16,21 @@
 
 package com.bloomberg.pushiko.http
 
+import com.bloomberg.pushiko.http.netty.http2.newRequestHeaders
+import io.netty.handler.codec.Headers
 import io.netty.handler.codec.http.HttpScheme
-import io.netty.handler.codec.http2.DefaultHttp2Headers
-import io.netty.handler.codec.http2.Http2Headers
+import io.netty.util.AsciiString
 import javax.annotation.concurrent.NotThreadSafe
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
 private val emptyByteArray = ByteArray(0)
+
+private val authorityPseudoHeader = AsciiString.cached(":authority")
+private val methodPseudoHeader = AsciiString.cached(":method")
+private val pathPseudoHeader = AsciiString.cached(":path")
+private val schemePseudoHeader = AsciiString.cached(":scheme")
 
 @OptIn(ExperimentalContracts::class)
 public inline fun HttpRequest(block: HttpRequestBuilder.() -> Unit): HttpRequest {
@@ -36,15 +42,15 @@ public inline fun HttpRequest(block: HttpRequestBuilder.() -> Unit): HttpRequest
 
 @NotThreadSafe
 public class HttpRequestBuilder @PublishedApi internal constructor() {
-    private val headers: Http2Headers = DefaultHttp2Headers().apply { scheme(HttpScheme.HTTPS.name()) }
+    private val headers = newRequestHeaders().apply { set(schemePseudoHeader, HttpScheme.HTTPS.name()) }
     private var body: ByteArray = emptyByteArray
     public var wantsResponseBody: Boolean = true
 
-    public fun authority(value: CharSequence): HttpRequestBuilder = apply { headers.authority(value) }
+    public fun authority(value: CharSequence): HttpRequestBuilder = apply { headers.set(authorityPseudoHeader, value) }
 
-    public fun method(value: CharSequence): HttpRequestBuilder = apply { headers.method(value) }
+    public fun method(value: CharSequence): HttpRequestBuilder = apply { headers.set(methodPseudoHeader, value) }
 
-    public fun path(value: CharSequence): HttpRequestBuilder = apply { headers.path(value) }
+    public fun path(value: CharSequence): HttpRequestBuilder = apply { headers.set(pathPseudoHeader, value) }
 
     public fun header(key: CharSequence, value: CharSequence): HttpRequestBuilder = apply { headers.add(key, value) }
 
@@ -60,7 +66,7 @@ public class HttpRequestBuilder @PublishedApi internal constructor() {
 
 @Suppress("Detekt.UseDataClass")
 public class HttpRequest internal constructor(
-    internal val headers: Http2Headers,
+    internal val headers: Headers<CharSequence, CharSequence, *>,
     internal val body: ByteArray,
     internal val wantsResponseBody: Boolean = true
 )

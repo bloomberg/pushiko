@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.http.netty
+package com.bloomberg.pushiko.http.netty.http2
 
 import io.netty.handler.codec.http2.AbstractHttp2ConnectionHandlerBuilder
 import io.netty.handler.codec.http2.Http2CodecUtil.MAX_CONCURRENT_STREAMS
@@ -22,6 +22,8 @@ import io.netty.handler.codec.http2.Http2ConnectionDecoder
 import io.netty.handler.codec.http2.Http2ConnectionEncoder
 import io.netty.handler.codec.http2.Http2FrameLogger
 import io.netty.handler.codec.http2.Http2Settings
+import org.slf4j.Logger
+import org.slf4j.event.Level
 import javax.annotation.concurrent.NotThreadSafe
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
@@ -41,7 +43,7 @@ internal fun ConnectionHandler(
         ConnectionHandlerBuilder().apply {
             settingsReadTimeoutMillis = it.settingsReadTimeoutMillis
             it.frameLogger?.run {
-                setFrameLogger(this)
+                setFrameLogger(PushikoHttp2FrameLogger(this, Level.DEBUG))
                 monitorConnection = it.monitorConnection
             }
         }.build()
@@ -50,7 +52,7 @@ internal fun ConnectionHandler(
 
 @NotThreadSafe
 internal class ConnectionHandlerConfiguration {
-    var frameLogger: Http2FrameLogger? = null
+    var frameLogger: Logger? = null
     var monitorConnection = false
     var settingsReadTimeoutMillis = DEFAULT_SETTINGS_READ_TIMEOUT_MILLIS
 }

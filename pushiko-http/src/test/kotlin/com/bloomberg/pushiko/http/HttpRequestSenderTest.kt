@@ -17,7 +17,7 @@
 package com.bloomberg.pushiko.http
 
 import com.bloomberg.pushiko.http.netty.ChannelPool
-import com.bloomberg.pushiko.http.netty.ConnectionHandler
+import com.bloomberg.pushiko.http.netty.http2.ConnectionHandler
 import com.bloomberg.pushiko.http.netty.PoolableChannel
 import com.bloomberg.pushiko.http.netty.PoolableChannelFactory
 import com.bloomberg.pushiko.http.netty.maxConcurrentStreamsAttributeKey

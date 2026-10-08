@@ -36,7 +36,7 @@
  * THE SOFTWARE.
  */
 
-package com.bloomberg.pushiko.http.netty
+package com.bloomberg.pushiko.http.netty.http2
 
 import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.bloomberg.pushiko.commons.slf4j.ifDebugEnabled
@@ -47,6 +47,16 @@ import com.bloomberg.pushiko.http.HttpResponse
 import com.bloomberg.pushiko.http.exceptions.ChannelInactiveException
 import com.bloomberg.pushiko.http.exceptions.ChannelStreamQuotaException
 import com.bloomberg.pushiko.http.exceptions.ChannelWriteFailedException
+import com.bloomberg.pushiko.http.netty.MAX_RESPONSE_BODY_BYTES
+import com.bloomberg.pushiko.http.netty.isClosing
+import com.bloomberg.pushiko.http.netty.maxConcurrentStreams
+import com.bloomberg.pushiko.http.netty.newResponseBodyBuffer
+import com.bloomberg.pushiko.http.netty.recordMaxConcurrentStreams
+import com.bloomberg.pushiko.http.netty.removeChannelContinuation
+import com.bloomberg.pushiko.http.netty.signalAvailabilityChanged
+import com.bloomberg.pushiko.http.netty.signalIsClosing
+import com.bloomberg.pushiko.http.netty.signalIsDraining
+import com.bloomberg.pushiko.http.netty.tryAppendResponseData
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufUtil
 import io.netty.buffer.Unpooled
@@ -66,12 +76,12 @@ import io.netty.handler.codec.http2.Http2FrameListener
 import io.netty.handler.codec.http2.Http2Headers
 import io.netty.handler.codec.http2.Http2Settings
 import io.netty.handler.codec.http2.Http2Stream
+import io.netty.handler.codec.http2.StreamBufferingEncoder
 import io.netty.handler.ssl.SslHandshakeCompletionEvent
 import io.netty.handler.timeout.IdleStateEvent
 import io.netty.handler.timeout.IdleStateHandler
 import io.netty.handler.timeout.WriteTimeoutException
 import io.netty.handler.timeout.WriteTimeoutHandler
-import io.netty.util.AttributeKey
 import io.netty.util.collection.IntObjectHashMap
 import io.netty.util.concurrent.Future
 import io.netty.util.concurrent.PromiseCombiner
@@ -96,31 +106,11 @@ private const val PING_TIMEOUT_SECONDS = 1L
 private const val RESPONSE_TIMEOUT_SECONDS = 11L
 internal const val DEFAULT_SETTINGS_READ_TIMEOUT_MILLIS = 5_000L
 
-private const val MAX_RESPONSE_BODY_BYTES = 256 * 1_024
-private const val INITIAL_RESPONSE_BODY_CAPACITY = 256
 private const val MAX_GOAWAY_DEBUG_DATA_LOG_BYTES = 64
 
 private val channelInactiveWriteException = ChannelInactiveException("Channel inactive when writing")
 private val streamsExhaustedException = ChannelStreamQuotaException("HTTP/2 streams exhausted; closing connection")
 private val unrecognisedMessageException = IllegalArgumentException("Unrecognised message object in pipeline")
-
-private fun Channel.removeChannelContinuation(): CancellableContinuation<Channel>? =
-    attr(channelContinuationAttributeKey).getAndSet(null)
-
-private fun Channel.recordMaxConcurrentStreams(maxConcurrentStreams: Long) =
-    attr(maxConcurrentStreamsAttributeKey).set(maxConcurrentStreams)
-
-internal fun newResponseBodyBuffer(): ByteBuf =
-    Unpooled.buffer(INITIAL_RESPONSE_BODY_CAPACITY, MAX_RESPONSE_BODY_BYTES)
-
-internal fun ByteBuf.tryAppendResponseData(data: ByteBuf): Boolean {
-    val length = data.readableBytes()
-    if (length > MAX_RESPONSE_BODY_BYTES - readableBytes()) {
-        return false
-    }
-    writeBytes(data, data.readerIndex(), length)
-    return true
-}
 
 internal fun Slf4jLogger.traceRequestHeaders(streamId: Int, headers: Http2Headers) =
     trace("Wrote request headers on stream {}: method={}", streamId, headers.method())
@@ -151,19 +141,6 @@ internal fun Slf4jLogger.logGoAwayReceived(lastStreamId: Int, errorCode: Long, d
         data.readableBytes() > MAX_GOAWAY_DEBUG_DATA_LOG_BYTES
     )
 
-private val channelIsClosingAttributeKey = AttributeKey.valueOf<Boolean>("channelIsClosing")
-@JvmSynthetic
-internal fun Channel.isClosing() = attr(channelIsClosingAttributeKey).get() ?: false
-private fun Channel.signalIsClosing() = attr(channelIsClosingAttributeKey).getAndSet(true) != true
-
-internal val channelIsDrainingAttributeKey = AttributeKey.valueOf<Boolean>("channelIsDraining")
-internal fun Channel.isDraining() = attr(channelIsDrainingAttributeKey).get() ?: false
-private fun Channel.signalIsDraining() = attr(channelIsDrainingAttributeKey).getAndSet(true) != true
-
-private fun Channel.signalAvailabilityChanged() {
-    attr(streamCapacityChangedAttributeKey).get()?.invoke()
-}
-
 private fun removeRequestsNotProcessedByPeer(
     connection: Http2Connection,
     requestContinuations: IntObjectHashMap<HttpRequestContinuation>,
@@ -191,6 +168,18 @@ private fun removeRequestsNotProcessedByPeer(
 private fun goAwayException(lastStreamId: Int, errorCode: Long) = IOException(
     "Peer sent GOAWAY with error ${Http2Error.valueOf(errorCode) ?: "UNKNOWN"} ($errorCode), " +
         "last stream ID: $lastStreamId")
+
+internal val ConnectionHandler.activeStreamCount: Int
+    get() = connection().local().numActiveStreams()
+
+internal val ConnectionHandler.bufferedStreamCount: Int?
+    get() = (encoder() as? StreamBufferingEncoder)?.numBufferedStreams()
+
+internal val ConnectionHandler.isGoAwayReceived: Boolean
+    get() = connection().goAwayReceived()
+
+internal val ConnectionHandler.isGoAwaySent: Boolean
+    get() = connection().goAwaySent()
 
 internal class ConnectionHandler(
     decoder: Http2ConnectionDecoder,
@@ -287,8 +276,8 @@ internal class ConnectionHandler(
         }
 
         val headersPromise = context.newPromise()
-        encoder().writeHeaders(context, streamId, requestContinuation.request.headers, 0, false, headersPromise)
-        logger.traceRequestHeaders(streamId, requestContinuation.request.headers)
+        encoder().writeHeaders(context, streamId, requestContinuation.request.http2Headers, 0, false, headersPromise)
+        logger.traceRequestHeaders(streamId, requestContinuation.request.http2Headers)
 
         val bodyPromise = context.newPromise()
         // encoder().writeData() will release the ByteBuf.

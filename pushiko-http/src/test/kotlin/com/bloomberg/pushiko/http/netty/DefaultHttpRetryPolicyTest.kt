@@ -54,6 +54,12 @@ internal class DefaultHttpRetryPolicyTest {
     }
 
     @Test
+    fun notRetryHttp2ConnectionErrorRefusedStream() {
+        assertFalse(DefaultHttpRetryPolicy.canRetryRequestAfter(
+            Http2Exception.connectionError(Http2Error.REFUSED_STREAM, "")))
+    }
+
+    @Test
     fun notRetryHttp2ErrorHttp1_1Required() {
         assertFalse(DefaultHttpRetryPolicy.canRetryRequestAfter(
             Http2Exception.streamError(1, Http2Error.HTTP_1_1_REQUIRED, "")))

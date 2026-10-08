@@ -39,15 +39,16 @@
 package com.bloomberg.pushiko.http.netty
 
 import com.bloomberg.pushiko.commons.slf4j.Logger
+import com.bloomberg.pushiko.http.netty.http2.ConnectionHandler
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.ChannelInitializer
 import io.netty.channel.socket.SocketChannel
-import io.netty.handler.codec.http2.Http2FrameLogger
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.proxy.ProxyHandler
 import io.netty.handler.ssl.SslContext
 import io.netty.handler.timeout.IdleStateHandler
 import io.netty.handler.timeout.WriteTimeoutHandler
+import org.slf4j.Logger as Slf4jLogger
 import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
 
@@ -59,7 +60,7 @@ internal suspend fun Bootstrap.pushikoClone(
     proxyHandlerFactory: ProxyHandlerFactory?,
     sslContext: SslContext,
     serverAddress: InetSocketAddress,
-    frameLogger: Http2FrameLogger?,
+    frameLogger: Slf4jLogger?,
     channelConfiguration: ChannelFactoryConfiguration
 ) = clone().apply {
     handler(
@@ -78,7 +79,7 @@ private class PushikoChannelInitializer(
     private val sslContext: SslContext,
     private val proxyHandler: ProxyHandler?,
     private val serverAddress: InetSocketAddress,
-    private val frameLogger: Http2FrameLogger?,
+    private val frameLogger: Slf4jLogger?,
     private val channelConfiguration: ChannelFactoryConfiguration
 ) : ChannelInitializer<SocketChannel>() {
     private val logger = Logger()

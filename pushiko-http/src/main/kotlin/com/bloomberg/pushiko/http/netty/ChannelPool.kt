@@ -45,9 +45,9 @@ import com.bloomberg.pushiko.pools.CommonMuxPool
 import com.bloomberg.pushiko.pools.PoolConfiguration
 import io.netty.channel.Channel
 import io.netty.channel.EventLoopGroup
-import io.netty.handler.codec.http2.Http2FrameLogger
 import io.netty.handler.ssl.SslContext
 import kotlinx.coroutines.ensureActive
+import org.slf4j.Logger as Slf4jLogger
 import java.net.InetSocketAddress
 import javax.annotation.concurrent.ThreadSafe
 import kotlin.time.Duration
@@ -60,7 +60,7 @@ internal fun ChannelPool(
     sslContext: SslContext,
     eventLoopGroup: EventLoopGroup,
     httpProperties: IHttpClientProperties,
-    frameLogger: Http2FrameLogger?
+    frameLogger: Slf4jLogger?
 ): ChannelPool {
     val factory = ChannelFactory(
         serverAddress,

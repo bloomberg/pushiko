@@ -21,13 +21,13 @@ import com.bloomberg.pushiko.health.Health
 import com.bloomberg.pushiko.http.HttpClientProperties.Companion.OptionalHttpProperties
 import com.bloomberg.pushiko.http.exceptions.HttpClientClosedException
 import com.bloomberg.pushiko.http.netty.ChannelPool
+import com.bloomberg.pushiko.http.netty.isProtocolError
 import com.bloomberg.pushiko.pools.exceptions.PoolClosedException
 import io.netty.channel.EventLoopGroup
-import io.netty.handler.codec.http2.Http2Exception
-import io.netty.handler.codec.http2.Http2FrameLogger
 import io.netty.handler.ssl.SslContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ensureActive
+import org.slf4j.Logger as Slf4jLogger
 import java.io.IOException
 import java.net.InetSocketAddress
 import javax.annotation.concurrent.ThreadSafe
@@ -44,7 +44,7 @@ public class HttpClient internal constructor(
         sslContext: SslContext,
         eventLoopGroup: EventLoopGroup,
         properties: IHttpClientProperties = OptionalHttpProperties(),
-        frameLogger: Http2FrameLogger? = null,
+        frameLogger: Slf4jLogger? = null,
     ) : this(HttpRequestSender(ChannelPool(
         serverAddress,
         sslContext,
@@ -90,11 +90,7 @@ public class HttpClient internal constructor(
      * @since 0.1.0
      */
     @JvmSynthetic
-    public suspend fun send(request: HttpRequest): HttpResponse = try {
-        doSend(request)
-    } catch (e: Http2Exception) {
-        throw IOException(e)
-    }
+    public suspend fun send(request: HttpRequest): HttpResponse = doSend(request)
 
     @JvmSynthetic
     public suspend fun close() {
@@ -116,10 +112,15 @@ public class HttpClient internal constructor(
                     e is CancellationException ||
                     properties.let { !(retries++ < it.maximumRequestRetries && it.retryPolicy.canRetryRequestAfter(e)) }
                 ) {
-                    throw e
+                    throw e.toSendFailure()
                 }
             }
         }
+    }
+
+    private fun Throwable.toSendFailure(): Throwable = when {
+        isProtocolError() -> IOException(this)
+        else -> this
     }
 
     public inner class HealthComponent internal constructor() {

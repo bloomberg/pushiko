@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bloomberg.pushiko.http.netty
+package com.bloomberg.pushiko.http.netty.http2
 
 import io.netty.handler.codec.http2.Http2FrameLogger.Direction.INBOUND
 import org.junit.jupiter.api.Test

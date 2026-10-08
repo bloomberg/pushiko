@@ -1,3 +1,7 @@
+## Version 2.2.1
+
+* Netty 4.1.139.Final.
+
 ## Version 2.2.0
 
 ### Fixes

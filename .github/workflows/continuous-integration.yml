@@ -40,13 +40,13 @@ jobs:
         run: ./gradlew checkSemver --no-configuration-cache
       - name: 'Archive semver reports'
         if: github.event_name == 'pull_request' && steps.semver.outcome == 'failure'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: semver-reports
           path: '**/build/reports/japicmp/'
           if-no-files-found: ignore
       - name: 'Archive CycloneDX SBOMs'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: 'CycloneDX SBOMs'
@@ -55,7 +55,7 @@ jobs:
       - name: 'Generate repository CycloneDX SBOM'
         run: ./gradlew repositoryCyclonedxBom --no-configuration-cache
       - name: 'Archive repository SBOM'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: 'Repository SBOM'

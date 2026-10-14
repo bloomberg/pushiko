@@ -1,3 +1,7 @@
+## Version 2.3.0
+
+* Netty 4.2.19.Final.
+
 ## Version 2.2.1
 
 * Netty 4.1.139.Final.

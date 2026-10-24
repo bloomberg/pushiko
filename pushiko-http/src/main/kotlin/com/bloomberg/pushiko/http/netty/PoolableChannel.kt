@@ -16,14 +16,15 @@
 
 package com.bloomberg.pushiko.http.netty
 
+import com.bloomberg.pushiko.http.ConcurrentRequestWaterMark
 import com.bloomberg.pushiko.http.IHttpClientProperties
+import com.bloomberg.pushiko.http.defaultWatermark
 import com.bloomberg.pushiko.http.netty.http2.ConnectionHandler
 import com.bloomberg.pushiko.http.netty.http2.activeStreamCount
 import com.bloomberg.pushiko.http.netty.http2.bufferedStreamCount
 import com.bloomberg.pushiko.http.netty.http2.isGoAwayReceived
 import com.bloomberg.pushiko.http.netty.http2.isGoAwaySent
 import com.bloomberg.pushiko.pools.Poolable
-import com.bloomberg.pushiko.pools.WaterMarkScaleFactor
 import io.netty.channel.Channel
 import io.netty.channel.ChannelException
 import java.io.IOException
@@ -39,7 +40,7 @@ private const val UNOBSERVED = Long.MIN_VALUE
 internal class PoolableChannel internal constructor(
     private val channel: Channel,
     private val properties: IHttpClientProperties,
-    private val waterMarkScaleFactor: WaterMarkScaleFactor = WaterMarkScaleFactor()
+    private val concurrentRequestWaterMark: ConcurrentRequestWaterMark = defaultWatermark
 ) : Poolable<Channel>(channel) {
     private val capacityChangedCallback = { notifyAvailabilityChanged() }
 
@@ -98,13 +99,10 @@ internal class PoolableChannel internal constructor(
             return
         }
         observedMaxConcurrentStreams = observed
-        val negotiated = observed.takeIf { it != NO_NEGOTIATED_LIMIT }
-        cachedLowWaterMark = negotiated?.let {
-            (waterMarkScaleFactor.low * it).toLong().coerceIn(0L, it)
-        } ?: (waterMarkScaleFactor.low * properties.defaultMaximumConcurrentStreams).toLong()
-        cachedHighWaterMark = negotiated?.let {
-            (waterMarkScaleFactor.high * it).toLong().coerceIn(0L, it)
-        } ?: properties.defaultMaximumConcurrentStreams
+        val peerLimit = observed.takeIf { it != NO_NEGOTIATED_LIMIT }
+            ?: properties.defaultMaximumConcurrentStreams
+        cachedHighWaterMark = minOf(concurrentRequestWaterMark.high, peerLimit)
+        cachedLowWaterMark = minOf(concurrentRequestWaterMark.low, cachedHighWaterMark)
     }
 
     override fun isError(throwable: Throwable): Boolean = when (throwable) {

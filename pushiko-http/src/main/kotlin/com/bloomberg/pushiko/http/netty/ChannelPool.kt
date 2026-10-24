@@ -40,6 +40,7 @@ package com.bloomberg.pushiko.http.netty
 
 import com.bloomberg.pushiko.health.Health
 import com.bloomberg.pushiko.health.Status
+import com.bloomberg.pushiko.http.ConcurrentRequestWaterMark
 import com.bloomberg.pushiko.http.IHttpClientProperties
 import com.bloomberg.pushiko.pools.CommonMuxPool
 import com.bloomberg.pushiko.pools.PoolConfiguration
@@ -60,6 +61,7 @@ internal fun ChannelPool(
     sslContext: SslContext,
     eventLoopGroup: EventLoopGroup,
     httpProperties: IHttpClientProperties,
+    concurrentRequestWaterMark: ConcurrentRequestWaterMark,
     frameLogger: Slf4jLogger?
 ): ChannelPool {
     val factory = ChannelFactory(
@@ -71,7 +73,7 @@ internal fun ChannelPool(
         httpProperties.factoryConfiguration()
     )
     return ChannelPool(
-        PoolableChannelFactory(factory, httpProperties),
+        PoolableChannelFactory(factory, httpProperties, concurrentRequestWaterMark),
         httpProperties.poolConfiguration()
     )
 }

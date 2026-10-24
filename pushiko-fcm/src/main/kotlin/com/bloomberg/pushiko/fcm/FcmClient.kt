@@ -29,6 +29,7 @@ import com.bloomberg.pushiko.fcm.annotations.FcmMarker
 import com.bloomberg.pushiko.fcm.exceptions.FcmException
 import com.bloomberg.pushiko.fcm.oauth.CredentialsSession
 import com.bloomberg.pushiko.fcm.oauth.GoogleCredentials
+import com.bloomberg.pushiko.fcm.oauth.OAuthStartupRetryPolicy
 import com.bloomberg.pushiko.fcm.oauth.Session
 import com.bloomberg.pushiko.health.HealthCheck
 import com.bloomberg.pushiko.http.HttpClient
@@ -396,6 +397,8 @@ public class FcmClient private constructor(
 
         private var maximumRetryDelay: Duration = MAXIMUM_RETRY_DELAY_MILLIS_DEFAULT.milliseconds
 
+        private var oauthStartupRetryPolicy = OAuthStartupRetryPolicy()
+
         private var proxyAddress: InetSocketAddress? = systemHttpsProxyAddress(FCM_HOST)
 
         @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
@@ -434,6 +437,37 @@ public class FcmClient private constructor(
         }
 
         /**
+         * Sets the maximum number of OAuth token refresh attempts made while starting the client. The initial request
+         * counts as one attempt. The default is five attempts.
+         */
+        public fun maximumOAuthStartupAttempts(value: Int): Builder = apply {
+            require(value > 0) { "Maximum OAuth startup attempts must be positive" }
+            oauthStartupRetryPolicy = oauthStartupRetryPolicy.copy(maximumAttempts = value)
+        }
+
+        /**
+         * Sets the total time allowed for OAuth token refresh attempts while starting the client. The default is one
+         * minute.
+         */
+        @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
+        @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
+        public fun oauthStartupTimeout(value: java.time.Duration): Builder = apply {
+            oauthStartupTimeout(value.toKotlinDuration())
+        }
+
+        /**
+         * Sets the total time allowed for OAuth token refresh attempts while starting the client. The default is one
+         * minute.
+         */
+        @JvmSynthetic
+        public fun oauthStartupTimeout(value: Duration): Builder = apply {
+            require(value.isFinite() && value.inWholeMilliseconds > 0L) {
+                "OAuth startup timeout must be finite and at least one millisecond"
+            }
+            oauthStartupRetryPolicy = oauthStartupRetryPolicy.copy(timeoutMillis = value.inWholeMilliseconds)
+        }
+
+        /**
          * Sets the maximum delay that automatic FCM retries will honour. If a response requests a longer delay,
          * the response is returned to the caller without an automatic retry. The default is one minute.
          */
@@ -462,7 +496,7 @@ public class FcmClient private constructor(
         @JvmSynthetic
         internal fun build() = FcmClient(
             (metadata.map { GoogleCredentials(it, proxyAddress) } + injectedCredentials).associate {
-                CredentialsSession.create(it).run {
+                CredentialsSession.create(it, startupRetryPolicy = oauthStartupRetryPolicy).run {
                     projectId to this
                 }
             },

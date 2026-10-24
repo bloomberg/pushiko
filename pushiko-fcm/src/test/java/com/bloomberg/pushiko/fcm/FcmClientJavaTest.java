@@ -43,7 +43,9 @@ final class FcmClientJavaTest {
             final FcmClient client = FcmClient(it -> it.executor(ForkJoinPool.commonPool())
                 .connectionAcquisitionTimeout(Duration.ofMinutes(1L))
                 .maximumConnections(2)
+                .maximumOAuthStartupAttempts(3)
                 .minimumConnections(0)
+                .oauthStartupTimeout(Duration.ofSeconds(30L))
                 .proxy("proxy.foo.com", 80));
             try {
                 client.joinStartFuture().join();

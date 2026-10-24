@@ -38,7 +38,8 @@ private const val AUTHORIZATION_EXPIRY_SKEW_MILLIS = 3L * 60L * 1_000L
 internal class CredentialsSession private constructor(
     private val credentials: ServiceAccountCredentials,
     private val dispatcher: CoroutineDispatcher,
-    private val clock: Clock
+    private val clock: Clock,
+    startupRetryPolicy: OAuthStartupRetryPolicy
 ) : Session {
     override val projectId: String = requireNotNull(credentials.projectId) {
         "FCM service-account credentials have no project ID"
@@ -49,7 +50,11 @@ internal class CredentialsSession private constructor(
     override val sendPath = projectId.fcmSendPath()
 
     private val logger = Logger()
-    private val credentialsRefresher = CredentialsRefreshManager(credentials, dispatcher)
+    private val credentialsRefresher = CredentialsRefreshManager(
+        credentials,
+        dispatcher,
+        startupRetryPolicy = startupRetryPolicy
+    )
 
     @JvmSynthetic
     override suspend fun currentAuthorization(): String = credentials.accessToken
@@ -102,7 +107,8 @@ internal class CredentialsSession private constructor(
         internal fun create(
             credentials: ServiceAccountCredentials,
             dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1),
-            clock: Clock = Clock.systemUTC()
-        ): CredentialsSession = CredentialsSession(credentials, dispatcher, clock)
+            clock: Clock = Clock.systemUTC(),
+            startupRetryPolicy: OAuthStartupRetryPolicy = OAuthStartupRetryPolicy()
+        ): CredentialsSession = CredentialsSession(credentials, dispatcher, clock, startupRetryPolicy)
     }
 }

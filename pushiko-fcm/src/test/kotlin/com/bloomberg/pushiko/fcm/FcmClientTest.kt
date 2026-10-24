@@ -25,6 +25,8 @@ import com.bloomberg.pushiko.fcm.oauth.Session
 import com.bloomberg.pushiko.http.HttpClient
 import com.bloomberg.pushiko.http.HttpClientProperties.Companion.OptionalHttpProperties
 import com.bloomberg.pushiko.http.HttpResponse
+import com.google.auth.Retryable
+import com.google.auth.oauth2.ServiceAccountCredentials
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
@@ -46,6 +48,7 @@ import org.mockito.kotlin.times
 import org.mockito.kotlin.verifyBlocking
 import org.mockito.kotlin.whenever
 import org.mockito.stubbing.Answer
+import java.io.IOException
 import java.util.Locale
 import kotlin.reflect.jvm.isAccessible
 import kotlin.test.AfterTest
@@ -59,6 +62,7 @@ import kotlin.test.fail
 import kotlin.time.Duration.Companion.INFINITE
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 private const val PROJECT_ID = "foo"
 private const val MAXIMUM_RETRY_DELAY_MILLIS = 60_000L
@@ -130,9 +134,11 @@ internal class FcmClientTest {
     fun fcmClientBuilder(): Unit = runTest {
         FcmClient {
             connectionAcquisitionTimeout(1L.minutes)
+            maximumOAuthStartupAttempts(3)
             maximumRetryDelay(1L.minutes)
             maximumConnections(1)
             minimumConnections(0)
+            oauthStartupTimeout(30L.seconds)
         }.run {
             withContext(Dispatchers.Default.limitedParallelism(1)) {
                 metricsComponent.gauges.read(INFINITE).connectionCount
@@ -388,6 +394,49 @@ internal class FcmClientTest {
     }
 
     @Test
+    fun oauthStartupRetryConfigurationMustBePositiveAndFinite() {
+        assertFailsWith<IllegalArgumentException> {
+            FcmClient.Builder().maximumOAuthStartupAttempts(0)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            FcmClient.Builder().oauthStartupTimeout(0L.milliseconds)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            FcmClient.Builder().oauthStartupTimeout(INFINITE)
+        }
+    }
+
+    @Test
+    fun oauthStartupTimeoutAppliedToCredentialSessions() = runTest {
+        val credentials = mock<ServiceAccountCredentials>().apply {
+            whenever(projectId) doReturn PROJECT_ID
+            whenever(refresh()) doThrow RetryableIOException("retryable_error")
+        }
+        val client = FcmClient.Builder().apply {
+            serviceAccountCredentials(listOf(credentials))
+            maximumOAuthStartupAttempts(Int.MAX_VALUE)
+            minimumConnections(0)
+            oauthStartupTimeout(25L.milliseconds)
+        }.build()
+
+        try {
+            val failure = withContext(Dispatchers.Default.limitedParallelism(1)) {
+                assertFailsWith<IOException> {
+                    withTimeout(5L.seconds) {
+                        client.joinStart()
+                    }
+                }
+            }
+            assertEquals(
+                "Startup OAuth refresh timed out for $PROJECT_ID after 25 milliseconds",
+                failure.message
+            )
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test
     fun parseException(): Unit = runTest {
         val httpResponse = mock<HttpResponse>().apply {
             whenever(code) doReturn 404
@@ -423,4 +472,10 @@ internal class FcmClientTest {
     }
 
     private fun fcmClientConstructor() = FcmClient::class.constructors.first().apply { isAccessible = true }
+
+    private class RetryableIOException(message: String) : IOException(message), Retryable {
+        override fun isRetryable() = true
+
+        override fun getRetryCount() = 0
+    }
 }

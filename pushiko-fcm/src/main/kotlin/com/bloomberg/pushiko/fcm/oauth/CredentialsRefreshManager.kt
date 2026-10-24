@@ -27,24 +27,63 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.IOException
-import java.time.Duration
 import java.util.concurrent.TimeUnit
 import javax.annotation.concurrent.ThreadSafe
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.random.Random
+
+internal data class OAuthStartupRetryPolicy(
+    val maximumAttempts: Int = DEFAULT_MAXIMUM_STARTUP_ATTEMPTS,
+    val timeoutMillis: Long = DEFAULT_STARTUP_TIMEOUT_MILLIS,
+    val initialBackOffMillis: Long = DEFAULT_STARTUP_INITIAL_BACKOFF_MILLIS,
+    val maximumBackOffMillis: Long = DEFAULT_STARTUP_MAXIMUM_BACKOFF_MILLIS
+) {
+    init {
+        require(maximumAttempts > 0) { "Maximum OAuth startup attempts must be positive" }
+        require(timeoutMillis > 0L) { "OAuth startup timeout must be positive" }
+        require(initialBackOffMillis > 0L) { "Initial OAuth startup back-off must be positive" }
+        require(maximumBackOffMillis >= initialBackOffMillis) {
+            "Maximum OAuth startup back-off must not be shorter than the initial back-off"
+        }
+    }
+}
 
 @ThreadSafe
 internal class CredentialsRefreshManager(
     private val credentials: ServiceAccountCredentials,
     dispatcher: CoroutineDispatcher,
-    private val backOff: BackOff = OAuthRefreshBackOff(credentials)
+    private val backOff: BackOff = OAuthRefreshBackOff(credentials),
+    private val startupRetryPolicy: OAuthStartupRetryPolicy = OAuthStartupRetryPolicy(),
+    private val startupJitter: (Long) -> Long = { Random.nextLong(it + 1L) }
 ) {
     private val logger = Logger()
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val startup = scope.async(start = CoroutineStart.LAZY) {
-        while (currentCoroutineContext().isActive) {
+        withTimeoutOrNull(startupRetryPolicy.timeoutMillis) {
+            refreshAtStartup()
+        } ?: throw IOException(
+            "Startup OAuth refresh timed out for ${credentials.projectId} after " +
+                "${startupRetryPolicy.timeoutMillis} milliseconds"
+        )
+    }
+    private val job = scope.launch(start = CoroutineStart.LAZY) { keepAlive() }
+
+    suspend fun joinStart() {
+        startup.await()
+        job.start()
+    }
+
+    fun stop() {
+        scope.cancel()
+    }
+
+    private suspend fun refreshAtStartup(): AccessToken {
+        var maximumDelayMillis = startupRetryPolicy.initialBackOffMillis
+        repeat(startupRetryPolicy.maximumAttempts) { attemptIndex ->
             when (val result = refreshOnce()) {
                 is RefreshResult.Success -> {
                     logger.info(
@@ -52,16 +91,32 @@ internal class CredentialsRefreshManager(
                         credentials.projectId,
                         result.accessToken.expiresInSeconds
                     )
-                    return@async result.accessToken
+                    return result.accessToken
                 }
                 is RefreshResult.RetryableFailure -> {
+                    if (attemptIndex == startupRetryPolicy.maximumAttempts - 1) {
+                        throw IOException(
+                            "Startup OAuth refresh failed for ${credentials.projectId} after " +
+                                "${startupRetryPolicy.maximumAttempts} attempts",
+                            result.exception
+                        )
+                    }
+                    val delayMillis = startupJitter(maximumDelayMillis)
+                    require(delayMillis in 0L..maximumDelayMillis) {
+                        "OAuth startup jitter must be between zero and the maximum delay"
+                    }
                     logger.warn(
-                        "Startup OAuth refresh failed for {}, retrying in {}s: {}",
+                        "Startup OAuth refresh attempt {} of {} failed for {}, retrying in {}ms: {}",
+                        attemptIndex + 1,
+                        startupRetryPolicy.maximumAttempts,
                         credentials.projectId,
-                        initialDelay.seconds,
+                        delayMillis,
                         result.exception.message
                     )
-                    delay(initialDelay.toMillis())
+                    delay(delayMillis)
+                    maximumDelayMillis = maximumDelayMillis.doubledAtMost(
+                        startupRetryPolicy.maximumBackOffMillis
+                    )
                 }
                 is RefreshResult.PermanentFailure -> {
                     logger.error(
@@ -73,17 +128,7 @@ internal class CredentialsRefreshManager(
                 }
             }
         }
-        error("OAuth startup finished without obtaining an access token")
-    }
-    private val job = scope.launch(start = CoroutineStart.LAZY) { keepAlive() }
-
-    suspend fun joinStart() {
-        startup.await()
-        job.start()
-    }
-
-    fun stop() {
-        scope.cancel()
+        error("OAuth startup attempts exhausted without producing a result")
     }
 
     private fun refreshOnce(): RefreshResult = try {
@@ -157,8 +202,15 @@ internal class CredentialsRefreshManager(
     }
 
     private fun IOException.isPermanentFailure(): Boolean = this is Retryable && !isRetryable
-
-    private companion object {
-        val initialDelay: Duration = Duration.ofSeconds(2L)
-    }
 }
+
+private fun Long.doubledAtMost(maximum: Long): Long = if (this >= maximum / 2L) {
+    maximum
+} else {
+    minOf(this * 2L, maximum)
+}
+
+private const val DEFAULT_MAXIMUM_STARTUP_ATTEMPTS = 5
+private const val DEFAULT_STARTUP_TIMEOUT_MILLIS = 60_000L
+private const val DEFAULT_STARTUP_INITIAL_BACKOFF_MILLIS = 2_000L
+private const val DEFAULT_STARTUP_MAXIMUM_BACKOFF_MILLIS = 30_000L

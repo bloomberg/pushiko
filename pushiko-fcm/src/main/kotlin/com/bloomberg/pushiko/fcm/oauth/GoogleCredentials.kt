@@ -61,7 +61,7 @@ private fun validateMetadata(metadata: String) {
     require(json.requiredString("type") == "service_account") {
         "Credential metadata must have type 'service_account'"
     }
-    json.requiredString("project_id")
+    json.requiredString("project_id").requireValidProjectId()
 
     val tokenServerUri = json.requiredString("token_uri").let { tokenUri ->
         try {

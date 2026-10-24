@@ -51,14 +51,15 @@ internal class CredentialsSessionTest {
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
 
     private val credentials = mock<ServiceAccountCredentials>().apply {
-        whenever(projectId) doReturn "com.bloomberg.foo"
+        whenever(projectId) doReturn "bloomberg-foo"
         whenever(accessToken) doReturn this@CredentialsSessionTest.accessToken("xyz")
     }
     private val session = CredentialsSession.create(credentials, dispatcher, clock)
 
     @Test
     fun projectId() {
-        assertEquals("com.bloomberg.foo", session.projectId)
+        assertEquals("bloomberg-foo", session.projectId)
+        assertEquals("/v1/projects/bloomberg-foo/messages:send", session.sendPath)
         verify(credentials, times(1)).projectId
     }
 
@@ -70,12 +71,14 @@ internal class CredentialsSessionTest {
     }
 
     @Test
-    fun blankProjectIdRejected() {
-        val credentials = mock<ServiceAccountCredentials>().apply {
-            whenever(projectId) doReturn " "
-        }
-        assertFailsWith<IllegalArgumentException> {
-            CredentialsSession.create(credentials, dispatcher, clock)
+    fun invalidProjectIdsRejected() {
+        listOf(" ", "short", "project/id", "project?id", "project\nid").forEach { invalidProjectId ->
+            val credentials = mock<ServiceAccountCredentials>().apply {
+                whenever(projectId) doReturn invalidProjectId
+            }
+            assertFailsWith<IllegalArgumentException> {
+                CredentialsSession.create(credentials, dispatcher, clock)
+            }
         }
     }
 
@@ -99,7 +102,7 @@ internal class CredentialsSessionTest {
     @Test
     fun currentAuthorizationUsesLatestToken() = runTest(dispatcher) {
         val credentials = mock<ServiceAccountCredentials>().apply {
-            whenever(projectId) doReturn "com.bloomberg.foo"
+            whenever(projectId) doReturn "bloomberg-foo"
             whenever(accessToken).thenReturn(
                 this@CredentialsSessionTest.accessToken("first"),
                 this@CredentialsSessionTest.accessToken("second")
@@ -115,7 +118,7 @@ internal class CredentialsSessionTest {
     fun rejectsExpiredOrImminentlyExpiringToken() = runTest(dispatcher) {
         listOf(-1L, 0L, 180L).forEach { expiresInSeconds ->
             val credentials = mock<ServiceAccountCredentials>().apply {
-                whenever(projectId) doReturn "com.bloomberg.foo"
+                whenever(projectId) doReturn "bloomberg-foo"
                 whenever(accessToken) doReturn this@CredentialsSessionTest.accessToken("stale", expiresInSeconds)
             }
 
@@ -128,7 +131,7 @@ internal class CredentialsSessionTest {
     @Test
     fun refreshesImminentlyExpiringTokenOffTheFastPath() = runTest(dispatcher) {
         val credentials = mock<ServiceAccountCredentials>().apply {
-            whenever(projectId) doReturn "com.bloomberg.foo"
+            whenever(projectId) doReturn "bloomberg-foo"
             whenever(accessToken).thenReturn(
                 this@CredentialsSessionTest.accessToken("stale", 180L),
                 this@CredentialsSessionTest.accessToken("fresh")
@@ -158,7 +161,7 @@ internal class CredentialsSessionTest {
             }
         }
         val credentials = mock<ServiceAccountCredentials>().apply {
-            whenever(projectId) doReturn "com.bloomberg.foo"
+            whenever(projectId) doReturn "bloomberg-foo"
             whenever(accessToken).thenReturn(
                 this@CredentialsSessionTest.accessToken("stale", 180L),
                 this@CredentialsSessionTest.accessToken("fresh")
@@ -178,7 +181,7 @@ internal class CredentialsSessionTest {
     @Test
     fun rejectsTokenWithoutExpiration() = runTest(dispatcher) {
         val credentials = mock<ServiceAccountCredentials>().apply {
-            whenever(projectId) doReturn "com.bloomberg.foo"
+            whenever(projectId) doReturn "bloomberg-foo"
             whenever(accessToken) doReturn AccessToken("xyz", null)
         }
 
@@ -191,7 +194,7 @@ internal class CredentialsSessionTest {
     fun refreshFailureIsPropagated() = runTest(dispatcher) {
         val exception = IOException("refresh failed")
         val credentials = mock<ServiceAccountCredentials>().apply {
-            whenever(projectId) doReturn "com.bloomberg.foo"
+            whenever(projectId) doReturn "bloomberg-foo"
             whenever(refreshIfExpired()) doThrow exception
         }
 
@@ -203,7 +206,7 @@ internal class CredentialsSessionTest {
     @Test
     fun constructorDoesNotRefreshCredentials() {
         val credentials = mock<ServiceAccountCredentials>().apply {
-            whenever(projectId) doReturn "com.bloomberg.foo"
+            whenever(projectId) doReturn "bloomberg-foo"
             whenever(accessToken) doReturn null
         }
         CredentialsSession.create(credentials, dispatcher)

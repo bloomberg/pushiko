@@ -16,6 +16,7 @@
 
 package com.bloomberg.pushiko.http.netty
 
+import com.bloomberg.pushiko.http.ConcurrentRequestWaterMark
 import com.bloomberg.pushiko.http.IHttpClientProperties
 import com.bloomberg.pushiko.pools.Factory
 import com.bloomberg.pushiko.pools.Recycler
@@ -25,7 +26,8 @@ import javax.annotation.concurrent.ThreadSafe
 @ThreadSafe
 internal open class PoolableChannelFactory(
     private val factory: ChannelFactory,
-    private val httpProperties: IHttpClientProperties
+    private val httpProperties: IHttpClientProperties,
+    private val concurrentRequestWaterMark: ConcurrentRequestWaterMark
 ) : Factory<PoolableChannel>, Recycler<Channel> {
     override val allocations: Int
         get() = factory.allChannelCountEstimate
@@ -36,7 +38,8 @@ internal open class PoolableChannelFactory(
 
     override suspend fun make() = PoolableChannel(
         factory.make(),
-        httpProperties
+        httpProperties,
+        concurrentRequestWaterMark
     )
 
     override fun recycle(obj: Channel) {

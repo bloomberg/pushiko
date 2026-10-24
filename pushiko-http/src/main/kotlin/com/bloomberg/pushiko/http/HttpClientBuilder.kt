@@ -83,6 +83,10 @@ public class HttpClientBuilder internal constructor() {
         this.clientCertificate = clientCertificate
     }
 
+    /**
+     * Sets local concurrent-request watermarks for each connection. A peer-advertised HTTP/2 stream limit below
+     * [high] is honoured, but a peer cannot raise concurrency above [high].
+     */
     public fun concurrentRequestWatermark(low: Long, high: Long): HttpClientBuilder = apply {
         concurrentRequestWaterMark = ConcurrentRequestWaterMark(low, high)
     }
@@ -93,6 +97,7 @@ public class HttpClientBuilder internal constructor() {
         sslContext,
         eventLoopGroupType?.eventLoopGroup() ?: sharedEventLoopGroup,
         httpProperties ?: OptionalHttpProperties(),
+        concurrentRequestWaterMark,
         httpLogger
     )
 

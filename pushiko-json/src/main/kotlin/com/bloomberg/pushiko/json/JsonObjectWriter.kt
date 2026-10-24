@@ -25,6 +25,8 @@ import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
+private val jsonNumberPattern = Regex("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?")
+
 @DslMarker
 public annotation class JsonMarker
 
@@ -86,7 +88,13 @@ public class JsonObjectWriter(sink: BufferedSink) {
     }
 
     public fun numericalValue(key: String, value: Number): JsonObjectWriter = apply {
-        writer.name(key).value(value)
+        val representation = value.toString()
+        require(jsonNumberPattern.matches(representation)) {
+            "Number does not have a valid JSON representation"
+        }
+        writer.name(key).valueSink().use {
+            it.writeUtf8(representation)
+        }
     }
 
     public fun nullValue(key: String): JsonObjectWriter = apply {

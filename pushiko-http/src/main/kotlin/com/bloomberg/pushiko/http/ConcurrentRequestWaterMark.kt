@@ -28,4 +28,12 @@ internal val defaultWatermark = ConcurrentRequestWaterMark(
 internal data class ConcurrentRequestWaterMark(
     val low: Long,
     val high: Long
-)
+) {
+    init {
+        require(low > 0L) { "Concurrent request low watermark must be positive" }
+        require(high >= low) { "Concurrent request high watermark must not be below low watermark" }
+        require(high <= Int.MAX_VALUE) {
+            "Concurrent request high watermark must not exceed ${Int.MAX_VALUE}"
+        }
+    }
+}

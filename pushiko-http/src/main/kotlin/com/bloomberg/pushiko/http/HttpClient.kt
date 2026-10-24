@@ -44,12 +44,14 @@ public class HttpClient internal constructor(
         sslContext: SslContext,
         eventLoopGroup: EventLoopGroup,
         properties: IHttpClientProperties = OptionalHttpProperties(),
+        concurrentRequestWaterMark: ConcurrentRequestWaterMark = defaultWatermark,
         frameLogger: Slf4jLogger? = null,
     ) : this(HttpRequestSender(ChannelPool(
         serverAddress,
         sslContext,
         eventLoopGroup,
         properties,
+        concurrentRequestWaterMark,
         frameLogger
     ), properties), properties)
 

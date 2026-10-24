@@ -20,6 +20,7 @@ import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.google.auth.oauth2.ServiceAccountCredentials
 import com.google.auth.Retryable
 import com.google.auth.oauth2.AccessToken
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -43,6 +44,7 @@ internal class CredentialsRefreshManager(
 ) {
     private val logger = Logger()
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    private val permanentFailure = atomic<IOException?>(null)
     private val startup = scope.async(start = CoroutineStart.LAZY) {
         while (currentCoroutineContext().isActive) {
             when (val result = refreshOnce()) {
@@ -69,7 +71,7 @@ internal class CredentialsRefreshManager(
                         credentials.projectId,
                         result.exception.message
                     )
-                    throw result.exception
+                    throw recordPermanentFailure(result.exception)
                 }
             }
         }
@@ -84,6 +86,15 @@ internal class CredentialsRefreshManager(
 
     fun stop() {
         scope.cancel()
+    }
+
+    fun refreshIfExpired() {
+        permanentFailure.value?.let { throw it }
+        try {
+            credentials.refreshIfExpired()
+        } catch (e: IOException) {
+            throw e.recordIfPermanent()
+        }
     }
 
     private fun refreshOnce(): RefreshResult = try {
@@ -138,11 +149,15 @@ internal class CredentialsRefreshManager(
                     credentials.projectId,
                     result.exception.message
                 )
-                is RefreshResult.PermanentFailure -> logger.error(
-                    "Keep-alive OAuth refresh failed permanently for {}: {}",
-                    credentials.projectId,
-                    result.exception.message
-                )
+                is RefreshResult.PermanentFailure -> {
+                    recordPermanentFailure(result.exception)
+                    logger.error(
+                        "Keep-alive OAuth refresh failed permanently for {}: {}",
+                        credentials.projectId,
+                        result.exception.message
+                    )
+                    return
+                }
             }
         }
         logger.info("OAuth keep-alive stopped: {} manager has been shut down", credentials.projectId)
@@ -157,6 +172,18 @@ internal class CredentialsRefreshManager(
     }
 
     private fun IOException.isPermanentFailure(): Boolean = this is Retryable && !isRetryable
+
+    private fun IOException.recordIfPermanent() = if (isPermanentFailure()) {
+        recordPermanentFailure(this)
+    } else {
+        this
+    }
+
+    private fun recordPermanentFailure(exception: IOException): IOException {
+        permanentFailure.compareAndSet(null, exception)
+        job.cancel()
+        return requireNotNull(permanentFailure.value)
+    }
 
     private companion object {
         val initialDelay: Duration = Duration.ofSeconds(2L)

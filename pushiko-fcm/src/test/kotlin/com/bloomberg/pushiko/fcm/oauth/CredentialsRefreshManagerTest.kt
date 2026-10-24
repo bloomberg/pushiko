@@ -21,6 +21,7 @@ import com.google.auth.oauth2.AccessToken
 import com.google.auth.oauth2.ServiceAccountCredentials
 import kotlinx.coroutines.Dispatchers
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -127,6 +128,27 @@ internal class CredentialsRefreshManagerTest {
         }.let {
             assertSame(exception, it)
         }
+    }
+
+    @Test
+    fun keepAliveStopsAndRecordsNonRetryableFailure() = runTest {
+        val credentials = mock<ServiceAccountCredentials>()
+        val exception = NonRetryableIOException("invalid_grant")
+        val accessToken = AccessToken(FAKE_TOKEN, Date(System.currentTimeMillis() + DEFAULT_EXPIRY_MILLIS))
+        whenever(credentials.refresh()).then {
+            whenever(credentials.accessToken).thenReturn(accessToken)
+            true
+        }.thenThrow(exception)
+        val backOff = mock<BackOff>()
+        whenever(backOff.nextBackOffMillis()).thenReturn(0L)
+        manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff)
+
+        manager.joinStart()
+
+        assertSame(exception, assertFailsWith<IOException> { manager.refreshIfExpired() })
+        verify(credentials, times(2)).refresh()
+        verify(credentials, never()).refreshIfExpired()
+        verify(backOff, times(1)).nextBackOffMillis()
     }
 
     @Test

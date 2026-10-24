@@ -21,6 +21,7 @@ import com.google.auth.oauth2.AccessToken
 import com.google.auth.oauth2.ServiceAccountCredentials
 import kotlinx.coroutines.Dispatchers
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -127,6 +128,62 @@ internal class CredentialsRefreshManagerTest {
         }.let {
             assertSame(exception, it)
         }
+    }
+
+    @Test
+    fun keepAliveOpensRecoveryCircuitAfterNonRetryableFailure() = runTest {
+        val credentials = mock<ServiceAccountCredentials>()
+        val exception = NonRetryableIOException("invalid_grant")
+        val accessToken = AccessToken(FAKE_TOKEN, Date(System.currentTimeMillis() + DEFAULT_EXPIRY_MILLIS))
+        whenever(credentials.refresh()).then {
+            whenever(credentials.accessToken).thenReturn(accessToken)
+            true
+        }.thenThrow(exception)
+        val backOff = mock<BackOff>()
+        whenever(backOff.nextBackOffMillis()).thenReturn(0L)
+        val recoveryBackOff = mock<BackOff>()
+        whenever(recoveryBackOff.nextBackOffMillis()).thenReturn(DEFAULT_EXPIRY_MILLIS)
+        manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff, recoveryBackOff)
+
+        manager.joinStart()
+
+        assertSame(exception, assertFailsWith<IOException> { manager.refreshIfExpired() })
+        verify(credentials, times(2)).refresh()
+        verify(credentials, never()).refreshIfExpired()
+        verify(backOff, times(1)).nextBackOffMillis()
+        verify(recoveryBackOff, times(1)).nextBackOffMillis()
+    }
+
+    @Test
+    fun keepAliveResumesAfterRecoveryProbeSucceeds() = runTest {
+        val credentials = mock<ServiceAccountCredentials>()
+        val exception = NonRetryableIOException("invalid_grant")
+        val firstAccessToken = AccessToken(FAKE_TOKEN, Date(System.currentTimeMillis() + DEFAULT_EXPIRY_MILLIS))
+        val recoveredAccessToken = AccessToken(
+            ANOTHER_FAKE_TOKEN,
+            Date(System.currentTimeMillis() + DEFAULT_EXPIRY_MILLIS)
+        )
+        whenever(credentials.refresh()).then {
+            whenever(credentials.accessToken).thenReturn(firstAccessToken)
+            true
+        }.thenThrow(exception).then {
+            whenever(credentials.accessToken).thenReturn(recoveredAccessToken)
+            true
+        }
+        val backOff = mock<BackOff>()
+        whenever(backOff.nextBackOffMillis()).thenReturn(0L, DEFAULT_EXPIRY_MILLIS)
+        val recoveryBackOff = mock<BackOff>()
+        whenever(recoveryBackOff.nextBackOffMillis()).thenReturn(0L)
+        manager = CredentialsRefreshManager(credentials, Dispatchers.Unconfined, backOff, recoveryBackOff)
+
+        manager.joinStart()
+        manager.refreshIfExpired()
+
+        assertSame(recoveredAccessToken, credentials.accessToken)
+        verify(credentials, times(3)).refresh()
+        verify(credentials, times(1)).refreshIfExpired()
+        verify(backOff, times(1)).reset()
+        verify(recoveryBackOff, times(1)).reset()
     }
 
     @Test

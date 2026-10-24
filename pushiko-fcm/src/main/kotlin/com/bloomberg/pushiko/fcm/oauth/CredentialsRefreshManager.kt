@@ -20,6 +20,7 @@ import com.bloomberg.pushiko.commons.slf4j.Logger
 import com.google.auth.oauth2.ServiceAccountCredentials
 import com.google.auth.Retryable
 import com.google.auth.oauth2.AccessToken
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -39,10 +40,12 @@ import kotlinx.coroutines.cancel
 internal class CredentialsRefreshManager(
     private val credentials: ServiceAccountCredentials,
     dispatcher: CoroutineDispatcher,
-    private val backOff: BackOff = OAuthRefreshBackOff(credentials)
+    private val backOff: BackOff = OAuthRefreshBackOff(credentials),
+    private val recoveryBackOff: BackOff = OAuthRecoveryBackOff()
 ) {
     private val logger = Logger()
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    private val permanentFailure = atomic<IOException?>(null)
     private val startup = scope.async(start = CoroutineStart.LAZY) {
         while (currentCoroutineContext().isActive) {
             when (val result = refreshOnce()) {
@@ -86,6 +89,15 @@ internal class CredentialsRefreshManager(
         scope.cancel()
     }
 
+    fun refreshIfExpired() {
+        permanentFailure.value?.let { throw it }
+        try {
+            credentials.refreshIfExpired()
+        } catch (e: IOException) {
+            throw e.recordIfPermanent()
+        }
+    }
+
     private fun refreshOnce(): RefreshResult = try {
         credentials.refresh()
         val accessToken = requireNotNull(credentials.accessToken) {
@@ -109,43 +121,76 @@ internal class CredentialsRefreshManager(
 
     private suspend fun keepAlive() {
         while (currentCoroutineContext().isActive) {
-            val interval = backOff.nextBackOffMillis()
-            if (interval < 0L) {
-                IllegalStateException(
-                    "Failed to refresh ${credentials.projectId} Google OAuth access token and back-off has already stopped"
-                ).let {
-                    logger.error(it.message)
-                    throw it
-                }
+            val recovering = permanentFailure.value != null
+            delay(nextRefreshInterval(recovering))
+            handleKeepAliveResult(refreshOnce(), recovering)
+        }
+        logger.info("OAuth keep-alive stopped: {} manager has been shut down", credentials.projectId)
+    }
+
+    private fun nextRefreshInterval(recovering: Boolean): Long {
+        val interval = if (recovering) {
+            recoveryBackOff.nextBackOffMillis()
+        } else {
+            backOff.nextBackOffMillis()
+        }
+        if (interval < 0L) {
+            IllegalStateException(
+                "Failed to refresh ${credentials.projectId} Google OAuth access token and back-off has already stopped"
+            ).let {
+                logger.error(it.message)
+                throw it
             }
+        }
+        if (recovering) {
+            logger.warn(
+                "Scheduling OAuth recovery probe for {}, delayed {}s",
+                credentials.projectId,
+                TimeUnit.MILLISECONDS.toSeconds(interval)
+            )
+        } else {
             logger.info(
                 "Scheduling task to refresh {} access token, delayed {}s",
                 credentials.projectId,
                 TimeUnit.MILLISECONDS.toSeconds(interval)
             )
-            delay(interval)
-            when (val result = refreshOnce()) {
-                is RefreshResult.Success -> {
-                    logger.info(
-                        "Keep-alive OAuth refresh succeeded for {}, token expires in at most {}s",
-                        credentials.projectId,
-                        result.accessToken.expiresInSeconds
-                    )
-                    backOff.reset()
-                }
-                is RefreshResult.RetryableFailure -> logger.warn(
-                    "Keep-alive OAuth refresh failed for {}, will retry with backoff: {}",
+        }
+        return interval
+    }
+
+    private fun handleKeepAliveResult(result: RefreshResult, recovering: Boolean) {
+        when (result) {
+            is RefreshResult.Success -> {
+                val recovered = permanentFailure.getAndSet(null) != null
+                logger.info(
+                    "Keep-alive OAuth refresh succeeded for {}, token expires in at most {}s",
                     credentials.projectId,
-                    result.exception.message
+                    result.accessToken.expiresInSeconds
                 )
-                is RefreshResult.PermanentFailure -> logger.error(
-                    "Keep-alive OAuth refresh failed permanently for {}: {}",
+                if (recovered) {
+                    logger.info("OAuth credentials recovered for {}", credentials.projectId)
+                }
+                recoveryBackOff.reset()
+                backOff.reset()
+            }
+            is RefreshResult.RetryableFailure -> {
+                val message = if (recovering) {
+                    "OAuth recovery probe failed for {}, will retry with recovery backoff: {}"
+                } else {
+                    "Keep-alive OAuth refresh failed for {}, will retry with backoff: {}"
+                }
+                logger.warn(message, credentials.projectId, result.exception.message)
+            }
+            is RefreshResult.PermanentFailure -> {
+                recordPermanentFailure(result.exception)
+                logger.error(
+                    "Keep-alive OAuth refresh failed permanently for {}; " +
+                        "normal refresh is suspended until a recovery probe succeeds: {}",
                     credentials.projectId,
                     result.exception.message
                 )
             }
         }
-        logger.info("OAuth keep-alive stopped: {} manager has been shut down", credentials.projectId)
     }
 
     private sealed interface RefreshResult {
@@ -157,6 +202,17 @@ internal class CredentialsRefreshManager(
     }
 
     private fun IOException.isPermanentFailure(): Boolean = this is Retryable && !isRetryable
+
+    private fun IOException.recordIfPermanent() = if (isPermanentFailure()) {
+        recordPermanentFailure(this)
+    } else {
+        this
+    }
+
+    private fun recordPermanentFailure(exception: IOException): IOException {
+        permanentFailure.value = exception
+        return exception
+    }
 
     private companion object {
         val initialDelay: Duration = Duration.ofSeconds(2L)

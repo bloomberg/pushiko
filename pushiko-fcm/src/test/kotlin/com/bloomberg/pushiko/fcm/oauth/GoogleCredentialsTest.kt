@@ -36,7 +36,7 @@ internal class GoogleCredentialsTest {
     @Test
     fun fromMetadataFile() {
         val credentials = GoogleCredentials(metadata)
-        assertEquals("foo", credentials.projectId)
+        assertEquals("foo-project", credentials.projectId)
         assertContentEquals(listOf("https://www.googleapis.com/auth/firebase.messaging"), credentials.scopes)
     }
 
@@ -44,7 +44,7 @@ internal class GoogleCredentialsTest {
     fun currentGoogleTokenEndpoint() = withMetadataFile(
         metadataWith("token_uri" to JsonPrimitive("https://oauth2.googleapis.com/token"))
     ) { file ->
-        assertEquals("foo", GoogleCredentials(file).projectId)
+        assertEquals("foo-project", GoogleCredentials(file).projectId)
     }
 
     @Test
@@ -82,6 +82,29 @@ internal class GoogleCredentialsTest {
         ).forEach { (name, value) ->
             withMetadataFile(metadataWith(name to value)) { file ->
                 assertFailsWith<IllegalArgumentException>(name) {
+                    GoogleCredentials(file)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun rejectsInvalidProjectIds() {
+        listOf(
+            "short",
+            "a".repeat(31),
+            "1project",
+            "project-",
+            "Project",
+            "project.id",
+            "project/id",
+            "project?id",
+            "project#id",
+            "project:id",
+            "project\nid"
+        ).forEach { projectId ->
+            withMetadataFile(metadataWith("project_id" to JsonPrimitive(projectId))) { file ->
+                assertFailsWith<IllegalArgumentException> {
                     GoogleCredentials(file)
                 }
             }

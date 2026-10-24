@@ -42,9 +42,7 @@ internal class CredentialsSession private constructor(
 ) : Session {
     override val projectId: String = requireNotNull(credentials.projectId) {
         "FCM service-account credentials have no project ID"
-    }.also {
-        require(it.isNotBlank()) { "FCM service-account credentials have a blank project ID" }
-    }
+    }.requireValidProjectId()
 
     override val sendPath = projectId.fcmSendPath()
 

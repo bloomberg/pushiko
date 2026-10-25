@@ -25,6 +25,22 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 internal class JsonObjectWriterTest {
+    private fun number(representation: () -> String) = object : Number() {
+        override fun toByte(): Byte = 0
+
+        override fun toDouble(): Double = 0.0
+
+        override fun toFloat(): Float = 0.0F
+
+        override fun toInt(): Int = 0
+
+        override fun toLong(): Long = 0L
+
+        override fun toShort(): Short = 0
+
+        override fun toString(): String = representation()
+    }
+
     @Test
     fun writeBooleanValue() {
         Buffer().use {
@@ -70,6 +86,59 @@ internal class JsonObjectWriterTest {
             JsonParser.parseString(it.readUtf8()).asJsonObject
         }.run {
             assertEquals(42, get("key").asShort)
+        }
+    }
+
+    @Test
+    fun writeNumericalValueWithJsonExponent() {
+        Buffer().use {
+            JsonObjectWriter(it).use {
+                numericalValue("key", number { "-1.25e+3" })
+            }
+            assertEquals("{\"key\":-1.25e+3}", it.readUtf8())
+        }
+    }
+
+    @Test
+    fun numericalValueRejectsInvalidJsonRepresentationsBeforeWritingName() {
+        Buffer().use {
+            JsonObjectWriter(it).use {
+                listOf(
+                    "+1",
+                    "01",
+                    "1.",
+                    ".1",
+                    "NaN",
+                    "Infinity",
+                    "0,\"injected\":true"
+                ).forEach { representation ->
+                    assertThrows<IllegalArgumentException> {
+                        numericalValue("untrusted", number { representation })
+                    }
+                }
+                intValue("safe", 1)
+            }
+            JsonParser.parseString(it.readUtf8()).asJsonObject
+        }.run {
+            assertEquals(1, size())
+            assertEquals(1, get("safe").asInt)
+        }
+    }
+
+    @Test
+    fun numericalValueFreezesStatefulRepresentationBeforeWriting() {
+        var calls = 0
+        Buffer().use {
+            JsonObjectWriter(it).use {
+                numericalValue("key", number {
+                    if (calls++ == 0) { "0" } else { "0,\"injected\":true" }
+                })
+            }
+            JsonParser.parseString(it.readUtf8()).asJsonObject
+        }.run {
+            assertEquals(1, calls)
+            assertEquals(1, size())
+            assertEquals(0, get("key").asInt)
         }
     }
 

@@ -16,6 +16,7 @@
 
 package com.bloomberg.pushiko.http.netty
 
+import com.bloomberg.pushiko.http.ConcurrentRequestWaterMark
 import com.bloomberg.pushiko.http.IHttpClientProperties
 import com.bloomberg.pushiko.http.exceptions.ChannelInactiveException
 import com.bloomberg.pushiko.http.exceptions.ChannelStreamQuotaException
@@ -25,7 +26,6 @@ import com.bloomberg.pushiko.pools.CommonMuxPool
 import com.bloomberg.pushiko.pools.Factory
 import com.bloomberg.pushiko.pools.PoolConfiguration
 import com.bloomberg.pushiko.pools.Recycler
-import com.bloomberg.pushiko.pools.WaterMarkScaleFactor
 import io.netty.channel.Channel
 import io.netty.channel.ChannelException
 import io.netty.handler.codec.http2.Http2Error
@@ -187,7 +187,7 @@ internal class PoolableChannelTest {
         val poolable = PoolableChannel(
             channelReporting(maxConcurrentStreamsAttribute(150L)),
             properties(default = 1L),
-            WaterMarkScaleFactor(low = 0.5, high = 1.0)
+            ConcurrentRequestWaterMark(low = 75L, high = 150L)
         )
         assertEquals(75L, poolable.lowWaterMark)
         assertEquals(150L, poolable.highWaterMark)
@@ -195,24 +195,41 @@ internal class PoolableChannelTest {
     }
 
     @Test
-    fun watermarkIsFlooredByDefaultWhenNoSettingsNegotiated() {
+    fun watermarkIsCappedByDefaultWhenNoSettingsNegotiated() {
         val poolable = PoolableChannel(
             channelReporting(maxConcurrentStreamsAttribute(null)),
             properties(default = 100L),
-            WaterMarkScaleFactor(low = 0.5, high = 1.0)
+            ConcurrentRequestWaterMark(low = 50L, high = 150L)
         )
         assertEquals(50L, poolable.lowWaterMark)
         assertEquals(100L, poolable.highWaterMark)
     }
 
     @Test
-    fun negotiatedLimitBelowDefaultIsHonored() {
+    fun factoryPropagatesConfiguredWatermark() = runTest {
+        val channel = channelReporting(maxConcurrentStreamsAttribute(1_000L))
+        val channelFactory = mock<ChannelFactory> {
+            onBlocking { make() } doReturn channel
+        }
+        val poolable = PoolableChannelFactory(
+            channelFactory,
+            properties(default = 100L),
+            ConcurrentRequestWaterMark(low = 3L, high = 7L)
+        ).make()
+
+        assertEquals(3L, poolable.lowWaterMark)
+        assertEquals(7L, poolable.highWaterMark)
+        assertEquals(7, poolable.maximumPermits)
+    }
+
+    @Test
+    fun negotiatedLimitBelowConfiguredLowClampsBothWatermarks() {
         val poolable = PoolableChannel(
             channelReporting(maxConcurrentStreamsAttribute(10L)),
             properties(default = 100L),
-            WaterMarkScaleFactor(low = 0.5, high = 1.0)
+            ConcurrentRequestWaterMark(low = 50L, high = 150L)
         )
-        assertEquals(5L, poolable.lowWaterMark)
+        assertEquals(10L, poolable.lowWaterMark)
         assertEquals(10L, poolable.highWaterMark)
         assertEquals(10, poolable.maximumPermits)
     }
@@ -309,7 +326,7 @@ internal class PoolableChannelTest {
         val poolable = PoolableChannel(
             channelReporting(attribute),
             properties(default = 1L),
-            WaterMarkScaleFactor(low = 0.5, high = 1.0)
+            ConcurrentRequestWaterMark(low = 50L, high = 100L)
         ).apply {
             repeat(40) { acquirePermit() }
         }
@@ -327,37 +344,37 @@ internal class PoolableChannelTest {
         val poolable = PoolableChannel(
             channelReporting(attribute),
             properties(default = 1L),
-            WaterMarkScaleFactor(low = 0.5, high = 1.0)
+            ConcurrentRequestWaterMark(low = 25L, high = 150L)
         ).apply {
             repeat(50) { acquirePermit() }
         }
         assertEquals(50L, poolable.highWaterMark)
         assertFalse(poolable.isCanAcquire)
         whenever(attribute.get()) doReturn 200L
-        assertEquals(200L, poolable.highWaterMark)
-        assertEquals(200, poolable.maximumPermits)
+        assertEquals(150L, poolable.highWaterMark)
+        assertEquals(150, poolable.maximumPermits)
         assertTrue(poolable.isCanAcquire)
     }
 
     @Test
-    fun extremeNegotiatedLimitIsClampedToIntMaximumForPoolPermits() {
+    fun extremeNegotiatedLimitIsCappedByConfiguredWatermark() {
         val poolable = PoolableChannel(
             channelReporting(maxConcurrentStreamsAttribute(4_294_967_295L)),
             properties(default = 100L),
-            WaterMarkScaleFactor(low = 0.5, high = 1.0)
+            ConcurrentRequestWaterMark(low = 50L, high = 150L)
         )
-        assertEquals(4_294_967_295L, poolable.highWaterMark)
-        assertEquals(Int.MAX_VALUE, poolable.maximumPermits)
+        assertEquals(150L, poolable.highWaterMark)
+        assertEquals(150, poolable.maximumPermits)
         assertTrue(poolable.isCanAcquire)
     }
 
     @Test
-    fun signedIntBoundaryNegotiatedLimitIsClampedToIntMaximumForPoolPermits() {
+    fun defaultWatermarkCapsNegotiatedLimitAboveSignedIntBoundary() {
         val poolable = PoolableChannel(
             channelReporting(maxConcurrentStreamsAttribute(2_147_483_648L)),
             properties(default = 100L)
         )
-        assertEquals(2_147_483_648L, poolable.highWaterMark)
-        assertEquals(Int.MAX_VALUE, poolable.maximumPermits)
+        assertEquals(120L, poolable.highWaterMark)
+        assertEquals(120, poolable.maximumPermits)
     }
 }

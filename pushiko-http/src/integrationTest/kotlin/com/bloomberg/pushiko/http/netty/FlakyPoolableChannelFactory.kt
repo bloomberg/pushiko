@@ -17,6 +17,7 @@
 package com.bloomberg.pushiko.http.netty
 
 import com.bloomberg.pushiko.http.IHttpClientProperties
+import com.bloomberg.pushiko.http.defaultWatermark
 import io.netty.channel.Channel
 import java.io.IOException
 import java.util.concurrent.ThreadLocalRandom
@@ -27,7 +28,7 @@ internal class FlakyPoolableChannelFactory(
     httpProperties: IHttpClientProperties,
     private val creationFailureRate: Double,
     private val recycleFailureRate: Double
-) : PoolableChannelFactory(factory, httpProperties) {
+) : PoolableChannelFactory(factory, httpProperties, defaultWatermark) {
     private val creationFailureCounter = AtomicInteger()
     private val recycleFailureCounter = AtomicInteger()
 

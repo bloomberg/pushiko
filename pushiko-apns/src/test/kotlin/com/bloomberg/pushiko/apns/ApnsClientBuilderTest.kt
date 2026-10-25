@@ -25,13 +25,20 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.io.File
 import java.security.KeyPairGenerator
+import java.security.cert.CertificateExpiredException
+import java.security.cert.CertificateNotYetValidException
 import java.security.interfaces.ECPrivateKey
 import java.security.spec.ECGenParameterSpec
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 internal class ApnsClientBuilderTest {
+    private val validCertificateClock = Clock.fixed(Instant.parse("2021-12-01T00:00:00Z"), ZoneOffset.UTC)
+
     @Test
     fun environmentDefault() {
         ApnsClient {
@@ -146,7 +153,28 @@ internal class ApnsClientBuilderTest {
         }
     }
 
+    @Test
+    fun rejectsExpiredCertificate() {
+        assertThrows<CertificateExpiredException> {
+            ApnsClient.Builder().apply {
+                configurePrivateKey()
+                certificateClock = Clock.fixed(Instant.parse("2022-01-01T00:00:00Z"), ZoneOffset.UTC)
+            }.build()
+        }
+    }
+
+    @Test
+    fun rejectsNotYetValidCertificate() {
+        assertThrows<CertificateNotYetValidException> {
+            ApnsClient.Builder().apply {
+                configurePrivateKey()
+                certificateClock = Clock.fixed(Instant.parse("2021-01-01T00:00:00Z"), ZoneOffset.UTC)
+            }.build()
+        }
+    }
+
     private fun ApnsClient.Builder.configurePrivateKey() {
+        certificateClock = validCertificateClock
         clientCredentials(
             File(javaClass.classLoader.getResource("keystore.pkcs12")!!.toURI()),
             "changeit".toCharArray()

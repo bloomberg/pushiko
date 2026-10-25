@@ -418,6 +418,7 @@ internal class ApnsClientTest {
     fun developmentApnsClientBuilder() {
         ApnsClient {
             environment = ApnsEnvironment.DEVELOPMENT
+            certificateClock = Clock.fixed(Instant.parse("2021-12-01T00:00:00Z"), ZoneOffset.UTC)
             clientCredentials(
                 File(javaClass.classLoader.getResource("keystore.pkcs12")!!.toURI()),
                 "changeit".toCharArray()

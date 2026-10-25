@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.lang.reflect.Constructor;
 import java.net.URISyntaxException;
+import java.security.cert.CertificateExpiredException;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
@@ -32,6 +33,7 @@ import java.util.concurrent.ForkJoinPool;
 
 import static com.bloomberg.pushiko.apns.ApnsClients.ApnsClient;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -44,7 +46,7 @@ final class ApnsClientJavaTest {
                 .executor(ForkJoinPool.commonPool())
                 .maximumConnections(2)
                 .minimumConnections(0)
-                .clientCredentials(privateKey(), "changeit".toCharArray())
+                .signingKey(mock(ApnsSigningKey.class))
                 .proxy("proxy.foo.com", 80));
             try {
                 client.joinStartFuture().join();
@@ -58,6 +60,12 @@ final class ApnsClientJavaTest {
     void createTokenAuthenticationClient() {
         final ApnsClient client = ApnsClient(it -> it.signingKey(mock(ApnsSigningKey.class)));
         client.closeFuture().join();
+    }
+
+    @Test
+    void rejectExpiredCertificate() {
+        assertThrows(CertificateExpiredException.class, () ->
+            ApnsClient(it -> it.clientCredentials(privateKey(), "changeit".toCharArray())));
     }
 
     @Test

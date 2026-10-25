@@ -25,8 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 final class FcmRequestJavaTest {
     @Test
     void notification() {
-        final FcmRequest request = FcmRequests.FcmRequest(it -> it.message(message -> message.token("abc123"))
-            .message(messageWriter -> messageWriter.notification(
+        final FcmRequest request = FcmRequests.FcmRequest(it -> it.message(message -> message.token("abc123")
+            .notification(
                 notificationWriter -> notificationWriter.title("Hello")
                     .body("World")
                     .image("https://foo.com/icon")

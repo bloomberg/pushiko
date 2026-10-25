@@ -18,6 +18,7 @@ package com.bloomberg.pushiko.json
 
 import com.bloomberg.pushiko.commons.UNREACHABLE_KOTLIN_VERSION
 import com.squareup.moshi.JsonWriter
+import okio.Buffer
 import okio.BufferedSink
 import java.util.function.Consumer
 import javax.annotation.concurrent.NotThreadSafe
@@ -47,6 +48,12 @@ internal inline fun <R> JsonObjectWriter.use(block: JsonObjectWriter.() -> R): R
 @JsonMarker
 @NotThreadSafe
 public class JsonObjectWriter(sink: BufferedSink) {
+    /**
+     * Creates a writer which rejects output exceeding [maximumByteCount] without an intermediate buffer.
+     */
+    public constructor(sink: Buffer, maximumByteCount: Long, description: String) :
+        this(SizeLimitedBufferedSink(sink, maximumByteCount, description))
+
     @get:JvmSynthetic @JvmField @PublishedApi
     internal val writer: JsonWriter = JsonWriter.of(sink).apply {
         beginObject()

@@ -61,7 +61,7 @@ public class MessageWriter @PublishedApi internal constructor(
      * @see <a href="https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#Message">projects.messages#Message</a>
      */
     public fun condition(value: String): MessageWriter = apply {
-        writer.stringValue("condition", value)
+        target("condition", value)
     }
 
     /**
@@ -121,7 +121,7 @@ public class MessageWriter @PublishedApi internal constructor(
      * @see <a href="https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#Message">projects.messages#Message</a>
      */
     public fun token(value: String): MessageWriter = apply {
-        writer.stringValue("token", value)
+        target("token", value)
     }
 
     /**
@@ -135,6 +135,20 @@ public class MessageWriter @PublishedApi internal constructor(
      * @see <a href="https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#Message">projects.messages#Message</a>
      */
     public fun topic(value: String): MessageWriter = apply {
-        writer.stringValue("topic", value)
+        target("topic", value)
+    }
+
+    @JvmSynthetic
+    @PublishedApi
+    internal fun requireTarget() {
+        require(targetName != null) { "FCM message must contain exactly one of condition, token, or topic" }
+    }
+
+    private var targetName: String? = null
+
+    private fun target(name: String, value: String) {
+        require(targetName == null) { "FCM message must contain exactly one of condition, token, or topic" }
+        targetName = name
+        writer.stringValue(name, value)
     }
 }

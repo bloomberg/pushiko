@@ -20,7 +20,7 @@ import com.bloomberg.pushiko.fcm.model.android.AndroidMessagePriority
 import com.bloomberg.pushiko.fcm.model.android.NotificationPriority
 import com.bloomberg.pushiko.fcm.model.android.Visibility
 import com.google.gson.JsonParser
-import org.junit.jupiter.api.assertDoesNotThrow
+import org.junit.jupiter.api.assertThrows
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -156,15 +156,15 @@ internal class FcmRequestTest {
     }
 
     @Test
-    fun nullMessage() {
-        assertDoesNotThrow {
+    fun messageRequired() {
+        assertThrows<IllegalArgumentException> {
             FcmRequest { }
         }
     }
 
     @Test
     fun unsetTarget() {
-        assertDoesNotThrow {
+        assertThrows<IllegalArgumentException> {
             FcmRequest {
                 validateOnly(true)
                 message {}
@@ -174,11 +174,11 @@ internal class FcmRequestTest {
 
     @Test
     fun twiceConditionTarget() {
-        FcmRequest {
-            validateOnly(true)
-            message {
-                condition("abc")
-                assertDoesNotThrow {
+        assertThrows<IllegalArgumentException> {
+            FcmRequest {
+                validateOnly(true)
+                message {
+                    condition("abc")
                     condition("abc")
                 }
             }
@@ -187,11 +187,11 @@ internal class FcmRequestTest {
 
     @Test
     fun twiceTopicTarget() {
-        FcmRequest {
-            validateOnly(true)
-            message {
-                topic("abc")
-                assertDoesNotThrow {
+        assertThrows<IllegalArgumentException> {
+            FcmRequest {
+                validateOnly(true)
+                message {
+                    topic("abc")
                     topic("abc")
                 }
             }
@@ -200,11 +200,11 @@ internal class FcmRequestTest {
 
     @Test
     fun twiceTokenTarget() {
-        FcmRequest {
-            validateOnly(true)
-            message {
-                token("abc")
-                assertDoesNotThrow {
+        assertThrows<IllegalArgumentException> {
+            FcmRequest {
+                validateOnly(true)
+                message {
+                    token("abc")
                     token("abc")
                 }
             }
@@ -213,14 +213,35 @@ internal class FcmRequestTest {
 
     @Test
     fun secondTarget() {
-        FcmRequest {
-            validateOnly(true)
-            message {
-                condition("abc")
-                assertDoesNotThrow {
+        assertThrows<IllegalArgumentException> {
+            FcmRequest {
+                validateOnly(true)
+                message {
+                    condition("abc")
                     token("def")
                 }
             }
+        }
+    }
+
+    @Test
+    fun secondMessageRejected() {
+        assertThrows<IllegalArgumentException> {
+            FcmRequest {
+                message { token("abc") }
+                message { token("def") }
+            }
+        }
+    }
+
+    @Test
+    fun payloadLimitedToFourKilobytes() {
+        val overhead = fcmRequestWithData("").payload.size
+        val request = fcmRequestWithData("a".repeat(4 * 1_024 - overhead))
+
+        assertEquals(4 * 1_024, request.payload.size)
+        assertThrows<IllegalArgumentException> {
+            fcmRequestWithData("a".repeat(4 * 1_024 - overhead + 1))
         }
     }
 
@@ -237,6 +258,13 @@ internal class FcmRequestTest {
             }
         }.onSuccess {
             fail("Unexpected success")
+        }
+    }
+
+    private fun fcmRequestWithData(value: String) = FcmRequest {
+        message {
+            token("abc")
+            data { stringValue("value", value) }
         }
     }
 }

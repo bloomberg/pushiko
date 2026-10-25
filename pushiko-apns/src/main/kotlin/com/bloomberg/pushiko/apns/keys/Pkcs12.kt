@@ -18,29 +18,27 @@ package com.bloomberg.pushiko.apns.keys
 
 import java.io.InputStream
 import java.security.KeyStore
-import java.security.KeyStore.Entry
 import java.security.KeyStore.PasswordProtection
 import java.security.KeyStore.PrivateKeyEntry
 
-@Suppress("UNCHECKED_CAST")
 @JvmSynthetic
-internal fun InputStream.pkcs12PrivateKeyEntries(password: CharArray): Sequence<PrivateKeyEntry> = pkcs12KeyEntries(
-    password
-).filter {
-    it is PrivateKeyEntry
-} as Sequence<PrivateKeyEntry>
-
-@JvmSynthetic
-private fun InputStream.pkcs12KeyEntries(password: CharArray) = sequence<Entry> {
+internal fun InputStream.pkcs12PrivateKeyEntry(password: CharArray): PrivateKeyEntry {
     val keyStore = KeyStore.getInstance("PKCS12").apply {
-        load(this@pkcs12KeyEntries, password)
+        load(this@pkcs12PrivateKeyEntry, password)
     }
-    keyStore.aliases().asSequence().map { alias ->
-        PasswordProtection(password).use {
-            keyStore.getEntry(alias, it)
+    var privateKeyAlias: String? = null
+    var privateKeyEntryCount = 0
+    keyStore.aliases().asSequence().forEach { alias ->
+        if (keyStore.entryInstanceOf(alias, PrivateKeyEntry::class.java)) {
+            privateKeyAlias = privateKeyAlias ?: alias
+            privateKeyEntryCount++
         }
-    }.forEach {
-        yield(it)
+    }
+    require(privateKeyEntryCount == 1) {
+        "PKCS#12 must contain exactly one private key entry; found $privateKeyEntryCount"
+    }
+    return PasswordProtection(password).use {
+        keyStore.getEntry(checkNotNull(privateKeyAlias), it) as PrivateKeyEntry
     }
 }
 

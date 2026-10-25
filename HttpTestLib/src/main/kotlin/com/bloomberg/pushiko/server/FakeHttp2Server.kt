@@ -51,6 +51,7 @@ import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler
 import io.netty.handler.ssl.SslContextBuilder
 import io.netty.handler.ssl.SslProvider
 import io.netty.handler.ssl.SupportedCipherSuiteFilter
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -71,11 +72,15 @@ suspend fun main() {
     }.start()
 }
 
+/**
+ * Local-only HTTP/2 test fixture. This server is unauthenticated and must not be deployed or exposed to a network.
+ */
 class FakeHttp2Server(
     private val eventLoopGroup: EventLoopGroup = MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory()),
     private val requestedPort: Int = 0,
     private val maxConcurrentStreams: Long = 100L,
-    private val certificate: X509Bundle = selfSignedLocalhostCertificate()
+    private val certificate: X509Bundle = selfSignedLocalhostCertificate(),
+    private val bindAddress: InetAddress = InetAddress.getLoopbackAddress()
 ) {
     private val logger = Logger()
 
@@ -113,19 +118,25 @@ class FakeHttp2Server(
 
     private lateinit var serverChannel: Channel
 
+    val localAddress: InetSocketAddress
+        get() = serverChannel.localAddress() as InetSocketAddress
+
+    val clientAddress: InetSocketAddress
+        get() = InetSocketAddress(InetAddress.getByAddress("localhost", bindAddress.address), port)
+
     val port: Int
-        get() = (serverChannel.localAddress() as InetSocketAddress).port
+        get() = localAddress.port
 
     suspend fun start() = startDeferred.apply { start() }.await()
 
     suspend fun close() = closedDeferred.apply { start() }.await()
 
     private suspend fun doStart() {
-        serverChannel = bootstrap.bind(requestedPort).run {
+        serverChannel = bootstrap.bind(InetSocketAddress(bindAddress, requestedPort)).run {
             awaitKt()
             channel()
         }
-        logger.info("Server {} has started on port {}", this, port)
+        logger.warn("Local test fixture {} has started on {}; do not deploy or expose it", this, localAddress)
     }
 
     private suspend fun doClose() {

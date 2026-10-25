@@ -61,7 +61,6 @@ import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.api.parallel.ResourceAccessMode
 import org.junit.jupiter.api.parallel.ResourceLock
 import java.io.IOException
-import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
@@ -143,7 +142,7 @@ internal class HttpClientTest {
 
     private val flakyFactory = FlakyPoolableChannelFactory(
         ChannelFactory(
-            InetSocketAddress.createUnresolved("localhost", server.port),
+            server.clientAddress,
             sslContext,
             clientEventLoopGroup,
             properties,

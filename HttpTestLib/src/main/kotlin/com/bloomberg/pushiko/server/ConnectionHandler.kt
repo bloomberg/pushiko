@@ -31,6 +31,7 @@ import io.netty.handler.codec.http2.Http2FrameListener
 import io.netty.handler.codec.http2.Http2Headers
 import io.netty.handler.codec.http2.Http2Settings
 import io.netty.handler.codec.http2.Http2Stream
+import java.util.concurrent.TimeUnit
 
 private const val OVERSIZED_BODY_BYTES = 1_024 * 1_024
 
@@ -199,32 +200,29 @@ internal class ConnectionHandler(
         stream: Http2Stream
     ) {
         val headers = stream.removeProperty<Http2Headers>(headersPropertyKey)
+        val response = when (headers.path().toString()) {
+            "/ok" -> OkResponse(stream)
+            "/oversized" -> OversizedResponse(stream)
+            "/crash" -> error("Server crash")
+            "/silence" -> NoResponse(stream)
+            "/sleep/1" -> return scheduleResponse(context, stream, 1_000L)
+            "/sleep/5" -> return scheduleResponse(context, stream, 5_000L)
+            "/sleep/10" -> return scheduleResponse(context, stream, 10_000L)
+            else -> NotFoundResponse(stream)
+        }
         try {
-            write(
-                context,
-                when (headers.path().toString()) {
-                    "/ok" -> OkResponse(stream)
-                    "/oversized" -> OversizedResponse(stream)
-                    "/crash" -> error("Server crash")
-                    "/silence" -> NoResponse(stream)
-                    "/sleep/1" -> {
-                        Thread.sleep(1_000L)
-                        OkResponse(stream)
-                    }
-                    "/sleep/5" -> {
-                        Thread.sleep(5_000L)
-                        OkResponse(stream)
-                    }
-                    "/sleep/10" -> {
-                        Thread.sleep(10_000L)
-                        OkResponse(stream)
-                    }
-                    else -> NotFoundResponse(stream)
-                },
-                context.newPromise()
-            )
+            write(context, response, context.newPromise())
         } finally {
             context.flush()
         }
+    }
+
+    private fun scheduleResponse(context: ChannelHandlerContext, stream: Http2Stream, delayMillis: Long) {
+        context.executor().schedule({
+            if (context.channel().isActive) {
+                write(context, OkResponse(stream), context.newPromise())
+                context.flush()
+            }
+        }, delayMillis, TimeUnit.MILLISECONDS)
     }
 }

@@ -44,12 +44,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
@@ -79,6 +82,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlin.time.Duration.Companion.INFINITE
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -122,7 +126,7 @@ internal class HttpClientTest {
 
     private val eventLoopGroup = MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory())
     private val client = HttpClient(
-        InetSocketAddress.createUnresolved("localhost", server.port),
+        server.clientAddress,
         sslContext,
         eventLoopGroup,
         properties = clientProperties
@@ -164,6 +168,35 @@ internal class HttpClientTest {
             })
         }.apply {
             assertEquals(200, code)
+        }
+    }
+
+    @Test
+    fun testServerBindsToLoopback() {
+        assertTrue(server.localAddress.address.isLoopbackAddress)
+    }
+
+    @Test
+    fun delayedResponseDoesNotBlockOtherStreams() = runBlocking {
+        val delayed = async(Dispatchers.IO) {
+            client.send(HttpRequest {
+                authority("localhost")
+                path("/sleep/5")
+            })
+        }
+        try {
+            delay(250L.milliseconds)
+            val response = withContext(Dispatchers.IO) {
+                withTimeout(2L.seconds) {
+                    client.send(HttpRequest {
+                        authority("localhost")
+                        path("/ok")
+                    })
+                }
+            }
+            assertEquals(200, response.code)
+        } finally {
+            delayed.cancelAndJoin()
         }
     }
 

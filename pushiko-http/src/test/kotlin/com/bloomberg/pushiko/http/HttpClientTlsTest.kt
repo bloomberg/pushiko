@@ -37,7 +37,6 @@ import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLHandshakeException
 import kotlin.test.assertEquals
@@ -101,7 +100,7 @@ internal class HttpClientTlsTest {
         try {
             server.start()
             val client = HttpClient(
-                InetSocketAddress.createUnresolved("localhost", server.port),
+                server.clientAddress,
                 clientSslContext(provider),
                 eventLoopGroup,
                 properties = clientProperties

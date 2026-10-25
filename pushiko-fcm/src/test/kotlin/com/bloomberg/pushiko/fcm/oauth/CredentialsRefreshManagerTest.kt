@@ -20,6 +20,7 @@ import com.google.auth.Retryable
 import com.google.auth.oauth2.AccessToken
 import com.google.auth.oauth2.ServiceAccountCredentials
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
@@ -33,6 +34,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.mockito.kotlin.doThrow
@@ -127,6 +129,58 @@ internal class CredentialsRefreshManagerTest {
         }.let {
             assertSame(exception, it)
         }
+    }
+
+    @Test
+    fun startStopsAfterMaximumRetryableAttempts() = runTest {
+        val credentials = mock<ServiceAccountCredentials>()
+        val exception = RetryableIOException("retryable_error")
+        whenever(credentials.refresh()) doThrow exception
+        val maximumDelays = mutableListOf<Long>()
+        manager = CredentialsRefreshManager(
+            credentials = credentials,
+            dispatcher = StandardTestDispatcher(testScheduler),
+            backOff = backOff,
+            startupRetryPolicy = OAuthStartupRetryPolicy(
+                maximumAttempts = 3,
+                timeoutMillis = 10_000L,
+                initialBackOffMillis = 10L,
+                maximumBackOffMillis = 100L
+            ),
+            startupJitter = {
+                maximumDelays.add(it)
+                it
+            }
+        )
+
+        val failure = assertFailsWith<IOException> { manager.joinStart() }
+
+        assertTrue(generateSequence<Throwable>(failure) { it.cause }.any { it === exception })
+        assertEquals(listOf(10L, 20L), maximumDelays)
+        verify(credentials, times(3)).refresh()
+    }
+
+    @Test
+    fun startStopsAfterConfiguredTimeout() = runTest {
+        val credentials = mock<ServiceAccountCredentials>()
+        whenever(credentials.refresh()) doThrow RetryableIOException("retryable_error")
+        manager = CredentialsRefreshManager(
+            credentials = credentials,
+            dispatcher = StandardTestDispatcher(testScheduler),
+            backOff = backOff,
+            startupRetryPolicy = OAuthStartupRetryPolicy(
+                maximumAttempts = 10,
+                timeoutMillis = 25L,
+                initialBackOffMillis = 20L,
+                maximumBackOffMillis = 20L
+            ),
+            startupJitter = { it }
+        )
+
+        val failure = assertFailsWith<IOException> { manager.joinStart() }
+
+        assertTrue(failure.message.orEmpty().contains("timed out"))
+        verify(credentials, times(2)).refresh()
     }
 
     @Test

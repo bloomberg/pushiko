@@ -59,6 +59,7 @@ import kotlin.test.fail
 import kotlin.time.Duration.Companion.INFINITE
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 private const val PROJECT_ID = "foo"
 private const val MAXIMUM_RETRY_DELAY_MILLIS = 60_000L
@@ -130,9 +131,11 @@ internal class FcmClientTest {
     fun fcmClientBuilder(): Unit = runTest {
         FcmClient {
             connectionAcquisitionTimeout(1L.minutes)
+            maximumOAuthStartupAttempts(3)
             maximumRetryDelay(1L.minutes)
             maximumConnections(1)
             minimumConnections(0)
+            oauthStartupTimeout(30L.seconds)
         }.run {
             withContext(Dispatchers.Default.limitedParallelism(1)) {
                 metricsComponent.gauges.read(INFINITE).connectionCount
@@ -384,6 +387,19 @@ internal class FcmClientTest {
         }
         assertFailsWith<IllegalArgumentException> {
             FcmClient.Builder().maximumRetryDelay(INFINITE)
+        }
+    }
+
+    @Test
+    fun oauthStartupRetryConfigurationMustBePositiveAndFinite() {
+        assertFailsWith<IllegalArgumentException> {
+            FcmClient.Builder().maximumOAuthStartupAttempts(0)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            FcmClient.Builder().oauthStartupTimeout(0L.milliseconds)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            FcmClient.Builder().oauthStartupTimeout(INFINITE)
         }
     }
 

@@ -17,8 +17,15 @@
 package com.bloomberg.pushiko.json
 
 import com.bloomberg.pushiko.commons.UNREACHABLE_KOTLIN_VERSION
+import com.squareup.moshi.JsonDataException
+import com.squareup.moshi.JsonReader
 import com.squareup.moshi.JsonWriter
+import okio.Buffer
 import okio.BufferedSink
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.StandardCharsets.UTF_8
 import java.util.function.Consumer
 import javax.annotation.concurrent.NotThreadSafe
 import kotlin.contracts.ExperimentalContracts
@@ -94,28 +101,33 @@ public class JsonObjectWriter(sink: BufferedSink) {
     }
 
     /**
-     * Encodes this key name but treats the value as a valid JSON literal, writing its contents directly without
-     * performing any encoding.
+     * Encodes this key name, validates that [value] contains exactly one JSON value, then writes its contents directly
+     * without performing any encoding.
      *
      * @param value to write directly.
      * @return this JsonObjectWriter.
+     * @throws IllegalArgumentException if [value] is not exactly one valid JSON value.
      */
-    public fun literalValue(key: String, value: String): JsonObjectWriter = apply {
-        writer.name(key).valueSink().use {
-            it.writeUtf8(value)
-        }
-    }
+    public fun literalValue(key: String, value: String): JsonObjectWriter =
+        literalValue(key, Buffer().writeUtf8(value))
 
     /**
-     * Encodes this key name but treats the value as a valid JSON literal, writing its contents directly without
-     * performing any encoding.
+     * Encodes this key name, validates that [value] contains exactly one JSON value, then writes its contents directly
+     * without performing any encoding.
      *
      * @param value to write directly.
      * @return this JsonObjectWriter.
+     * @throws IllegalArgumentException if [value] is not exactly one valid UTF-8 JSON value.
      */
-    public fun literalValue(key: String, value: ByteArray): JsonObjectWriter = apply {
+    public fun literalValue(key: String, value: ByteArray): JsonObjectWriter {
+        value.requireValidUtf8()
+        return literalValue(key, Buffer().write(value))
+    }
+
+    private fun literalValue(key: String, value: Buffer): JsonObjectWriter = apply {
+        value.requireValidJsonValue()
         writer.name(key).valueSink().use {
-            it.write(value)
+            it.writeAll(value)
         }
     }
 
@@ -140,4 +152,27 @@ public class JsonObjectWriter(sink: BufferedSink) {
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
     public fun objectValue(key: String, consumer: Consumer<JsonObjectWriter>): JsonObjectWriter =
         objectValue(key, consumer::accept)
+}
+
+private fun Buffer.requireValidJsonValue() {
+    try {
+        JsonReader.of(clone()).use { reader ->
+            reader.skipValue()
+            require(reader.peek() == JsonReader.Token.END_DOCUMENT) {
+                "Literal must contain exactly one JSON value"
+            }
+        }
+    } catch (exception: IOException) {
+        throw IllegalArgumentException("Literal must contain exactly one valid JSON value", exception)
+    } catch (exception: JsonDataException) {
+        throw IllegalArgumentException("Literal must contain exactly one valid JSON value", exception)
+    }
+}
+
+private fun ByteArray.requireValidUtf8() {
+    try {
+        UTF_8.newDecoder().decode(ByteBuffer.wrap(this))
+    } catch (exception: CharacterCodingException) {
+        throw IllegalArgumentException("Literal must contain valid UTF-8", exception)
+    }
 }

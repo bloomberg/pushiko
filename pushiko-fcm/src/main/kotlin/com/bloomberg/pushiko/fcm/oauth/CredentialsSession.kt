@@ -55,7 +55,7 @@ internal class CredentialsSession private constructor(
         ?.tokenValue
         ?.bearer()
         ?: withContext(dispatcher) {
-            credentials.refreshIfExpired()
+            credentialsRefresher.refreshIfExpired()
             requireFreshTokenValue(credentials.accessToken).bearer()
         }
 

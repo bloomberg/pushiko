@@ -17,16 +17,12 @@
 package com.bloomberg.pushiko.apns.certificates
 
 import java.security.cert.X509Certificate
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.util.Date
+import java.time.Clock
 import kotlin.time.Duration
 import kotlin.time.toJavaDuration
 
 @JvmSynthetic
-internal fun X509Certificate.willExpireWithin(duration: Duration) = notAfter.localDateTime()
-    .isBefore(LocalDateTime.now().plus(duration.toJavaDuration()))
-
-private fun Date.localDateTime() = toInstant()
-    .atZone(ZoneId.systemDefault())
-    .toLocalDateTime()
+internal fun X509Certificate.willExpireWithin(
+    duration: Duration,
+    clock: Clock = Clock.systemUTC()
+) = !notAfter.toInstant().isAfter(clock.instant().plus(duration.toJavaDuration()))

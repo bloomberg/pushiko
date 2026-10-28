@@ -62,7 +62,10 @@ import java.net.HttpURLConnection.HTTP_INTERNAL_ERROR
 import java.net.HttpURLConnection.HTTP_MULT_CHOICE
 import java.net.HttpURLConnection.HTTP_OK
 import java.net.InetSocketAddress
+import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
+import java.time.Clock
+import java.util.Date
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 import java.util.function.Consumer
@@ -359,6 +362,9 @@ public class ApnsClient private constructor(
         @JvmSynthetic
         internal var proxyAddress: InetSocketAddress? = null
 
+        @JvmSynthetic
+        internal var certificateClock: Clock = Clock.systemUTC()
+
         private lateinit var p12File: File
         private var keyPassword: CharArray? = null
         private var signingKey: ApnsSigningKey? = null
@@ -444,17 +450,30 @@ public class ApnsClient private constructor(
                     FileInputStream(p12File).use {
                         it.pkcs12PrivateKeyEntries(keyPassword).first()
                     }.apply {
-                        clientCredentials(privateKey, keyPassword, (certificate as X509Certificate).checkExpiration())
+                        clientCredentials(privateKey, keyPassword, (certificate as X509Certificate).validateValidity())
                     }
                 }
             }, executor?.asCoroutineDispatcher(), providerToken)
         }
 
-        private fun X509Certificate.checkExpiration() = apply {
+        private fun X509Certificate.validateValidity() = apply {
+            val validationInstant = certificateClock.instant()
+            try {
+                checkValidity(Date.from(validationInstant))
+            } catch (exception: CertificateException) {
+                logger.error(
+                    "APNs certificate {} for {} failed validation at {}; valid from {} until {}",
+                    p12File.name,
+                    environment,
+                    validationInstant,
+                    notBefore.toInstant(),
+                    notAfter.toInstant(),
+                    exception
+                )
+                throw exception
+            }
             logger.info("APNs certificate {} for {} expires {}", p12File.name, environment, notAfter.toInstant())
-            if (willExpireWithin(0L.days)) {
-                logger.error("APNs certificate {} for {} has expired", p12File.name, environment)
-            } else if (willExpireWithin(7L.days)) {
+            if (willExpireWithin(7L.days, certificateClock)) {
                 logger.warn("APNs certificate {} for {} will expire within 7 days", p12File.name, environment)
             }
         }

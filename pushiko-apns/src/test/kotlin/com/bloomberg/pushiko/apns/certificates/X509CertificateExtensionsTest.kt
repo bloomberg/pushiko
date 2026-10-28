@@ -21,7 +21,9 @@ import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import java.security.cert.X509Certificate
+import java.time.Clock
 import java.time.Instant
+import java.time.ZoneOffset
 import java.util.Date
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -30,31 +32,42 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.toJavaDuration
 
 internal class X509CertificateExtensionsTest {
+    private val clock = Clock.fixed(Instant.parse("2026-10-25T12:00:00Z"), ZoneOffset.UTC)
+
     @Test
     fun hasExpired() {
         mock<X509Certificate> {
             whenever(it.notAfter) doReturn Date(0L)
         }.run {
-            assertTrue(willExpireWithin(1L.milliseconds))
+            assertTrue(willExpireWithin(1L.milliseconds, clock))
         }
     }
 
     @Test
     fun hasNotExpired() {
         mock<X509Certificate> {
-            whenever(it.notAfter) doReturn Date(Instant.now().plus(1L.days.toJavaDuration()).toEpochMilli())
+            whenever(it.notAfter) doReturn Date(clock.instant().plus(1L.days.toJavaDuration()).toEpochMilli())
         }.run {
-            assertFalse(willExpireWithin(1L.milliseconds))
+            assertFalse(willExpireWithin(1L.milliseconds, clock))
         }
     }
 
     @Test
     fun willExpireIn7Days() {
         mock<X509Certificate> {
-            whenever(it.notAfter) doReturn Date(Instant.now().plus(7L.days.minus(1L.milliseconds).toJavaDuration())
+            whenever(it.notAfter) doReturn Date(clock.instant().plus(7L.days.minus(1L.milliseconds).toJavaDuration())
                 .toEpochMilli())
         }.run {
-            assertTrue(willExpireWithin(7L.days))
+            assertTrue(willExpireWithin(7L.days, clock))
+        }
+    }
+
+    @Test
+    fun willExpireInExactly7Days() {
+        mock<X509Certificate> {
+            whenever(it.notAfter) doReturn Date(clock.instant().plus(7L.days.toJavaDuration()).toEpochMilli())
+        }.run {
+            assertTrue(willExpireWithin(7L.days, clock))
         }
     }
 }

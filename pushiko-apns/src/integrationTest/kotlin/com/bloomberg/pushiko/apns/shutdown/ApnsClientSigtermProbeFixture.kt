@@ -22,6 +22,9 @@ import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +39,7 @@ internal suspend fun main() {
     val closed = AtomicBoolean(false)
     val client = ApnsClient {
         environment(ApnsEnvironment.DEVELOPMENT)
+        certificateClock = Clock.fixed(Instant.parse("2021-12-01T00:00:00Z"), ZoneOffset.UTC)
         clientCredentials(p12File, "changeit".toCharArray())
         minimumConnections(0)
     }

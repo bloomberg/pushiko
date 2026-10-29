@@ -200,6 +200,7 @@ internal class ConnectionHandler(
     private val requestContinuationPropertyKey: Http2Connection.PropertyKey
 
     private val logger = Logger()
+    private val settingsLogLimiter = SettingsLogLimiter(logger)
 
     private var pingFuture: Future<*>? = null
     private var settingsReadTimeoutFuture: Future<*>? = null
@@ -407,14 +408,13 @@ internal class ConnectionHandler(
                     signalAvailabilityChanged()
                 }
                 if (previous != null && previous != it) {
-                    logger.info("Peer changed SETTINGS_MAX_CONCURRENT_STREAMS from: {} to: {} channel: {}",
-                        previous, it, this)
+                    settingsLogLimiter.logChange(previous, it, this)
                 }
             }
             removeChannelContinuation()?.let {
                 logger.info("Initial settings from peer: {}", settings)
                 it.resume(this) { close() }
-            } ?: logger.info("Received settings from peer: {}", settings)
+            }
         }
     }
 

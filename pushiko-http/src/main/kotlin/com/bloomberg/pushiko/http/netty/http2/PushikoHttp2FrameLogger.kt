@@ -22,17 +22,22 @@ import io.netty.handler.codec.http2.Http2FrameLogger
 import io.netty.handler.codec.http2.Http2Settings
 import org.slf4j.Logger
 import org.slf4j.event.Level
+import java.util.EnumSet
 
 internal class PushikoHttp2FrameLogger(
     private val logger: Logger,
     level: Level
 ) : Http2FrameLogger(level.nettyLevel()) {
+    private val loggedSettingsDirections = EnumSet.noneOf(Direction::class.java)
+
     override fun logSettings(
         direction: Direction,
         context: ChannelHandlerContext,
         settings: Http2Settings
     ) {
-        logger.info("{} {} SETTINGS: ack=false settings={}", context.channel(), direction.name, settings)
+        if (loggedSettingsDirections.add(direction)) {
+            logger.debug("{} {} SETTINGS: ack=false settings={}", context.channel(), direction.name, settings)
+        }
     }
 
     override fun isEnabled() = false

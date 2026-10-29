@@ -23,7 +23,7 @@ import com.bloomberg.pushiko.apns.certificates.willExpireWithin
 import com.bloomberg.pushiko.apns.exceptions.ApnsException
 import com.bloomberg.pushiko.apns.keys.ApnsProviderToken
 import com.bloomberg.pushiko.apns.keys.ApnsSigningKey
-import com.bloomberg.pushiko.apns.keys.pkcs12PrivateKeyEntries
+import com.bloomberg.pushiko.apns.keys.pkcs12PrivateKeyEntry
 import com.bloomberg.pushiko.api.metrics.Gauges
 import com.bloomberg.pushiko.api.metrics.Metrics
 import com.bloomberg.pushiko.commons.UNREACHABLE_KOTLIN_VERSION
@@ -448,7 +448,7 @@ public class ApnsClient private constructor(
                 )
                 keyPassword?.let { keyPassword ->
                     FileInputStream(p12File).use {
-                        it.pkcs12PrivateKeyEntries(keyPassword).first()
+                        it.pkcs12PrivateKeyEntry(keyPassword)
                     }.apply {
                         clientCredentials(privateKey, keyPassword, (certificate as X509Certificate).validateValidity())
                     }

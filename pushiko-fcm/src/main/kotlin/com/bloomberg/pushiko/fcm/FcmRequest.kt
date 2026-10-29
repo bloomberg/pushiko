@@ -30,6 +30,8 @@ import kotlin.contracts.contract
 import okio.Buffer
 import java.util.function.Consumer
 
+private const val FCM_PAYLOAD_MAXIMUM_BYTES = 4 * 1_024L
+
 @OptIn(ExperimentalContracts::class)
 @JvmSynthetic
 public inline fun FcmRequest(block: FcmRequest.Builder.() -> Unit): FcmRequest {
@@ -68,7 +70,10 @@ public class FcmRequest private constructor(
         @get:JvmSynthetic @PublishedApi
         internal var buffer: Buffer = Buffer()
         @get:JvmSynthetic @PublishedApi
-        internal val writer: JsonObjectWriter = JsonObjectWriter(buffer)
+        internal val writer: JsonObjectWriter =
+            JsonObjectWriter(buffer, FCM_PAYLOAD_MAXIMUM_BYTES, "FCM request payload")
+        @get:JvmSynthetic @PublishedApi
+        internal var hasMessage: Boolean = false
 
         @JvmSynthetic @PublishedApi
         internal fun close() {
@@ -88,7 +93,13 @@ public class FcmRequest private constructor(
             contract {
                 callsInPlace(block, InvocationKind.EXACTLY_ONCE)
             }
-            writer.objectValue("message") { block(MessageWriter(writer)) }
+            require(!hasMessage) { "FCM request must contain exactly one message" }
+            hasMessage = true
+            writer.objectValue("message") {
+                val messageWriter = MessageWriter(this)
+                block(messageWriter)
+                messageWriter.requireTarget()
+            }
             return this
         }
 
@@ -98,6 +109,7 @@ public class FcmRequest private constructor(
 
         @JvmSynthetic @PublishedApi
         internal fun build(): FcmRequest {
+            require(hasMessage) { "FCM request must contain exactly one message" }
             writer.close()
             return FcmRequest(buffer.use(Buffer::readByteArray))
         }

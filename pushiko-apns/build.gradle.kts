@@ -51,12 +51,14 @@ dependencies {
     implementation(libs.nimbus.jose.jwt)
     implementation(libs.okio)
     implementation(libs.slf4j.api)
+    testImplementation(platform(libs.netty.bom))
     testImplementation(libs.kotlin.reflect)
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.gson)
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.netty.pkitesting)
 }
 
 testing {

@@ -24,6 +24,7 @@ import com.bloomberg.pushiko.apns.exceptions.ApnsException
 import com.bloomberg.pushiko.apns.keys.ApnsProviderToken
 import com.bloomberg.pushiko.apns.keys.ApnsSigningKey
 import com.bloomberg.pushiko.apns.keys.pkcs12PrivateKeyEntry
+import com.bloomberg.pushiko.apns.keys.x509CertificateChain
 import com.bloomberg.pushiko.api.metrics.Gauges
 import com.bloomberg.pushiko.api.metrics.Metrics
 import com.bloomberg.pushiko.commons.UNREACHABLE_KOTLIN_VERSION
@@ -450,30 +451,40 @@ public class ApnsClient private constructor(
                     FileInputStream(p12File).use {
                         it.pkcs12PrivateKeyEntry(keyPassword)
                     }.apply {
-                        clientCredentials(privateKey, keyPassword, (certificate as X509Certificate).validateValidity())
+                        clientCredentials(privateKey, keyPassword, x509CertificateChain().validateValidity())
                     }
                 }
             }, executor?.asCoroutineDispatcher(), providerToken)
         }
 
-        private fun X509Certificate.validateValidity() = apply {
+        private fun List<X509Certificate>.validateValidity() = apply {
             val validationInstant = certificateClock.instant()
-            try {
-                checkValidity(Date.from(validationInstant))
-            } catch (exception: CertificateException) {
-                logger.error(
-                    "APNs certificate {} for {} failed validation at {}; valid from {} until {}",
-                    p12File.name,
-                    environment,
-                    validationInstant,
-                    notBefore.toInstant(),
-                    notAfter.toInstant(),
-                    exception
-                )
-                throw exception
+            forEachIndexed { index, certificate ->
+                try {
+                    certificate.checkValidity(Date.from(validationInstant))
+                } catch (exception: CertificateException) {
+                    logger.error(
+                        "APNs certificate chain entry {} from {} for {} failed validation at {}; " +
+                            "valid from {} until {}",
+                        index,
+                        p12File.name,
+                        environment,
+                        validationInstant,
+                        certificate.notBefore.toInstant(),
+                        certificate.notAfter.toInstant(),
+                        exception
+                    )
+                    throw exception
+                }
             }
-            logger.info("APNs certificate {} for {} expires {}", p12File.name, environment, notAfter.toInstant())
-            if (willExpireWithin(7L.days, certificateClock)) {
+            val clientCertificate = first()
+            logger.info(
+                "APNs certificate {} for {} expires {}",
+                p12File.name,
+                environment,
+                clientCertificate.notAfter.toInstant()
+            )
+            if (clientCertificate.willExpireWithin(7L.days, certificateClock)) {
                 logger.warn("APNs certificate {} for {} will expire within 7 days", p12File.name, environment)
             }
         }

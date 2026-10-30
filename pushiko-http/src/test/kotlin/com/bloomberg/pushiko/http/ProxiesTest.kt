@@ -20,7 +20,14 @@ import com.bloomberg.pushiko.proxies.systemHttpsProxyAddress
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import java.io.IOException
+import java.net.InetSocketAddress
+import java.net.Proxy
+import java.net.ProxySelector
+import java.net.SocketAddress
+import java.net.URI
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
@@ -60,5 +67,31 @@ internal class ProxiesTest {
             assertEquals("localhost", hostName)
             assertEquals(8888, port)
         }
+    }
+
+    @Test
+    fun resolvedSystemHttpsProxyPreservesSelectorOrder() {
+        val previous = ProxySelector.getDefault()
+        val first = InetSocketAddress("127.0.0.1", 8888)
+        val second = InetSocketAddress.createUnresolved("proxy.example", 9999)
+        ProxySelector.setDefault(FixedProxySelector(listOf(
+            Proxy(Proxy.Type.HTTP, first),
+            Proxy(Proxy.Type.HTTP, second)
+        )))
+        try {
+            systemHttpsProxyAddress("api.push.apple.com").apply {
+                assertNotNull(this)
+                assertFalse(isUnresolved)
+                assertEquals(first, this)
+            }
+        } finally {
+            ProxySelector.setDefault(previous)
+        }
+    }
+
+    private class FixedProxySelector(private val proxies: List<Proxy>) : ProxySelector() {
+        override fun select(uri: URI): List<Proxy> = proxies
+
+        override fun connectFailed(uri: URI, socketAddress: SocketAddress, exception: IOException) = Unit
     }
 }

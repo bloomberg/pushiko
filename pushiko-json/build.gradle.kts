@@ -45,23 +45,34 @@ val jvmFuzzDuration = when (jvmFuzzProfile) {
     else -> error("Unsupported JVM fuzzing profile: $jvmFuzzProfile")
 }
 
-tasks.register<Test>("jvmFuzzJsonObjectWriter") {
-    description = "Runs the JsonObjectWriter Jazzer campaign."
-    group = "verification"
-    testClassesDirs = sourceSets.test.get().output.classesDirs
-    classpath = sourceSets.test.get().runtimeClasspath
-    environment("JAZZER_FUZZ", "1")
-    filter {
-        includeTestsMatching("com.bloomberg.pushiko.json.JsonObjectWriterFuzzTest.fuzzStringValue")
+val jvmFuzzTargets = mapOf(
+    "jvmFuzzJsonObjectWriter" to "com.bloomberg.pushiko.json.JsonObjectWriterFuzzTest.fuzzStringValue",
+    "jvmFuzzJsonObjectSequence" to "com.bloomberg.pushiko.json.JsonObjectWriterFuzzTest.fuzzOperationSequence"
+)
+val jvmFuzzTasks = jvmFuzzTargets.map { (taskName, testName) ->
+    tasks.register<Test>(taskName) {
+        description = "Runs the $testName Jazzer campaign."
+        group = "verification"
+        testClassesDirs = sourceSets.test.get().output.classesDirs
+        classpath = sourceSets.test.get().runtimeClasspath
+        environment("JAZZER_FUZZ", "1")
+        filter {
+            includeTestsMatching(testName)
+        }
+        systemProperty("jazzer.instrument", "com.bloomberg.pushiko.json.**")
+        systemProperty("jazzer.max_duration", jvmFuzzDuration)
+        systemProperty("jazzer.reproducer_path", layout.buildDirectory.get().asFile.absolutePath)
+        systemProperty("junit.jupiter.execution.parallel.enabled", false)
+        systemProperty("junit.jupiter.execution.timeout.mode", "disabled")
+        maxHeapSize = "1g"
+        outputs.upToDateWhen { false }
+        workingDir(layout.buildDirectory.get().asFile)
     }
-    systemProperty("jazzer.instrument", "com.bloomberg.pushiko.json.**")
-    systemProperty("jazzer.max_duration", jvmFuzzDuration)
-    systemProperty("jazzer.reproducer_path", layout.buildDirectory.get().asFile.absolutePath)
-    systemProperty("junit.jupiter.execution.parallel.enabled", false)
-    systemProperty("junit.jupiter.execution.timeout.mode", "disabled")
-    maxHeapSize = "1g"
-    outputs.upToDateWhen { false }
-    workingDir(layout.buildDirectory.get().asFile)
+}
+jvmFuzzTasks.zipWithNext().forEach { (previous, next) ->
+    next.configure {
+        mustRunAfter(previous)
+    }
 }
 
 tasks.named<Test>("test") {
@@ -73,11 +84,11 @@ tasks.named<Test>("test") {
 tasks.register("jvmFuzz") {
     description = "Runs JSON JVM fuzzing."
     group = "verification"
-    dependsOn("jvmFuzzJsonObjectWriter")
+    dependsOn(jvmFuzzTasks)
 }
 
 kover {
     excludeTests {
-        tasks("jvmFuzzJsonObjectWriter")
+        tasks(jvmFuzzTargets.keys)
     }
 }

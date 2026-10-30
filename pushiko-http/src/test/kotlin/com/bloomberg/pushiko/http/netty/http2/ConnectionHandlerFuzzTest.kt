@@ -16,6 +16,7 @@
 
 package com.bloomberg.pushiko.http.netty.http2
 
+import com.bloomberg.pushiko.http.ConcurrentRequestWaterMark
 import com.bloomberg.pushiko.http.IHttpClientProperties
 import com.bloomberg.pushiko.http.netty.PoolableChannel
 import com.bloomberg.pushiko.http.netty.channelContinuationAttributeKey
@@ -47,6 +48,7 @@ import java.util.stream.Stream
 import kotlin.math.min
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellableContinuation
 import org.junit.jupiter.params.provider.MethodSource
@@ -155,12 +157,44 @@ internal class ConnectionHandlerFuzzTest {
     fun fuzzSettingsRead(data: FuzzedDataProvider) {
         GoAwayReadFixture().use { fixture ->
             val handler = fixture.newHandler()
+            val localLowWaterMark = data.consumeLong(1L, Int.MAX_VALUE.toLong())
+            val localHighWaterMark = data.consumeLong(localLowWaterMark, Int.MAX_VALUE.toLong())
+            val defaultStreamLimit = data.consumeLong(1L, MAXIMUM_UNSIGNED_INT)
+            val properties = fixture.track(mock<IHttpClientProperties>()).apply {
+                whenever(defaultMaximumConcurrentStreams) doReturn defaultStreamLimit
+            }
+            val poolable = PoolableChannel(
+                fixture.channel,
+                properties,
+                ConcurrentRequestWaterMark(localLowWaterMark, localHighWaterMark)
+            )
+            poolable.assertCapacity(
+                localLowWaterMark,
+                localHighWaterMark,
+                defaultStreamLimit
+            )
             val callCount = 1 + data.consumeInt(0, MAX_SETTINGS_CALLS_PER_RUN - 1)
             repeat(callCount) {
                 val maxConcurrentStreams = data.consumeLong(0L, MAXIMUM_UNSIGNED_INT)
                 handler.onSettingsRead(fixture.context, Http2Settings().maxConcurrentStreams(maxConcurrentStreams))
                 assertEquals(maxConcurrentStreams, fixture.maxConcurrentStreamsAttribute.get())
+                poolable.assertCapacity(localLowWaterMark, localHighWaterMark, maxConcurrentStreams)
             }
+        }
+    }
+
+    private fun PoolableChannel.assertCapacity(localLow: Long, localHigh: Long, peerOrDefaultLimit: Long) {
+        val expectedHigh = minOf(localHigh, peerOrDefaultLimit)
+        val expectedLow = minOf(localLow, expectedHigh)
+        assertEquals(expectedHigh, highWaterMark)
+        assertEquals(expectedLow, lowWaterMark)
+        assertEquals(expectedHigh.toInt(), maximumPermits)
+        if (expectedHigh == 0L) {
+            assertFalse(isCanAcquire)
+            assertFalse(isShouldAcquire)
+        } else {
+            assertTrue(isCanAcquire)
+            assertTrue(isShouldAcquire)
         }
     }
 

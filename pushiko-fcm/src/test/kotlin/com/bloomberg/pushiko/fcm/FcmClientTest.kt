@@ -19,7 +19,6 @@
 package com.bloomberg.pushiko.fcm
 
 import com.bloomberg.pushiko.api.exceptions.ClientClosedException
-import com.bloomberg.pushiko.fcm.exceptions.FcmException
 import com.bloomberg.pushiko.fcm.model.Error
 import com.bloomberg.pushiko.fcm.oauth.Session
 import com.bloomberg.pushiko.http.HttpClient
@@ -53,6 +52,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -388,20 +388,62 @@ internal class FcmClientTest {
     }
 
     @Test
-    fun parseException(): Unit = runTest {
+    fun emptyClientErrorPreservesStatusContext(): Unit = runTest {
+        val request = FcmRequest { message { token("abc") } }
         val httpResponse = mock<HttpResponse>().apply {
-            whenever(code) doReturn 404
-            whenever(body) doReturn "{".byteInputStream(Charsets.UTF_8)
+            whenever(code) doReturn 401
+            whenever(body) doReturn ByteArray(0).inputStream()
         }
-        val client = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
+        val response = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
             whenever(sendPath) doReturn fakeSendPath
             whenever(currentAuthorization()) doReturn "Bearer xyz"
         }), mock<HttpClient>().apply {
             whenever(send(any())) doReturn httpResponse
-        }, null, MAXIMUM_RETRY_DELAY_MILLIS)
-        assertFailsWith<FcmException> {
-            client.send(PROJECT_ID, FcmRequest { message { token("abc") } })
+        }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, request)
+        assertTrue(response is FcmUnstructuredClientErrorResponse)
+        assertSame(request, response.request)
+        assertEquals(401, response.code)
+        assertEquals("", response.body)
+        assertNull(response.retryAfterMillis)
+    }
+
+    @Test
+    fun htmlTooManyRequestsPreservesStatusAndRetryAfter(): Unit = runTest {
+        val request = FcmRequest { message { token("abc") } }
+        val html = "<!DOCTYPE html><title>Too many requests</title>"
+        val httpResponse = mock<HttpResponse>().apply {
+            whenever(code) doReturn 429
+            whenever(body) doReturn html.byteInputStream(Charsets.UTF_8)
+            whenever(header(eq("retry-after"))) doReturn "30"
         }
+        val response = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
+            whenever(sendPath) doReturn fakeSendPath
+            whenever(currentAuthorization()) doReturn "Bearer xyz"
+        }), mock<HttpClient>().apply {
+            whenever(send(any())) doReturn httpResponse
+        }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(PROJECT_ID, request)
+        assertTrue(response is FcmUnstructuredClientErrorResponse)
+        assertSame(request, response.request)
+        assertEquals(429, response.code)
+        assertEquals(html, response.body)
+        assertEquals(30_000L, response.retryAfterMillis)
+    }
+
+    @Test
+    fun unstructuredClientErrorBodyIsBounded(): Unit = runTest {
+        val httpResponse = mock<HttpResponse>().apply {
+            whenever(code) doReturn 429
+            whenever(body) doReturn ByteArray(256 * 1_024 + 1) { 'x'.code.toByte() }.inputStream()
+        }
+        val response = fcmClientConstructor().call(mapOf(PROJECT_ID to mock<Session>().apply {
+            whenever(sendPath) doReturn fakeSendPath
+            whenever(currentAuthorization()) doReturn "Bearer xyz"
+        }), mock<HttpClient>().apply {
+            whenever(send(any())) doReturn httpResponse
+        }, null, MAXIMUM_RETRY_DELAY_MILLIS).send(
+            PROJECT_ID, FcmRequest { message { token("abc") } })
+        assertTrue(response is FcmUnstructuredClientErrorResponse)
+        assertEquals(256 * 1_024, response.body?.length)
     }
 
     @Test

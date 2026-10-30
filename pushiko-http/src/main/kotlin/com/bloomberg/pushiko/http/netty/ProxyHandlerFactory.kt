@@ -37,13 +37,14 @@ internal class HttpProxyHandlerFactory(
 ) : ProxyHandlerFactory {
     private val logger = Logger()
 
-    init {
-        if (!socketAddress.isUnresolved) {
-            logger.info("Socket address is already resolved: {}", socketAddress)
-        }
+    override suspend fun createProxyHandler(): HttpProxyHandler = if (socketAddress.isUnresolved) {
+        resolveProxyHandler()
+    } else {
+        logger.info("Proxy address is already resolved: {}", socketAddress)
+        HttpProxyHandler(socketAddress)
     }
 
-    override suspend fun createProxyHandler(): HttpProxyHandler = eventLoop.newPromise<HttpProxyHandler>().apply {
+    private suspend fun resolveProxyHandler(): HttpProxyHandler = eventLoop.newPromise<HttpProxyHandler>().apply {
         resolver.resolve(socketAddress).addListener {
             if (it.isSuccess) {
                 val resolvedSocketAddress = it.now as SocketAddress

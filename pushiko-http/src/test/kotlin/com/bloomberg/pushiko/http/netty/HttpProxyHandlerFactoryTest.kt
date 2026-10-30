@@ -20,13 +20,17 @@ package com.bloomberg.pushiko.http.netty
 
 import io.netty.channel.MultiThreadIoEventLoopGroup
 import io.netty.channel.nio.NioIoHandler
+import io.netty.resolver.AddressResolver
 import io.netty.resolver.dns.DefaultDnsServerAddressStreamProvider
 import io.netty.resolver.dns.RoundRobinDnsAddressResolverGroup
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.verifyNoInteractions
 import java.net.InetSocketAddress
+import java.net.SocketAddress
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
@@ -45,7 +49,7 @@ internal class HttpProxyHandlerFactoryTest {
     }
 
     @Test
-    fun createProxyHandler(): Unit = runTest {
+    fun createProxyHandlerFromUnresolvedAddress(): Unit = runTest {
         HttpProxyHandlerFactory(
             eventLoopGroup.next(),
             resolverGroups.getResolver(eventLoopGroup.next()),
@@ -56,5 +60,22 @@ internal class HttpProxyHandlerFactoryTest {
             assertEquals("localhost", address.hostName)
             assertEquals(8888, address.port)
         }
+    }
+
+    @Test
+    fun createProxyHandlerFromResolvedAddress(): Unit = runTest {
+        val proxyAddress = InetSocketAddress("127.0.0.1", 8888)
+        val resolver = mock<AddressResolver<SocketAddress>>()
+
+        HttpProxyHandlerFactory(
+            eventLoopGroup.next(),
+            resolver,
+            proxyAddress
+        ).createProxyHandler().apply {
+            val address = proxyAddress<InetSocketAddress>()
+            assertFalse(address.isUnresolved)
+            assertEquals(proxyAddress, address)
+        }
+        verifyNoInteractions(resolver)
     }
 }

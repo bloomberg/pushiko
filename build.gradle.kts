@@ -268,7 +268,7 @@ tasks.register("checkSemver") {
 tasks.register("jvmFuzz") {
     group = "verification"
     description = "Runs JVM fuzzing; configure with -Ppushiko.fuzz.profile=smoke|release|scheduled."
-    dependsOn(":pushiko-http:jvmFuzz", ":pushiko-json:jvmFuzz")
+    dependsOn(":pushiko-apns:jvmFuzz", ":pushiko-fcm:jvmFuzz", ":pushiko-http:jvmFuzz", ":pushiko-json:jvmFuzz")
 }
 
 val cyclonedxBom = tasks.register("cyclonedxBom") {

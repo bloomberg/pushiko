@@ -19,17 +19,20 @@
 package com.bloomberg.pushiko.fcm.oauth
 
 import com.google.api.client.http.javanet.NetHttpTransport
-import com.google.auth.oauth2.GoogleCredentials
 import com.google.auth.oauth2.ServiceAccountCredentials
 import java.io.File
+import java.io.InputStream
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.URI
 import java.net.URISyntaxException
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.decodeFromStream
+
+internal const val MAX_SERVICE_ACCOUNT_METADATA_BYTES: Int = 64 * 1_024
 
 private val ALLOWED_TOKEN_SERVER_URIS = setOf(
     URI.create("https://oauth2.googleapis.com/token"),
@@ -40,30 +43,52 @@ private val ALLOWED_TOKEN_SERVER_URIS = setOf(
 internal fun GoogleCredentials(
     metadata: File,
     proxy: InetSocketAddress? = null
-) = metadata.readBytes().let { bytes ->
-    validateMetadata(bytes.decodeToString())
-    bytes.inputStream().use { stream ->
-        GoogleCredentials.fromStream(stream) {
-            NetHttpTransport.Builder().apply {
-                proxy?.let { setProxy(Proxy(Proxy.Type.HTTP, it)) }
-            }.build()
-        }.createScoped(listOf("https://www.googleapis.com/auth/firebase.messaging")) as ServiceAccountCredentials
+): ServiceAccountCredentials {
+    val bytes = metadata.readBoundedMetadata()
+    return try {
+        validateMetadata(bytes)
+        bytes.inputStream().use { stream ->
+            ServiceAccountCredentials.fromStream(stream) {
+                NetHttpTransport.Builder().apply {
+                    proxy?.let { setProxy(Proxy(Proxy.Type.HTTP, it)) }
+                }.build()
+            }.createScoped(listOf("https://www.googleapis.com/auth/firebase.messaging")) as ServiceAccountCredentials
+        }
+    } finally {
+        bytes.fill(0)
     }
 }
 
-private fun validateMetadata(metadata: String) {
-    val json = try {
-        Json.parseToJsonElement(metadata).jsonObject
+private fun File.readBoundedMetadata(): ByteArray {
+    require(!isFile || length() <= MAX_SERVICE_ACCOUNT_METADATA_BYTES) {
+        "FCM service-account metadata exceeds the maximum size of $MAX_SERVICE_ACCOUNT_METADATA_BYTES bytes"
+    }
+    return inputStream().use(InputStream::readBoundedMetadata)
+}
+
+private fun InputStream.readBoundedMetadata(): ByteArray = readNBytes(MAX_SERVICE_ACCOUNT_METADATA_BYTES + 1).also {
+    require(it.size <= MAX_SERVICE_ACCOUNT_METADATA_BYTES) {
+        "FCM service-account metadata exceeds the maximum size of $MAX_SERVICE_ACCOUNT_METADATA_BYTES bytes"
+    }
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+private fun validateMetadata(metadata: ByteArray) {
+    val fields = try {
+        metadata.inputStream().use {
+            metadataJson.decodeFromStream<ServiceAccountMetadata>(it)
+        }
     } catch (exception: IllegalArgumentException) {
         throw IllegalArgumentException("Invalid service-account metadata", exception)
     }
 
-    require(json.requiredString("type") == "service_account") {
+    require(fields.type.isNotBlank()) { "Credential metadata field 'type' must be a non-blank string" }
+    require(fields.type == "service_account") {
         "Credential metadata must have type 'service_account'"
     }
-    json.requiredString("project_id").requireValidProjectId()
+    fields.projectId.requireNotBlank("project_id").requireValidProjectId()
 
-    val tokenServerUri = json.requiredString("token_uri").let { tokenUri ->
+    val tokenServerUri = fields.tokenUri.requireNotBlank("token_uri").let { tokenUri ->
         try {
             URI(tokenUri)
         } catch (exception: URISyntaxException) {
@@ -75,10 +100,19 @@ private fun validateMetadata(metadata: String) {
     }
 }
 
-private fun JsonObject.requiredString(name: String): String {
-    val value = this[name]
-    require(value is JsonPrimitive && value.isString && value.content.isNotBlank()) {
+private fun String.requireNotBlank(name: String): String = apply {
+    require(isNotBlank()) {
         "Credential metadata field '$name' must be a non-blank string"
     }
-    return value.content
+}
+
+@Serializable
+private data class ServiceAccountMetadata(
+    val type: String,
+    @SerialName("project_id") val projectId: String,
+    @SerialName("token_uri") val tokenUri: String
+)
+
+private val metadataJson = Json {
+    ignoreUnknownKeys = true
 }

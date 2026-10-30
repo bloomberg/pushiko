@@ -24,6 +24,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -45,6 +46,52 @@ internal class GoogleCredentialsTest {
         metadataWith("token_uri" to JsonPrimitive("https://oauth2.googleapis.com/token"))
     ) { file ->
         assertEquals("foo-project", GoogleCredentials(file).projectId)
+    }
+
+    @Test
+    fun acceptsMetadataAtMaximumSize() {
+        val content = metadata.readText()
+        val paddingSize = MAX_SERVICE_ACCOUNT_METADATA_BYTES - content.toByteArray().size
+        assertTrue(paddingSize > 0)
+
+        withMetadataFile(content + " ".repeat(paddingSize)) { file ->
+            assertEquals(MAX_SERVICE_ACCOUNT_METADATA_BYTES.toLong(), file.length())
+            assertEquals("foo-project", GoogleCredentials(file).projectId)
+        }
+    }
+
+    @Test
+    fun rejectsMetadataOverMaximumSize() = withMetadataFile(
+        " ".repeat(MAX_SERVICE_ACCOUNT_METADATA_BYTES + 1)
+    ) { file ->
+        val exception = assertFailsWith<IllegalArgumentException> {
+            GoogleCredentials(file)
+        }
+        assertEquals(
+            "FCM service-account metadata exceeds the maximum size of " +
+                "$MAX_SERVICE_ACCOUNT_METADATA_BYTES bytes",
+            exception.message
+        )
+    }
+
+    @Test
+    fun rejectsStreamOverflowWhenFileSizeCannotBeTrusted() = withMetadataFile(
+        " ".repeat(MAX_SERVICE_ACCOUNT_METADATA_BYTES + 1)
+    ) { file ->
+        val unknownSizeFile = object : File(file.path) {
+            override fun isFile() = false
+
+            override fun length() = 0L
+        }
+
+        val exception = assertFailsWith<IllegalArgumentException> {
+            GoogleCredentials(unknownSizeFile)
+        }
+        assertEquals(
+            "FCM service-account metadata exceeds the maximum size of " +
+                "$MAX_SERVICE_ACCOUNT_METADATA_BYTES bytes",
+            exception.message
+        )
     }
 
     @Test

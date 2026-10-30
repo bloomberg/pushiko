@@ -112,6 +112,11 @@ private val channelInactiveWriteException = ChannelInactiveException("Channel in
 private val streamsExhaustedException = ChannelStreamQuotaException("HTTP/2 streams exhausted; closing connection")
 private val unrecognisedMessageException = IllegalArgumentException("Unrecognised message object in pipeline")
 
+private fun Http2Stream.merge(
+    trailers: Http2Headers,
+    headersKey: Http2Connection.PropertyKey
+): Http2Headers = removeProperty<Http2Headers>(headersKey)?.apply { add(trailers) } ?: trailers
+
 internal fun Slf4jLogger.traceRequestHeaders(streamId: Int, headers: Http2Headers) =
     trace("Wrote request headers on stream {}: method={}", streamId, headers.method())
 
@@ -195,7 +200,7 @@ internal class ConnectionHandler(
     private val requestContinuations = IntObjectHashMap<HttpRequestContinuation>()
     private val responseTimeouts = IntObjectHashMap<Future<*>>()
 
-    private val responseHeadersPropertyKey: Http2Connection.PropertyKey
+    private val headersKey: Http2Connection.PropertyKey
     private val responseBodyPropertyKey: Http2Connection.PropertyKey
     private val requestContinuationPropertyKey: Http2Connection.PropertyKey
 
@@ -213,7 +218,7 @@ internal class ConnectionHandler(
 
     init {
         connection().let {
-            responseHeadersPropertyKey = it.newKey()
+            headersKey = it.newKey()
             responseBodyPropertyKey = it.newKey()
             requestContinuationPropertyKey = it.newKey()
             it.addListener(this)
@@ -342,7 +347,7 @@ internal class ConnectionHandler(
         }
         if (endOfStream) {
             stream.let {
-                handleEndOfStream(it, it.removeProperty(responseHeadersPropertyKey), body)
+                handleEndOfStream(it, it.removeProperty(headersKey), body)
             }
         }
         return bytesRead
@@ -358,9 +363,9 @@ internal class ConnectionHandler(
         logger.traceResponseHeaders(context.channel(), streamId, headers)
         connection().stream(streamId).apply {
             if (endOfStream) {
-                handleEndOfStream(this, headers, null)
+                handleEndOfStream(this, merge(headers, headersKey), getProperty(responseBodyPropertyKey))
             } else {
-                setProperty(responseHeadersPropertyKey, headers)
+                setProperty(headersKey, headers)
             }
         }
     }
@@ -619,7 +624,7 @@ internal class ConnectionHandler(
     override fun onStreamRemoved(stream: Http2Stream) {
         stream.run {
             logger.trace("onStreamRemoved: connection {} stream {}", connection(), id())
-            removeProperty<Any?>(responseHeadersPropertyKey)
+            removeProperty<Any?>(headersKey)
             relinquishResponseBody()
             removeRequestContinuation()
         }
@@ -795,7 +800,7 @@ internal class ConnectionHandler(
     private fun Http2Stream.removeRequestContinuation() = removeProperty<HttpRequestContinuation>(
         requestContinuationPropertyKey)
 
-    private fun Http2Stream.responseHeaders() = getProperty<Http2Headers>(responseHeadersPropertyKey)
+    private fun Http2Stream.responseHeaders() = getProperty<Http2Headers>(headersKey)
 
     private fun Http2Stream.responseBodyBuffer() = getPropertyOrDefault(responseBodyPropertyKey) {
         if (
@@ -836,7 +841,7 @@ internal class ConnectionHandler(
         logger.warn("Response body on stream {} exceeded {} bytes; resetting stream", streamId,
             MAX_RESPONSE_BODY_BYTES)
         stream.run {
-            removeProperty<Any?>(responseHeadersPropertyKey)
+            removeProperty<Any?>(headersKey)
             relinquishResponseBody()
             removeRequestContinuation()?.tryResumeWithException(responseBodyTooLargeException(streamId))
         }

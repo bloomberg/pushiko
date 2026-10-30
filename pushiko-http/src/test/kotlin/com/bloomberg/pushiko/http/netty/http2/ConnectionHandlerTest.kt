@@ -553,7 +553,7 @@ internal class ConnectionHandlerTest {
     }
 
     @Test
-    fun responseTimeoutClosesStream() {
+    fun responseTimeoutResetsActiveStream() {
         val promise = mock<ChannelPromise>().apply {
             whenever(addListener(any<GenericFutureListener<Future<Void>>>())) doAnswer {
                 @Suppress("UNCHECKED_CAST")
@@ -568,14 +568,21 @@ internal class ConnectionHandlerTest {
         whenever(local.incrementAndGetNextStreamId()) doReturn 3
         whenever(connection.stream(eq(3))) doReturn stream
         whenever(channel.isActive) doReturn true
+        val encoder = mock<Http2ConnectionEncoder>().apply {
+            whenever(connection()) doReturn connection
+            whenever(flowController()) doReturn flowController
+        }
         val future = mock<ScheduledFuture<Void>>()
         whenever(eventLoop.schedule(any(), any(), any())) doAnswer {
             (it.arguments.first() as Runnable).run()
             future
         }
         val continuation = HttpRequestContinuation(HttpRequest { }, channel, mock())
-        ConnectionHandler(monitorConnectionHealth = true).write(context, continuation, promise)
-        verify(stream, times(1)).close()
+        ConnectionHandler(monitorConnectionHealth = true, encoder = encoder).write(
+            context, continuation, promise)
+        verify(encoder, times(1)).writeRstStream(
+            eq(context), eq(3), eq(Http2Error.CANCEL.code()), any()
+        )
         verify(channel, never()).close()
     }
 
@@ -633,7 +640,7 @@ internal class ConnectionHandlerTest {
     }
 
     @Test
-    fun cancellingActiveRequestClosesItsStreamAndCancelsDeadline() {
+    fun cancellingActiveRequestResetsItsStreamAndCancelsDeadline() {
         val timeoutFuture = mock<ScheduledFuture<Void>>()
         whenever(eventLoop.schedule(any<Runnable>(), eq(11L), eq(TimeUnit.SECONDS))) doReturn timeoutFuture
         whenever(local.incrementAndGetNextStreamId()) doReturn 3
@@ -642,7 +649,12 @@ internal class ConnectionHandlerTest {
             whenever(id()) doReturn 3
         }
         whenever(connection.stream(eq(3))) doReturn stream
-        val handler = ConnectionHandler()
+        val encoder = mock<Http2ConnectionEncoder>().apply {
+            whenever(connection()) doReturn connection
+            whenever(flowController()) doReturn flowController
+        }
+        val handler = ConnectionHandler(encoder = encoder)
+        whenever(pipeline.context(eq(handler))) doReturn context
         val continuation = HttpRequestContinuation(HttpRequest { }, channel, mock())
         whenever(stream.removeProperty<HttpRequestContinuation>(anyOrNull())) doReturn continuation
         handler.write(context, continuation, mock())
@@ -650,7 +662,9 @@ internal class ConnectionHandlerTest {
         continuation.cancel()
         handler.cancel(continuation)
         verify(timeoutFuture, times(1)).cancel(false)
-        verify(stream, times(1)).close()
+        verify(encoder, times(1)).writeRstStream(
+            eq(context), eq(3), eq(Http2Error.CANCEL.code()), any()
+        )
         assertNull(continuation.streamId)
     }
 

@@ -579,12 +579,8 @@ internal class ConnectionHandler(
         if (removed !== requestContinuation) {
             return
         }
-        if (stream == null) {
-            requestContinuation.channel.pipeline().context(this)?.let {
-                encoder().writeRstStream(it, streamId, Http2Error.CANCEL.code(), it.newPromise())
-            }
-        } else {
-            stream.close()
+        requestContinuation.channel.pipeline().context(this)?.let {
+            encoder().writeRstStream(it, streamId, Http2Error.CANCEL.code(), it.newPromise())
         }
         requestContinuation.streamId = null
     }
@@ -703,11 +699,7 @@ internal class ConnectionHandler(
             if (continuation != null) {
                 continuation.tryResumeWithException(SocketTimeoutException(
                     "Response timed out after ${timeoutSeconds}s channel: ${channel()}"))
-                if (stream == null) {
-                    encoder().writeRstStream(this, streamId, Http2Error.CANCEL.code(), newPromise())
-                } else {
-                    stream.close()
-                }
+                encoder().writeRstStream(this, streamId, Http2Error.CANCEL.code(), newPromise())
                 if (!(monitorConnectionHealth || pingedSinceLastWrite) &&
                     secondsSinceLastPingWrite() >= timeoutSeconds) {
                     sendPing()

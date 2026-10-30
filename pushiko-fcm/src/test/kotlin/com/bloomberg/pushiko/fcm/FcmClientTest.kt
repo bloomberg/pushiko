@@ -25,6 +25,7 @@ import com.bloomberg.pushiko.fcm.oauth.Session
 import com.bloomberg.pushiko.http.HttpClient
 import com.bloomberg.pushiko.http.HttpClientProperties.Companion.OptionalHttpProperties
 import com.bloomberg.pushiko.http.HttpResponse
+import com.google.auth.oauth2.ServiceAccountCredentials
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
@@ -89,6 +90,27 @@ internal class FcmClientTest {
         verify(session, times(1)).projectId
     }
      */
+
+    @Test
+    fun duplicateProjectCredentialsAreRejected() {
+        val first = mock<ServiceAccountCredentials> {
+            on { projectId } doReturn "duplicate-project"
+        }
+        val second = mock<ServiceAccountCredentials> {
+            on { projectId } doReturn "duplicate-project"
+        }
+
+        val exception = assertFailsWith<IllegalArgumentException> {
+            FcmClient.Builder()
+                .serviceAccountCredentials(listOf(first, second))
+                .build()
+        }
+
+        assertEquals(
+            "Duplicate FCM project ID 'duplicate-project'; configure each project only once",
+            exception.message
+        )
+    }
 
     @Test
     fun close() = runTest {

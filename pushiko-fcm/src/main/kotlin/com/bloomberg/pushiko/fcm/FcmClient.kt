@@ -461,11 +461,7 @@ public class FcmClient private constructor(
 
         @JvmSynthetic
         internal fun build() = FcmClient(
-            (metadata.map { GoogleCredentials(it, proxyAddress) } + injectedCredentials).associate {
-                CredentialsSession.create(it).run {
-                    projectId to this
-                }
-            },
+            (metadata.map { GoogleCredentials(it, proxyAddress) } + injectedCredentials).associateUniqueSessions(),
             HttpClient {
                 host = FCM_HOST
                 port = FCM_PORT
@@ -531,6 +527,15 @@ public class FcmClient private constructor(
             ignoreUnknownKeys = true
             prettyPrint = false
             useAlternativeNames = false
+        }
+    }
+}
+
+private fun Iterable<ServiceAccountCredentials>.associateUniqueSessions(): Map<String, Session> = buildMap {
+    this@associateUniqueSessions.forEach { credentials ->
+        val session = CredentialsSession.create(credentials)
+        require(putIfAbsent(session.projectId, session) == null) {
+            "Duplicate FCM project ID '${session.projectId}'; configure each project only once"
         }
     }
 }

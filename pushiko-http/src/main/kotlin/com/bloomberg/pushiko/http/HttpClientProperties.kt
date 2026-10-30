@@ -55,9 +55,22 @@ public data class HttpClientProperties internal constructor(
     override val userTimeout: Duration
 ) : IHttpClientProperties {
     init {
-        require(connectTimeout.inWholeSeconds > 0L) { "Connect timeout must be a positive number of seconds" }
-        require(maximumConnectionAge.inWholeSeconds > 0L) {
-            "Maximum connection age must be a positive number of seconds"
+        require(connectionAcquisitionTimeout.isPositive()) {
+            "Connection acquisition timeout must be positive"
+        }
+        require(connectionFuzzInterval.isFinite() &&
+            (connectionFuzzInterval == Duration.ZERO || connectionFuzzInterval.inWholeMilliseconds > 0L)) {
+            "Connection fuzz interval must be non-negative and representable in whole milliseconds"
+        }
+        require(connectTimeout.isPositiveIntMilliseconds()) {
+            "Connect timeout must be within [1, ${Int.MAX_VALUE}] milliseconds"
+        }
+        require(idleConnectionInterval.isFinite() && idleConnectionInterval.inWholeMilliseconds > 0L) {
+            "Idle connection interval must be a positive number of milliseconds"
+        }
+        require(maximumConnectionAge == Duration.INFINITE ||
+            maximumConnectionAge.inWholeMilliseconds in 1L until Long.MAX_VALUE) {
+            "Maximum connection age must be infinite or a positive number of milliseconds"
         }
         require(maximumConnectRetries >= 0) { "Maximum number of connect retries must be non-negative" }
         require(maximumConnections in 1..PoolConfiguration.MAXIMUM_SIZE) {
@@ -80,7 +93,9 @@ public data class HttpClientProperties internal constructor(
         unresolvedProxyAddress?.let {
             require(it.isUnresolved) { "Proxy address must not be resolved" }
         }
-        require(userTimeout.inWholeSeconds > 0L) { "User timeout must be a positive number of seconds" }
+        require(userTimeout.isPositiveIntMilliseconds()) {
+            "User timeout must be within [1, ${Int.MAX_VALUE}] milliseconds"
+        }
     }
 
     public companion object {
@@ -130,6 +145,9 @@ public data class HttpClientProperties internal constructor(
         )
     }
 }
+
+private fun Duration.isPositiveIntMilliseconds(): Boolean =
+    isFinite() && inWholeMilliseconds in 1L..Int.MAX_VALUE.toLong()
 
 @Suppress("Detekt.ComplexInterface") // FIXME
 public interface IHttpClientProperties {

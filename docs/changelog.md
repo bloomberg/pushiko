@@ -1,3 +1,15 @@
+## Version 2.3.1
+
+* Validate FCM project IDs.
+* Fix HTTP/2 concurrent request watermark.
+* Stop FCM refresh after permanent failures.
+* Validate APNs certificate validity.
+* Require one APNs PKCS#12 identity.
+* Reject duplicate FCM project credentials.
+* Bound FCM credential metadata reads.
+* Reset cancelled HTTP/2 streams.
+* Netty 4.2.20.Final.
+
 ## Version 2.3.0
 
 * Netty 4.2.19.Final.

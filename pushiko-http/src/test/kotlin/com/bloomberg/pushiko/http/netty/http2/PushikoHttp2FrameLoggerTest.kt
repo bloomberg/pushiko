@@ -17,6 +17,7 @@
 package com.bloomberg.pushiko.http.netty.http2
 
 import io.netty.handler.codec.http2.Http2FrameLogger.Direction.INBOUND
+import io.netty.handler.codec.http2.Http2FrameLogger.Direction.OUTBOUND
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
@@ -30,10 +31,15 @@ import kotlin.test.assertFalse
 
 internal class PushikoHttp2FrameLoggerTest {
     @Test
-    fun logSettings() {
+    fun logSettingsOncePerDirectionAtDebug() {
         val logger = mock<Logger>()
-        PushikoHttp2FrameLogger(logger, Level.INFO).logSettings(INBOUND, mock(), mock())
-        verify(logger, times(1)).info(any<String>(), isNull(), eq("INBOUND"), any())
+        val frameLogger = PushikoHttp2FrameLogger(logger, Level.DEBUG)
+        frameLogger.logSettings(INBOUND, mock(), mock())
+        frameLogger.logSettings(INBOUND, mock(), mock())
+        frameLogger.logSettings(OUTBOUND, mock(), mock())
+        frameLogger.logSettings(OUTBOUND, mock(), mock())
+        verify(logger, times(1)).debug(any<String>(), isNull(), eq("INBOUND"), any())
+        verify(logger, times(1)).debug(any<String>(), isNull(), eq("OUTBOUND"), any())
     }
 
     @Test

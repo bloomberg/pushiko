@@ -447,6 +447,75 @@ internal class ConnectionHandlerTest {
     }
 
     @Test
+    fun repeatedResponseTrailerKeysArePreservedWhenCompletingResponse() {
+        val responseHeadersKey = mock<Http2Connection.PropertyKey>()
+        val responseBodyKey = mock<Http2Connection.PropertyKey>()
+        val requestContinuationKey = mock<Http2Connection.PropertyKey>()
+        val testConnection = mock<Http2Connection>().apply {
+            whenever(newKey()).thenReturn(responseHeadersKey, responseBodyKey, requestContinuationKey)
+        }
+        val testEncoder = mock<Http2ConnectionEncoder>().apply {
+            whenever(connection()) doReturn testConnection
+        }
+        val handler = ConnectionHandler(
+            mock<Http2ConnectionDecoder>().apply {
+                whenever(connection()) doReturn testConnection
+            },
+            testEncoder,
+            mock()
+        )
+        val properties = mutableMapOf<Http2Connection.PropertyKey, Any?>()
+        val stream = mock<Http2Stream>().apply {
+            whenever(setProperty<Any>(any(), any())).doAnswer {
+                properties.put(it.getArgument(0), it.getArgument(1))
+            }
+            whenever(getProperty<Any>(any())).doAnswer {
+                properties[it.getArgument(0)]
+            }
+            whenever(removeProperty<Any>(any())).doAnswer {
+                properties.remove(it.getArgument(0))
+            }
+        }
+        whenever(testConnection.stream(3)) doReturn stream
+        var responseResult: Result<HttpResponse>? = null
+        properties[requestContinuationKey] = HttpRequestContinuation(
+            HttpRequest { },
+            channel,
+            object : Continuation<HttpResponse> {
+                override val context = EmptyCoroutineContext
+
+                override fun resumeWith(result: Result<HttpResponse>) {
+                    responseResult = result
+                }
+            }
+        )
+        val body = Unpooled.wrappedBuffer("response body".toByteArray())
+        properties[responseBodyKey] = body
+        val headers = DefaultHttp2Headers().status("200")
+
+        try {
+            handler.onHeadersRead(context, 3, headers, 0, false)
+            handler.onHeadersRead(
+                context,
+                3,
+                DefaultHttp2Headers()
+                    .add("warning", "first")
+                    .add("warning", "second"),
+                0,
+                true
+            )
+
+            responseResult!!.getOrThrow().use { response ->
+                assertEquals(200, response.code)
+                assertEquals(listOf("first", "second"), headers.getAll("warning"))
+                assertEquals("response body", response.body!!.bufferedReader().readText())
+            }
+        } finally {
+            body.release()
+        }
+    }
+
+    @Test
     fun responseBodyBufferCopiesTinyFramesWithoutComponents() {
         val body = newResponseBodyBuffer()
         val oneByteFrame = Unpooled.wrappedBuffer(byteArrayOf(7))

@@ -77,9 +77,6 @@ public data class HttpClientProperties internal constructor(
         require(fullScanPoolSize in 1..maximumSampledScan) {
             "Full scan pool size must be within [1, maximumSampledScan]"
         }
-        unresolvedProxyAddress?.let {
-            require(it.isUnresolved) { "Proxy address must not be resolved" }
-        }
         require(userTimeout.inWholeSeconds > 0L) { "User timeout must be a positive number of seconds" }
     }
 

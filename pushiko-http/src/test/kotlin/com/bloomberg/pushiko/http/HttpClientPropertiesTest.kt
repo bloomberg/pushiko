@@ -19,6 +19,7 @@ package com.bloomberg.pushiko.http
 import com.bloomberg.pushiko.http.HttpClientProperties.Companion.OptionalHttpProperties
 import com.bloomberg.pushiko.pools.PoolConfiguration
 import org.junit.jupiter.api.Test
+import java.net.InetSocketAddress
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
@@ -60,5 +61,12 @@ internal class HttpClientPropertiesTest {
         assertFailsWith<IllegalArgumentException> {
             OptionalHttpProperties().copy(maximumRequestRetries = -1)
         }
+    }
+
+    @Test
+    fun acceptsResolvedProxyAddress() {
+        val proxyAddress = InetSocketAddress("127.0.0.1", 8888)
+
+        assertEquals(proxyAddress, OptionalHttpProperties(unresolvedProxyAddress = proxyAddress).unresolvedProxyAddress)
     }
 }

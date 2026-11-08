@@ -55,12 +55,58 @@ dependencies {
     implementation(libs.okio)
     implementation(libs.slf4j.api)
     implementation(libs.google.auth)
+    testImplementation(libs.jazzer.junit)
     testImplementation(libs.gson)
     testImplementation(libs.kotlin.reflect)
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
+}
+
+val jvmFuzzProfile = providers.gradleProperty("pushiko.fuzz.profile").getOrElse("smoke")
+val jvmFuzzDuration = when (jvmFuzzProfile) {
+    "smoke" -> "5s"
+    "release" -> "1m"
+    "scheduled" -> "5m"
+    else -> error("Unsupported JVM fuzzing profile: $jvmFuzzProfile")
+}
+
+tasks.register<Test>("jvmFuzzFcmInputs") {
+    description = "Runs the FCM input Jazzer campaign."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    environment("JAZZER_FUZZ", "1")
+    filter {
+        includeTestsMatching("com.bloomberg.pushiko.fcm.oauth.FcmInputFuzzTest.fuzzProjectIdAndRequest")
+    }
+    systemProperty("jazzer.instrument", "com.bloomberg.pushiko.fcm.**")
+    systemProperty("jazzer.max_duration", jvmFuzzDuration)
+    systemProperty("jazzer.reproducer_path", layout.buildDirectory.get().asFile.absolutePath)
+    systemProperty("junit.jupiter.execution.parallel.enabled", false)
+    systemProperty("junit.jupiter.execution.timeout.mode", "disabled")
+    maxHeapSize = "1g"
+    outputs.upToDateWhen { false }
+    workingDir(layout.buildDirectory.get().asFile)
+}
+
+tasks.named<Test>("test") {
+    filter {
+        excludeTestsMatching("*FuzzTest*")
+    }
+}
+
+tasks.register("jvmFuzz") {
+    description = "Runs FCM JVM fuzzing."
+    group = "verification"
+    dependsOn("jvmFuzzFcmInputs")
+}
+
+kover {
+    excludeTests {
+        tasks("jvmFuzzFcmInputs")
+    }
 }
 
 testing {

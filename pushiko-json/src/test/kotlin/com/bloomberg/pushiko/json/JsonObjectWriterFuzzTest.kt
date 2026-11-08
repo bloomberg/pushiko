@@ -16,8 +16,12 @@
 
 package com.bloomberg.pushiko.json
 
+import com.code_intelligence.jazzer.api.FuzzedDataProvider
 import com.code_intelligence.jazzer.junit.FuzzTest
+import com.google.gson.JsonNull
+import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.google.gson.JsonPrimitive
 import java.util.stream.Stream
 import kotlin.test.assertEquals
 import okio.Buffer
@@ -45,8 +49,68 @@ internal class JsonObjectWriterFuzzTest {
         assertEquals(value, parsed.get(key).asString)
     }
 
+    @FuzzTest
+    fun fuzzOperationSequence(data: FuzzedDataProvider) {
+        val expected = JsonObject()
+        val json = Buffer().use { buffer ->
+            JsonObjectWriter(buffer).use {
+                repeat(data.consumeInt(0, MAX_OPERATIONS)) {
+                    val key = data.consumeString(MAX_STRING_LENGTH)
+                    when (data.consumeInt(0, OPERATION_KINDS - 1)) {
+                        0 -> data.consumeBoolean().also { value ->
+                            booleanValue(key, value)
+                            expected.add(key, JsonPrimitive(value))
+                        }
+                        1 -> data.consumeInt().also { value ->
+                            intValue(key, value)
+                            expected.add(key, JsonPrimitive(value))
+                        }
+                        2 -> data.consumeLong().also { value ->
+                            longValue(key, value)
+                            expected.add(key, JsonPrimitive(value))
+                        }
+                        3 -> data.consumeLong().toDouble().also { value ->
+                            doubleValue(key, value)
+                            expected.add(key, JsonPrimitive(value))
+                        }
+                        4 -> data.consumeString(MAX_STRING_LENGTH).also { value ->
+                            stringValue(key, value)
+                            expected.add(key, JsonPrimitive(value))
+                        }
+                        5 -> {
+                            serializeNulls = data.consumeBoolean()
+                            nullValue(key)
+                            if (serializeNulls) {
+                                expected.add(key, JsonNull.INSTANCE)
+                            }
+                        }
+                        6 -> data.consumeInt().toShort().also { value ->
+                            numericalValue(key, value)
+                            expected.add(key, JsonPrimitive(value))
+                        }
+                        else -> data.consumeString(MAX_STRING_LENGTH).also { value ->
+                            objectValue(key) {
+                                stringValue(NESTED_KEY, value)
+                            }
+                            expected.add(key, JsonObject().apply {
+                                add(NESTED_KEY, JsonPrimitive(value))
+                            })
+                        }
+                    }
+                }
+            }
+            buffer.readUtf8()
+        }
+
+        assertEquals(expected, JsonParser.parseString(json).asJsonObject)
+    }
+
     companion object {
         private const val MAX_INPUT_SIZE = 4_096
+        private const val MAX_OPERATIONS = 32
+        private const val MAX_STRING_LENGTH = 128
+        private const val OPERATION_KINDS = 8
+        private const val NESTED_KEY = "value"
 
         @JvmStatic
         fun inputs(): Stream<ByteArray> = Stream.of(

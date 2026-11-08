@@ -53,6 +53,28 @@ jobs:
           restore-keys: |
             jvm-fuzz-gradle-
 
+      - name: 'Restore learned fuzzing corpus'
+        uses: actions/cache@55cc8345863c7cc4e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: |
+            pushiko-apns/build/.cifuzz-corpus
+            pushiko-fcm/build/.cifuzz-corpus
+            pushiko-http/build/.cifuzz-corpus
+            pushiko-json/build/.cifuzz-corpus
+          key: >-
+            jvm-fuzz-corpus-${{ runner.os }}-${{ hashFiles(
+              'pushiko-apns/src/test/**/*FuzzTest*',
+              'pushiko-apns/build.gradle.kts',
+              'pushiko-fcm/src/test/**/*FuzzTest*',
+              'pushiko-fcm/build.gradle.kts',
+              'pushiko-http/src/test/**/*FuzzTest*',
+              'pushiko-http/build.gradle.kts',
+              'pushiko-json/src/test/**/*FuzzTest*',
+              'pushiko-json/build.gradle.kts'
+            ) }}
+          restore-keys: |
+            jvm-fuzz-corpus-${{ runner.os }}-
+
       - name: 'Run JVM fuzzing campaign'
         run: >-
           ./gradlew jvmFuzz
@@ -65,6 +87,14 @@ jobs:
         with:
           name: jvm-fuzz-failures
           path: |
+            pushiko-apns/build/crash-*
+            pushiko-apns/build/Crash_*
+            pushiko-apns/build/test-results/jvmFuzz*
+            pushiko-apns/build/reports/tests/jvmFuzz*
+            pushiko-fcm/build/crash-*
+            pushiko-fcm/build/Crash_*
+            pushiko-fcm/build/test-results/jvmFuzz*
+            pushiko-fcm/build/reports/tests/jvmFuzz*
             pushiko-http/build/crash-*
             pushiko-http/build/Crash_*
             pushiko-http/build/test-results/jvmFuzz*

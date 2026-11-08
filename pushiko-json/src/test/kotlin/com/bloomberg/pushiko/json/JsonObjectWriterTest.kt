@@ -140,6 +140,59 @@ internal class JsonObjectWriterTest {
     }
 
     @Test
+    fun literalValueRejectsInvalidStringBeforeWritingName() {
+        Buffer().use {
+            JsonObjectWriter(it).use {
+                listOf(
+                    "",
+                    "def",
+                    "{\"unterminated\"",
+                    "null,\"admin\":true",
+                    "true false"
+                ).forEach { value ->
+                    assertThrows<IllegalArgumentException> {
+                        literalValue("untrusted", value)
+                    }
+                }
+                intValue("safe", 1)
+            }
+            assertEquals("{\"safe\":1}", it.readUtf8())
+        }
+    }
+
+    @Test
+    fun literalValueRejectsInvalidBytesBeforeWritingName() {
+        Buffer().use {
+            JsonObjectWriter(it).use {
+                listOf(
+                    "null,\"admin\":true".encodeToByteArray(),
+                    byteArrayOf('"'.code.toByte(), 0xC3.toByte(), '('.code.toByte(), '"'.code.toByte())
+                ).forEach { value ->
+                    assertThrows<IllegalArgumentException> {
+                        literalValue("untrusted", value)
+                    }
+                }
+                intValue("safe", 1)
+            }
+            assertEquals("{\"safe\":1}", it.readUtf8())
+        }
+    }
+
+    @Test
+    fun literalValueAcceptsWhitespaceAroundOneValue() {
+        Buffer().use {
+            JsonObjectWriter(it).use {
+                literalValue("key", " \n [1, true, null] \t")
+                booleanValue("next", true)
+            }
+            JsonParser.parseString(it.readUtf8()).asJsonObject
+        }.run {
+            assertEquals(3, get("key").asJsonArray.size())
+            assertTrue(get("next").asBoolean)
+        }
+    }
+
+    @Test
     fun usePropagatesException() {
         Buffer().use {
             assertThrows<IllegalStateException> {

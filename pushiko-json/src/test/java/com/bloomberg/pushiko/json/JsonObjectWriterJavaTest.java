@@ -40,7 +40,7 @@ final class JsonObjectWriterJavaTest {
                     .longValue("long", 43)
                     .doubleValue("double", 44.0)
                     .stringValue("string", "abc")
-                    .literalValue("literalString", "def")
+                    .literalValue("literalString", "\"def\"")
                     .literalValue("literalBytes", new byte[]{ '0' })
                     .objectValue("obj", w ->
                         w.stringValue("foo", "bar")

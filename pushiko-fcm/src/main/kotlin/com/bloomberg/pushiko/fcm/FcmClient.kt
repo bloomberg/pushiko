@@ -43,11 +43,17 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.future.future
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
@@ -134,7 +140,25 @@ public class FcmClient private constructor(
     public val metricsComponent: MetricsComponent = MetricsComponent()
 
     private val logger = Logger()
-    private val javaScope = CoroutineScope(SupervisorJob() + (javaDispatcher ?: CommonPoolDispatcher))
+    private val lifecycleJob = SupervisorJob()
+    private val operationJob = SupervisorJob(lifecycleJob)
+    private val javaScope = CoroutineScope(operationJob + (javaDispatcher ?: CommonPoolDispatcher))
+    private val closeJob = CoroutineScope(javaScope.coroutineContext + lifecycleJob).async(start = CoroutineStart.LAZY) {
+        try {
+            operationJob.cancelAndJoin()
+            httpClient.close()
+        } finally {
+            try {
+                sessions.entries.forEach {
+                    it.value.runCatching(Session::close).onFailure { e ->
+                        logger.warn("Error closing session {}", it.key, e)
+                    }
+                }
+            } finally {
+                lifecycleJob.complete()
+            }
+        }
+    }
 
     /**
      * Suspends the current coroutine until this [FcmClient] has completed startup preparation.
@@ -152,7 +176,7 @@ public class FcmClient private constructor(
      * @since 0.19.0
      */
     @JvmSynthetic
-    public suspend fun joinStart(): Unit = coroutineScope {
+    public suspend fun joinStart(): Unit = withOperationContext {
         launch {
             httpClient.prepare()
         }
@@ -202,14 +226,16 @@ public class FcmClient private constructor(
     public suspend fun send(
         projectId: String,
         request: FcmRequest
-    ): FcmResponse = runCatching {
-        val session = requireNotNull(sessions[projectId]) { "Unrecognised project: '$projectId'" }
-        doSend(session, request, MAX_RETRIES_DEFAULT, INITIAL_BACKOFF_MILLIS)
-    }.getOrElse {
-        throw if (it is HttpClientClosedException) {
-            ClientClosedException
-        } else {
-            it
+    ): FcmResponse = withOperationContext {
+        runCatching {
+            val session = requireNotNull(sessions[projectId]) { "Unrecognised project: '$projectId'" }
+            doSend(session, request, MAX_RETRIES_DEFAULT, INITIAL_BACKOFF_MILLIS)
+        }.getOrElse {
+            throw if (it is HttpClientClosedException) {
+                ClientClosedException
+            } else {
+                it
+            }
         }
     }
 
@@ -237,7 +263,9 @@ public class FcmClient private constructor(
     }
 
     /**
-     * Gracefully closes this client. Once closed, this client can no longer be used to send notification requests.
+     * Cancels and waits for startup and send operations, then closes HTTP resources and credential sessions.
+     * Once closing begins, this client can no longer be used to send notification requests.
+     * Cancelling this call only stops the caller waiting; shutdown continues. Repeated calls await the same result.
      *
      * @throws CancellationException if the job of the coroutine context is cancelled or completed.
      *
@@ -245,26 +273,57 @@ public class FcmClient private constructor(
      */
     @JvmSynthetic
     public suspend fun close() {
-        try {
-            httpClient.close()
-        } finally {
-            sessions.entries.forEach {
-                it.value.runCatching(Session::close).onFailure { e ->
-                    logger.warn("Error closing session {}", it.key, e)
-                }
-            }
-        }
+        startClose()
+        closeJob.await()
     }
 
     /**
      * @see [close]
      *
+     * Cancelling the returned future only stops waiting; shutdown continues.
+     *
      * @since 0.22.0
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    public fun closeFuture(): CompletableFuture<Unit> = javaScope.future(start = CoroutineStart.UNDISPATCHED) {
-        close()
+    public fun closeFuture(): CompletableFuture<Unit> {
+        startClose()
+        return CompletableFuture<Unit>().also { future ->
+            closeJob.invokeOnCompletion { failure ->
+                if (failure == null) {
+                    future.complete(Unit)
+                } else {
+                    future.completeExceptionally(failure)
+                }
+            }
+        }
+    }
+
+    private fun startClose() {
+        operationJob.cancel()
+        closeJob.start()
+    }
+
+    private suspend fun <T> withOperationContext(block: suspend CoroutineScope.() -> T): T {
+        val callerContext = currentCoroutineContext()
+        callerContext.ensureActive()
+        if (!operationJob.isActive) {
+            throw ClientClosedException
+        }
+        // Retain the caller's dispatcher and context while giving the client ownership of the operation.
+        val operation = javaScope.async(callerContext.minusKey(Job), start = CoroutineStart.UNDISPATCHED) {
+            currentCoroutineContext().ensureActive()
+            block()
+        }
+        return try {
+            operation.await()
+        } catch (cause: CancellationException) {
+            operation.cancel(cause)
+            withContext(NonCancellable) {
+                operation.join()
+            }
+            throw cause
+        }
     }
 
     private suspend fun doSend(

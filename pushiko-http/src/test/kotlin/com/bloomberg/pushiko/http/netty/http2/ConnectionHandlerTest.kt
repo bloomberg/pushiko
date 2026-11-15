@@ -75,7 +75,6 @@ import org.slf4j.Logger
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
-import kotlin.coroutines.Continuation
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.Test
@@ -159,13 +158,14 @@ internal class ConnectionHandlerTest {
             whenever(id()) doReturn 3
         }
         var failure: Throwable? = null
-        val continuation = HttpRequestContinuation(HttpRequest { }, channel, object : Continuation<HttpResponse> {
+        val responseContinuation = object : CancellableContinuation<HttpResponse> by mock() {
             override val context = EmptyCoroutineContext
 
             override fun resumeWith(result: Result<HttpResponse>) {
                 failure = result.exceptionOrNull()
             }
-        })
+        }
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, responseContinuation)
         whenever(stream.removeProperty<HttpRequestContinuation>(anyOrNull())) doReturn continuation
         val handler = ConnectionHandler()
 
@@ -187,13 +187,14 @@ internal class ConnectionHandlerTest {
             whenever(id()) doReturn 3
         }
         var failure: Throwable? = null
-        val continuation = HttpRequestContinuation(HttpRequest { }, channel, object : Continuation<HttpResponse> {
+        val responseContinuation = object : CancellableContinuation<HttpResponse> by mock() {
             override val context = EmptyCoroutineContext
 
             override fun resumeWith(result: Result<HttpResponse>) {
                 failure = result.exceptionOrNull()
             }
-        }).apply {
+        }
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, responseContinuation).apply {
             streamId = 3
         }
         whenever(stream.removeProperty<HttpRequestContinuation>(anyOrNull())) doReturn continuation
@@ -220,13 +221,14 @@ internal class ConnectionHandlerTest {
         whenever(channel.isActive) doReturn true
         whenever(channel.attr(channelContinuationAttributeKey)) doReturn mock()
         var failure: Throwable? = null
-        val continuation = HttpRequestContinuation(HttpRequest { }, channel, object : Continuation<HttpResponse> {
+        val responseContinuation = object : CancellableContinuation<HttpResponse> by mock() {
             override val context = EmptyCoroutineContext
 
             override fun resumeWith(result: Result<HttpResponse>) {
                 failure = result.exceptionOrNull()
             }
-        })
+        }
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, responseContinuation)
         val handler = ConnectionHandler()
         handler.write(context, continuation, mock())
 
@@ -601,13 +603,14 @@ internal class ConnectionHandlerTest {
             whenever(flowController()) doReturn flowController
         }
         var failure: Throwable? = null
-        val continuation = HttpRequestContinuation(HttpRequest { }, channel, object : Continuation<HttpResponse> {
+        val responseContinuation = object : CancellableContinuation<HttpResponse> by mock() {
             override val context = EmptyCoroutineContext
 
             override fun resumeWith(result: Result<HttpResponse>) {
                 failure = result.exceptionOrNull()
             }
-        })
+        }
+        val continuation = HttpRequestContinuation(HttpRequest { }, channel, responseContinuation)
         ConnectionHandler(monitorConnectionHealth = true, encoder = encoder).write(context, continuation, mock())
         timeoutTask.run()
         assertIs<SocketTimeoutException>(failure)

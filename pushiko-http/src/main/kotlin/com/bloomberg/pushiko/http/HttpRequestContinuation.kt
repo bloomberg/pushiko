@@ -17,12 +17,15 @@
 package com.bloomberg.pushiko.http
 
 import io.netty.channel.Channel
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlin.coroutines.Continuation
+import kotlin.coroutines.resumeWithException
 
 internal class HttpRequestContinuation(
     val request: HttpRequest,
     val channel: Channel,
-    private val continuation: Continuation<HttpResponse>
+    private val continuation: CancellableContinuation<HttpResponse>
 ) : Continuation<HttpResponse> by continuation {
     @Volatile
     private var cancelled = false
@@ -34,5 +37,15 @@ internal class HttpRequestContinuation(
 
     internal fun cancel() {
         cancelled = true
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun resumeWith(result: Result<HttpResponse>) {
+        result.fold(
+            onSuccess = { response ->
+                continuation.resume(response) { response.close() }
+            },
+            onFailure = { continuation.resumeWithException(it) }
+        )
     }
 }

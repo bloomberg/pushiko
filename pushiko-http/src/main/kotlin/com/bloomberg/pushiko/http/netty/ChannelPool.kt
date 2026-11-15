@@ -159,6 +159,7 @@ internal class ChannelPool(
                 testChannelAcquisition(timeout)
                 healthy
             }.getOrElse {
+                currentCoroutineContext().ensureActive()
                 Health(Status.DOWN, it)
             }
         }

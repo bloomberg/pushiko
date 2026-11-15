@@ -48,9 +48,16 @@ import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.future.future
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
@@ -164,7 +171,17 @@ public class ApnsClient private constructor(
     private val providerToken: ApnsProviderToken? = null
 ) {
     private val logger = Logger()
-    private val javaScope = CoroutineScope(SupervisorJob() + (javaDispatcher ?: CommonPoolDispatcher))
+    private val lifecycleJob = SupervisorJob()
+    private val operationJob = SupervisorJob(lifecycleJob)
+    private val javaScope = CoroutineScope(operationJob + (javaDispatcher ?: CommonPoolDispatcher))
+    private val closeJob = CoroutineScope(javaScope.coroutineContext + lifecycleJob).async(start = CoroutineStart.LAZY) {
+        try {
+            operationJob.cancelAndJoin()
+            httpClient.close()
+        } finally {
+            lifecycleJob.complete()
+        }
+    }
 
     /**
      * @since 0.24.0
@@ -184,7 +201,7 @@ public class ApnsClient private constructor(
      * @since 0.19.0
      */
     @JvmSynthetic
-    public suspend fun joinStart() {
+    public suspend fun joinStart(): Unit = withOperationContext {
         providerToken?.currentAuthorization()
         httpClient.prepare()
     }
@@ -225,28 +242,30 @@ public class ApnsClient private constructor(
     @JvmSynthetic
     public suspend fun send(
         request: ApnsRequest
-    ): ApnsResponse = runCatching {
-        val authorization = providerToken?.currentAuthorization()
-        doSend(HttpRequest {
-            method(POST)
-            path(request.deviceToken.deviceTokenPath())
-            authorization?.let { header(AUTHORIZATION_HEADER, it) }
-            request.headers.run {
-                collapseId?.let { header(APNS_COLLAPSE_ID_HEADER, it) }
-                expiration?.let { header(APNS_EXPIRATION_HEADER, it.epochSecond) }
-                id?.let { header(APNS_ID_HEADER, it.toString()) }
-                priority?.let { header(APNS_PRIORITY_HEADER, it.code) }
-                pushType?.let { header(APNS_PUSH_TYPE_HEADER, it.value) }
-                header(APNS_TOPIC_HEADER, topic)
+    ): ApnsResponse = withOperationContext {
+        runCatching {
+            val authorization = providerToken?.currentAuthorization()
+            doSend(HttpRequest {
+                method(POST)
+                path(request.deviceToken.deviceTokenPath())
+                authorization?.let { header(AUTHORIZATION_HEADER, it) }
+                request.headers.run {
+                    collapseId?.let { header(APNS_COLLAPSE_ID_HEADER, it) }
+                    expiration?.let { header(APNS_EXPIRATION_HEADER, it.epochSecond) }
+                    id?.let { header(APNS_ID_HEADER, it.toString()) }
+                    priority?.let { header(APNS_PRIORITY_HEADER, it.code) }
+                    pushType?.let { header(APNS_PUSH_TYPE_HEADER, it.value) }
+                    header(APNS_TOPIC_HEADER, topic)
+                }
+                wantsResponseBody = false
+                body(request.payload)
+            }, authorization)
+        }.getOrElse {
+            throw if (it is HttpClientClosedException) {
+                ClientClosedException
+            } else {
+                it
             }
-            wantsResponseBody = false
-            body(request.payload)
-        }, authorization)
-    }.getOrElse {
-        throw if (it is HttpClientClosedException) {
-            ClientClosedException
-        } else {
-            it
         }
     }
 
@@ -271,7 +290,9 @@ public class ApnsClient private constructor(
     }
 
     /**
-     * Gracefully closes this client. Once closed, this client can no longer be used to send notification requests.
+     * Cancels and waits for startup and send operations, then closes HTTP resources.
+     * Once closing begins, this client can no longer be used to send notification requests.
+     * Cancelling this call only stops the caller waiting; shutdown continues. Repeated calls await the same result.
      *
      * @throws CancellationException if the job of the coroutine context is cancelled or completed.
      *
@@ -279,18 +300,57 @@ public class ApnsClient private constructor(
      */
     @JvmSynthetic
     public suspend fun close() {
-        httpClient.close()
+        startClose()
+        closeJob.await()
     }
 
     /**
      * @see [close]
      *
+     * Cancelling the returned future only stops waiting; shutdown continues.
+     *
      * @since 0.22.0
      */
     @Suppress("NEWER_VERSION_IN_SINCE_KOTLIN")
     @SinceKotlin(UNREACHABLE_KOTLIN_VERSION)
-    public fun closeFuture(): CompletableFuture<Unit> = javaScope.future(start = CoroutineStart.UNDISPATCHED) {
-        close()
+    public fun closeFuture(): CompletableFuture<Unit> {
+        startClose()
+        return CompletableFuture<Unit>().also { future ->
+            closeJob.invokeOnCompletion { failure ->
+                if (failure == null) {
+                    future.complete(Unit)
+                } else {
+                    future.completeExceptionally(failure)
+                }
+            }
+        }
+    }
+
+    private fun startClose() {
+        operationJob.cancel()
+        closeJob.start()
+    }
+
+    private suspend fun <T> withOperationContext(block: suspend CoroutineScope.() -> T): T {
+        val callerContext = currentCoroutineContext()
+        callerContext.ensureActive()
+        if (!operationJob.isActive) {
+            throw ClientClosedException
+        }
+        // Retain the caller's dispatcher and context while giving the client ownership of the operation.
+        val operation = javaScope.async(callerContext.minusKey(Job), start = CoroutineStart.UNDISPATCHED) {
+            currentCoroutineContext().ensureActive()
+            block()
+        }
+        return try {
+            operation.await()
+        } catch (cause: CancellationException) {
+            operation.cancel(cause)
+            withContext(NonCancellable) {
+                operation.join()
+            }
+            throw cause
+        }
     }
 
     private suspend inline fun doSend(

@@ -44,6 +44,7 @@ import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyBlocking
 import org.mockito.kotlin.whenever
 import org.mockito.stubbing.Answer
@@ -122,11 +123,7 @@ internal class FcmClientTest {
             mapOf(PROJECT_ID to session), httpClient, null, MAXIMUM_RETRY_DELAY_MILLIS).apply {
             close()
         }
-        verifyBlocking(session, times(1)) {
-            withContext(Dispatchers.IO) {
-                close()
-            }
-        }
+        verify(session, times(1)).close()
         assertFails {
             client.send(PROJECT_ID, FcmRequest {
                 message {

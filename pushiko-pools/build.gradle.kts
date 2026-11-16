@@ -41,7 +41,7 @@ dependencies {
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.lincheck)
+    testImplementation(libs.logback.classic)
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
-    testRuntimeOnly(libs.logback.classic)
 }

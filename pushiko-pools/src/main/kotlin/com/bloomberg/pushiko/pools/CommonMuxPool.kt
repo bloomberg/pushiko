@@ -646,9 +646,7 @@ public class CommonMuxPool<R : Any, P : Poolable<R>>(
     private fun launchCreateExtra() {
         // Start without dispatching so that the pending counts remain coherent.
         launchInWorkScope(start = CoroutineStart.UNDISPATCHED) {
-            runCatching {
-                createPoolable()
-            }.onFailure {
+            tryCreatePoolable().onFailure {
                 logger.warn("Failed to create extra", it)
             }
             scheduleReaperJob()

@@ -449,6 +449,60 @@ internal class ConnectionHandlerTest {
     }
 
     @Test
+    fun repeatedResponseTrailerKeysArePreservedWhenCompletingResponseAfterDataFrame() = runTest {
+        val responseHeadersKey = mock<Http2Connection.PropertyKey>()
+        val responseBodyKey = mock<Http2Connection.PropertyKey>()
+        val requestContinuationKey = mock<Http2Connection.PropertyKey>()
+        whenever(connection.newKey()).thenReturn(responseHeadersKey, responseBodyKey, requestContinuationKey)
+        val handler = ConnectionHandler()
+        val properties = mutableMapOf<Http2Connection.PropertyKey, Any?>()
+        val stream = mock<Http2Stream>().apply {
+            whenever(setProperty<Any>(any(), any())).doAnswer {
+                properties.put(it.getArgument(0), it.getArgument(1))
+            }
+            whenever(getProperty<Any>(any())).doAnswer {
+                properties[it.getArgument(0)]
+            }
+            whenever(removeProperty<Any>(any())).doAnswer {
+                properties.remove(it.getArgument(0))
+            }
+        }
+        whenever(connection.stream(3)) doReturn stream
+        val responseResult = async(start = CoroutineStart.UNDISPATCHED) {
+            suspendCancellableCoroutine<HttpResponse> {
+                properties[requestContinuationKey] = HttpRequestContinuation(HttpRequest { }, channel, it)
+            }
+        }
+        val data = Unpooled.wrappedBuffer("response body".toByteArray())
+        val headers = DefaultHttp2Headers().status("200")
+
+        try {
+            handler.onHeadersRead(context, 3, headers, 0, false)
+            assertFalse(responseResult.isCompleted)
+            assertEquals(data.readableBytes(), handler.onDataRead(context, 3, data, 0, false))
+            assertFalse(responseResult.isCompleted)
+            handler.onHeadersRead(
+                context,
+                3,
+                DefaultHttp2Headers()
+                    .add("warning", "first")
+                    .add("warning", "second"),
+                0,
+                true
+            )
+
+            responseResult.await().use { response ->
+                assertEquals(200, response.code)
+                assertEquals(listOf("first", "second"), headers.getAll("warning"))
+                assertEquals("response body", response.body!!.bufferedReader().readText())
+            }
+        } finally {
+            data.release()
+            handler.onStreamRemoved(stream)
+        }
+    }
+
+    @Test
     fun responseBodyBufferCopiesTinyFramesWithoutComponents() {
         val body = newResponseBodyBuffer()
         val oneByteFrame = Unpooled.wrappedBuffer(byteArrayOf(7))

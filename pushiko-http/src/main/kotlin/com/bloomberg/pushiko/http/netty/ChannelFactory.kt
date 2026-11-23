@@ -211,11 +211,22 @@ internal class ChannelFactory(
     }
 
     private fun nextRetryDelayMillis() = configuration.let {
+        val fuzzIntervalMillis = it.connectionRetryFuzzInterval.inWholeMilliseconds
+        val fuzzMillis = if (fuzzIntervalMillis == 0L) {
+            0L
+        } else {
+            ThreadLocalRandom.current().nextLong(fuzzIntervalMillis)
+        }
         minOf(
-            currentMinimumDelayMillis.value + ThreadLocalRandom.current().nextLong(
-                it.connectionRetryFuzzInterval.inWholeMilliseconds),
+            currentMinimumDelayMillis.value.saturatedAdd(fuzzMillis),
             it.maximumConnectRetryDelay.inWholeMilliseconds
         )
+    }
+
+    private fun Long.saturatedAdd(other: Long): Long = if (Long.MAX_VALUE - this < other) {
+        Long.MAX_VALUE
+    } else {
+        this + other
     }
 
     private fun Long.doubleClamped() = min(

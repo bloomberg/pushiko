@@ -55,8 +55,10 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.future.future
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
+import java.io.BufferedReader
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.HttpURLConnection.HTTP_BAD_REQUEST
@@ -79,7 +81,6 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toKotlinDuration
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import java.io.BufferedReader
 
 private const val FCM_HOST = "fcm.googleapis.com"
 private const val FCM_PORT = 443
@@ -96,6 +97,7 @@ private const val POST = "POST"
 private const val AUTHORIZATION_HEADER = "authorization"
 private const val CONTENT_TYPE_HEADER = "content-type"
 private const val JSON_UTF8_CONTENT_TYPE = "application/json; charset=UTF-8"
+private const val MAXIMUM_ERROR_BODY_BYTES = 256 * 1_024
 
 @OptIn(ExperimentalContracts::class)
 @FcmMarker
@@ -429,12 +431,31 @@ public class FcmClient private constructor(
         ).apply {
             code = this@process.code
         }
-        in HTTP_BAD_REQUEST until HTTP_INTERNAL_ERROR -> json.decodeFromStream(FcmClientErrorResponse.serializer(),
-            body!!)
+        in HTTP_BAD_REQUEST until HTTP_INTERNAL_ERROR -> processClientError(request)
         else -> FcmServerErrorResponse(
             request,
             code,
             body?.bufferedReader(Charsets.UTF_8)?.use(BufferedReader::readText),
+            retryAfterMillis()
+        )
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    private fun HttpResponse.processClientError(request: FcmRequest): FcmResponse {
+        val responseBody = body?.use { it.readNBytes(MAXIMUM_ERROR_BODY_BYTES + 1) }
+        if (responseBody != null && responseBody.size <= MAXIMUM_ERROR_BODY_BYTES) {
+            try {
+                return json.decodeFromStream(FcmClientErrorResponse.serializer(), responseBody.inputStream())
+            } catch (_: SerializationException) {
+                // Proxies and gateways do not necessarily return the documented FCM error schema.
+            }
+        }
+        return FcmUnstructuredClientErrorResponse(
+            request,
+            code,
+            responseBody?.let {
+                it.copyOf(minOf(it.size, MAXIMUM_ERROR_BODY_BYTES)).toString(Charsets.UTF_8)
+            },
             retryAfterMillis()
         )
     }

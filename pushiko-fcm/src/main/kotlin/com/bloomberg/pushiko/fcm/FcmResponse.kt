@@ -28,6 +28,17 @@ public data class FcmClientErrorResponse(
     val error: Error
 ) : FcmResponse
 
+public data class FcmUnstructuredClientErrorResponse(
+    @JvmField
+    val request: FcmRequest,
+    @JvmField
+    val code: Int,
+    @JvmField
+    val body: String?,
+    @JvmField
+    val retryAfterMillis: Long? = null
+) : FcmResponse
+
 public data class FcmServerErrorResponse(
     @JvmField
     val request: FcmRequest,

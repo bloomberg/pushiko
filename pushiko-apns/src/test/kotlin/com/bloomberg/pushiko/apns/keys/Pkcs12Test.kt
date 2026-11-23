@@ -16,11 +16,13 @@
 
 package com.bloomberg.pushiko.apns.keys
 
+import io.netty.pkitesting.CertificateBuilder
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.KeyStore
 import java.security.KeyStore.PasswordProtection
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
@@ -84,6 +86,27 @@ internal class Pkcs12Test {
             keyStore.encoded().inputStream().pkcs12PrivateKeyEntry(password)
         }
         assertEquals("PKCS#12 must contain exactly one private key entry; found 2", exception.message)
+    }
+
+    @Test
+    fun preservesCompleteX509CertificateChain() {
+        val root = CertificateBuilder()
+            .subject("CN=Pushiko test root")
+            .setIsCertificateAuthority(true)
+            .buildSelfSigned()
+        val intermediate = CertificateBuilder()
+            .subject("CN=Pushiko test intermediate")
+            .setIsCertificateAuthority(true)
+            .buildIssuedBy(root)
+        val client = CertificateBuilder()
+            .subject("CN=Pushiko test client")
+            .addExtendedKeyUsageClientAuth()
+            .buildIssuedBy(intermediate)
+        val entry = client.toKeyStore(password).encoded().inputStream().use {
+            it.pkcs12PrivateKeyEntry(password)
+        }
+
+        assertContentEquals(client.certificatePathWithRoot.asList(), entry.x509CertificateChain())
     }
 
     private fun keyStoreFile() = File(javaClass.classLoader.getResource("keystore.pkcs12")!!.toURI())

@@ -20,6 +20,7 @@ import java.io.InputStream
 import java.security.KeyStore
 import java.security.KeyStore.PasswordProtection
 import java.security.KeyStore.PrivateKeyEntry
+import java.security.cert.X509Certificate
 
 @JvmSynthetic
 internal fun InputStream.pkcs12PrivateKeyEntry(password: CharArray): PrivateKeyEntry {
@@ -40,6 +41,15 @@ internal fun InputStream.pkcs12PrivateKeyEntry(password: CharArray): PrivateKeyE
     return PasswordProtection(password).use {
         keyStore.getEntry(checkNotNull(privateKeyAlias), it) as PrivateKeyEntry
     }
+}
+
+@JvmSynthetic
+internal fun PrivateKeyEntry.x509CertificateChain(): List<X509Certificate> = certificateChain.mapIndexed {
+    index, certificate ->
+    require(certificate is X509Certificate) {
+        "PKCS#12 certificate chain entry $index must be an X.509 certificate"
+    }
+    certificate
 }
 
 private fun <R> PasswordProtection.use(block: (PasswordProtection) -> R): R = try {

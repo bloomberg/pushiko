@@ -61,14 +61,14 @@ public class HttpClientBuilder internal constructor() {
 
     private var privateKey: PrivateKey? = null
     private var privateKeyPassword: CharArray? = null
-    private var clientCertificate: X509Certificate? = null
+    private var clientCertificateChain: List<X509Certificate>? = null
 
     private var concurrentRequestWaterMark: ConcurrentRequestWaterMark = defaultWatermark
 
     private val sslContext: SslContext by lazy(LazyThreadSafetyMode.NONE) {
         newHttp2SslContext(
             sslProvider,
-            clientCertificate?.let { keyManagerFactory() },
+            clientCertificateChain?.let { keyManagerFactory() },
             requiresAlpn
         )
     }
@@ -77,10 +77,22 @@ public class HttpClientBuilder internal constructor() {
         key: PrivateKey,
         keyPassword: CharArray,
         clientCertificate: X509Certificate
+    ): HttpClientBuilder = clientCredentials(key, keyPassword, listOf(clientCertificate))
+
+    /**
+     * Configures the private key and complete X.509 certificate chain used for TLS client authentication.
+     *
+     * The chain must start with the client certificate and continue in issuer order.
+     */
+    public fun clientCredentials(
+        key: PrivateKey,
+        keyPassword: CharArray,
+        clientCertificateChain: List<X509Certificate>
     ): HttpClientBuilder = apply {
+        require(clientCertificateChain.isNotEmpty()) { "Client certificate chain must not be empty" }
         privateKey = key
         privateKeyPassword = keyPassword
-        this.clientCertificate = clientCertificate
+        this.clientCertificateChain = clientCertificateChain.toList()
     }
 
     /**
@@ -106,11 +118,12 @@ public class HttpClientBuilder internal constructor() {
         EventLoopGroupType.SECONDARY -> sharedSingleEventLoopGroup
     }
 
-    private fun keyManagerFactory() = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply {
+    @JvmSynthetic
+    internal fun keyManagerFactory() = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply {
         init(
             KeyStore.getInstance("PKCS12").apply {
                 load(null)
-                setKeyEntry("pushiko", privateKey, privateKeyPassword, arrayOf(clientCertificate))
+                setKeyEntry("pushiko", privateKey, privateKeyPassword, clientCertificateChain!!.toTypedArray())
             },
             privateKeyPassword!!
         )

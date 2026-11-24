@@ -52,6 +52,7 @@ plugins {
     alias(libs.plugins.dependencyCheck) apply false
     alias(libs.plugins.ideaExt)
     alias(libs.plugins.nmcp)
+    alias(libs.plugins.sigstore) apply false
 }
 
 logger.quiet("Group: {}; Version: {}", group, version)
@@ -111,6 +112,9 @@ subprojects {
     group = rootProject.group
     plugins.withId("maven-publish") {
         pluginManager.apply("com.gradleup.nmcp")
+        if (providers.gradleProperty("sigstoreSigning").map(String::toBoolean).getOrElse(false)) {
+            pluginManager.apply("dev.sigstore.sign")
+        }
     }
     apply {
         plugin("org.jlleitschuh.gradle.ktlint")

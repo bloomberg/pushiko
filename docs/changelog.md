@@ -1,3 +1,17 @@
+## Version 2.3.2
+
+* Release undelivered responses on cancellation.
+* Terminate operation scopes on close.
+* Propagate connectivity health caller cancellation.
+* Propagate extra creation cancellation.
+* Handle HTTP/2 response trailers.
+* Validate HTTP client durations.
+* Preserve unstructured FCM client errors.
+* Preserve APNs client certificate chains.
+* Publish Sigstore bundles alongside Maven Central release artifacts.
+* Validate push request constraints.
+* Netty 4.2.21.Final.
+
 ## Version 2.3.1
 
 * Validate FCM project IDs.

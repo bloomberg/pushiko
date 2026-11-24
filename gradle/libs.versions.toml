@@ -65,3 +65,4 @@ ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "11.0.0" }
 nmcp = { id = "com.gradleup.nmcp.aggregation", version = "1.6.2" }
 pitest = { id = "info.solidsoft.pitest", version = "1.19.0" }
 serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+sigstore = { id = "dev.sigstore.sign", version = "2.4.0" }

@@ -25,6 +25,7 @@ import com.bloomberg.pushiko.apns.model.ApsWriter
 import com.bloomberg.pushiko.commons.UNREACHABLE_KOTLIN_VERSION
 import com.bloomberg.pushiko.json.JsonObjectWriter
 import okio.Buffer
+import okio.utf8Size
 import java.time.Instant
 import java.util.UUID
 import java.util.function.Consumer
@@ -32,6 +33,10 @@ import javax.annotation.concurrent.NotThreadSafe
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
+
+private const val APNS_COLLAPSE_ID_MAXIMUM_BYTES = 64
+private const val APNS_PAYLOAD_MAXIMUM_BYTES = 4 * 1_024L
+private const val APNS_VOIP_PAYLOAD_MAXIMUM_BYTES = 5 * 1_024L
 
 /**
  * @since 0.12.0
@@ -81,7 +86,23 @@ public class ApnsRequest private constructor(
         deviceToken.requireInjectionSafe("deviceToken")
         headers.run {
             topic.requireInjectionSafe("topic")
-            collapseId?.requireInjectionSafe("collapseId")
+            collapseId?.let {
+                it.requireInjectionSafe("collapseId")
+                require(it.utf8Size() <= APNS_COLLAPSE_ID_MAXIMUM_BYTES) {
+                    "collapseId must not exceed $APNS_COLLAPSE_ID_MAXIMUM_BYTES UTF-8 bytes"
+                }
+            }
+            require(pushType != PushType.BACKGROUND || priority == Priority.CONSERVE_POWER) {
+                "Background notifications must use conserve-power priority"
+            }
+            val maximumPayloadBytes = if (pushType == PushType.VOIP) {
+                APNS_VOIP_PAYLOAD_MAXIMUM_BYTES
+            } else {
+                APNS_PAYLOAD_MAXIMUM_BYTES
+            }
+            require(payload.size <= maximumPayloadBytes) {
+                "APNs ${pushType?.value ?: "regular"} payload must not exceed $maximumPayloadBytes bytes"
+            }
         }
     }
 
@@ -134,7 +155,8 @@ public class ApnsRequest private constructor(
         @get:JvmSynthetic @PublishedApi
         internal val buffer: Buffer = Buffer()
         @get:JvmSynthetic @PublishedApi
-        internal val writer: JsonObjectWriter = JsonObjectWriter(buffer)
+        internal val writer: JsonObjectWriter =
+            JsonObjectWriter(buffer, APNS_VOIP_PAYLOAD_MAXIMUM_BYTES, "APNs payload")
 
         private var collapseId: String? = null
         private lateinit var deviceToken: String

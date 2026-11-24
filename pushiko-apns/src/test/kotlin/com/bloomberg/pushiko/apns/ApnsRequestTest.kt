@@ -200,6 +200,66 @@ internal class ApnsRequestTest {
     }
 
     @Test
+    fun collapseIdLimitedByUtf8Bytes() {
+        ApnsRequest {
+            deviceToken("abc123")
+            topic("com.foo")
+            collapseId("é".repeat(32))
+        }
+
+        assertThrows<IllegalArgumentException> {
+            ApnsRequest {
+                deviceToken("abc123")
+                topic("com.foo")
+                collapseId("é".repeat(33))
+            }
+        }
+    }
+
+    @Test
+    fun regularPayloadLimitedToFourKilobytes() {
+        val overhead = apnsRequestWithPayload("").payload.size
+        val request = apnsRequestWithPayload("a".repeat(4 * 1_024 - overhead))
+
+        assertEquals(4 * 1_024, request.payload.size)
+        assertThrows<IllegalArgumentException> {
+            apnsRequestWithPayload("a".repeat(4 * 1_024 - overhead + 1))
+        }
+    }
+
+    @Test
+    fun voipPayloadLimitedToFiveKilobytes() {
+        val overhead = apnsRequestWithPayload("", PushType.VOIP).payload.size
+        val request = apnsRequestWithPayload("a".repeat(5 * 1_024 - overhead), PushType.VOIP)
+
+        assertEquals(5 * 1_024, request.payload.size)
+        assertThrows<IllegalArgumentException> {
+            apnsRequestWithPayload("a".repeat(5 * 1_024 - overhead + 1), PushType.VOIP)
+        }
+    }
+
+    @Test
+    fun backgroundPushRequiresConservePowerPriority() {
+        listOf(null, Priority.IMMEDIATE, Priority.PRIORITIZE_POWER).forEach { invalidPriority ->
+            assertThrows<IllegalArgumentException> {
+                ApnsRequest {
+                    deviceToken("abc123")
+                    topic("com.foo")
+                    pushType(PushType.BACKGROUND)
+                    invalidPriority?.let(::priority)
+                }
+            }
+        }
+
+        ApnsRequest {
+            deviceToken("abc123")
+            topic("com.foo")
+            pushType(PushType.BACKGROUND)
+            priority(Priority.CONSERVE_POWER)
+        }
+    }
+
+    @Test
     fun apnsRequestFull() {
         val uuid = UUID.randomUUID()
         val expiration = Instant.now()
@@ -515,6 +575,13 @@ internal class ApnsRequestTest {
             assertEquals(body.keySet().size, 1)
             assertTrue(body["aps"].asJsonObject.keySet().isEmpty())
         }
+    }
+
+    private fun apnsRequestWithPayload(value: String, pushType: PushType? = null) = ApnsRequest {
+        deviceToken("abc123")
+        topic("com.foo")
+        pushType?.let(::pushType)
+        payload { stringValue("value", value) }
     }
 
     @Test
